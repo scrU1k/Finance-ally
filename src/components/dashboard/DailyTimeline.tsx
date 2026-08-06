@@ -216,7 +216,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
                   {formatDayHeader(group.date)}
                 </span>
                 <span className="text-muted-custom whitespace-nowrap ml-2">
-                  Daily Spend: <span className="text-ink font-bold">{formatCurrency(group.dayTotal, baseCurrency)}</span>
+                  Spend: <span className="text-ink font-bold">{formatCurrency(group.dayTotal, baseCurrency)}</span>
                 </span>
               </div>
 

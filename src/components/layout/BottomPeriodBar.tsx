@@ -82,15 +82,15 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
       <div className={`max-w-5xl mx-auto flex items-center justify-between gap-2.5 ${isPeriodSelectorOpen ? 'overflow-x-auto no-scrollbar' : 'overflow-hidden'}`}>
         
         {/* Real-time Spending Total Display */}
-        <div className="flex items-center gap-2 min-w-0 shrink-0">
-          <div className="w-8 h-8 rounded-xl border border-brand-blue/30 text-brand-blue flex items-center justify-center shrink-0 bg-surface-soft/60">
-            <TrendingDown className="w-4 h-4" />
+        <div className="flex items-center gap-2.5 min-w-0 shrink-0">
+          <div className="w-9 h-9 rounded-xl border border-brand-blue/30 text-brand-blue flex items-center justify-center shrink-0 bg-surface-soft/60">
+            <TrendingDown className="w-4.5 h-4.5" />
           </div>
           <div className="min-w-0">
-            <div className="text-[9px] font-mono text-muted-custom uppercase tracking-wider truncate font-semibold">
+            <div className="text-[11px] sm:text-xs font-mono text-muted-custom uppercase tracking-wider truncate font-semibold">
               Spent ({period})
             </div>
-            <div className="text-sm sm:text-base font-display font-bold text-ink tracking-tight truncate">
+            <div className="text-base sm:text-lg font-display font-bold text-ink tracking-tight truncate">
               {formatCurrency(periodTotalSpent, baseCurrency)}
             </div>
           </div>
