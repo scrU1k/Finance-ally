@@ -5,6 +5,7 @@ import { TransactionCard } from './TransactionCard';
 import { TransactionDetailModal } from './TransactionDetailModal';
 import { LiveSpendChart } from './LiveSpendChart';
 import { CustomDatePicker } from '../common/CustomDatePicker';
+import { QuickLogBar } from './QuickLogBar';
 import { Search, Calendar as CalendarIcon, Sparkles, Plus, CalendarRange } from 'lucide-react';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 
