@@ -140,7 +140,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
           <CustomDatePicker
             value={searchQuery.match(/^\d{4}-\d{2}-\d{2}$/) ? searchQuery : ''}
             onChange={(selectedDate) => setSearchQuery(selectedDate)}
-            className="w-36"
+            className="w-auto shrink-0"
           />
         </div>
       </div>

@@ -128,6 +128,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
             <label className="text-xs font-mono text-muted-custom uppercase">Amount Spent</label>
             <div className="flex items-center gap-2">
               <CustomSelect
+                direction="down"
                 options={currencyOptions}
                 value={currency}
                 onChange={val => setCurrency(val as CurrencyCode)}
@@ -242,6 +243,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
                 <Plane className="w-3 h-3" /> Trip Tag (Optional)
               </label>
               <CustomSelect
+                direction="up"
                 options={tripOptions}
                 value={tripId}
                 onChange={val => setTripId(val)}

@@ -267,7 +267,7 @@ export const SplitBillModal: React.FC = () => {
               className="w-full flex items-center justify-center gap-2 border border-brand-blue text-brand-blue hover:bg-surface-soft disabled:opacity-50 font-mono text-xs py-2.5 px-4 rounded-full shadow-sm transition-all font-bold cursor-pointer text-center"
             >
               <Check className="w-4 h-4 shrink-0" />
-              <span className="truncate">{loggedShare ? 'Logged to Expenses!' : `Log My Share (${formatCurrency(perPersonEqual, currency)}) to Expenses`}</span>
+              <span className="truncate">{loggedShare ? 'Logged to Expenses!' : `Log ${formatCurrency(perPersonEqual, currency)} to Expenses`}</span>
             </button>
           </div>
 
