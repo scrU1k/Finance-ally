@@ -6,12 +6,28 @@ import { TransactionDetailModal } from './TransactionDetailModal';
 import { LiveSpendChart } from './LiveSpendChart';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { QuickLogBar } from './QuickLogBar';
-import { Search, Sparkles } from 'lucide-react';
+import { Search, Sparkles, Calendar } from 'lucide-react';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 
 interface DailyTimelineProps {
   onOpenQuickAdd: () => void;
   onEditTransaction: (tx: Transaction) => void;
+}
+
+function formatDayHeader(dateStr: string): string {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+  const date = new Date(dateStr + 'T00:00:00');
+  const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
+  const formatted = date.toLocaleDateString('en-US', options).toUpperCase();
+  
+  if (dateStr === todayStr) {
+    return formatted.replace(/^[A-Z]+/, 'TODAY');
+  } else if (dateStr === yesterdayStr) {
+    return formatted.replace(/^[A-Z]+/, 'YESTERDAY');
+  }
+  return formatted;
 }
 
 export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, onEditTransaction }) => {
@@ -194,18 +210,14 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             <div key={group.date} className="space-y-2.5">
               
               {/* Day Header with converted Daily Total */}
-              <div className="flex items-center justify-between px-1 border-b border-hairline/60 pb-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono font-bold text-ink uppercase tracking-wider">
-                    {group.date}
-                  </span>
-                  <span className="text-[10px] font-mono text-muted-custom">
-                    ({group.transactions.length} logs)
-                  </span>
-                </div>
-                <div className="text-xs font-mono font-bold text-ink">
-                  Total: {formatCurrency(group.dayTotal, baseCurrency)}
-                </div>
+              <div className="flex items-center gap-1.5 px-1 border-b border-hairline/60 pb-1.5 text-xs font-mono text-ink">
+                <Calendar className="w-3.5 h-3.5 text-muted-custom shrink-0" />
+                <span className="font-bold uppercase whitespace-nowrap">
+                  {formatDayHeader(group.date)}
+                </span>
+                <span className="text-muted-custom whitespace-nowrap ml-2">
+                  Daily Spend: <span className="text-ink font-bold">{formatCurrency(group.dayTotal, baseCurrency)}</span>
+                </span>
               </div>
 
               {/* Transactions List */}
