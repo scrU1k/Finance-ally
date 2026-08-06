@@ -52,10 +52,10 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
         {/* Glassmorphic Spending Total Pill */}
         <button
           onClick={() => setIsMinimized(false)}
-          className="flex items-center gap-2.5 dotgui-glass border border-hairline px-4 py-2.5 rounded-full text-ink font-mono text-xs font-semibold shadow-2xl hover:scale-105 active:scale-95 transition-all group cursor-pointer bg-surface-card/90 backdrop-blur-xl"
+          className="flex items-center gap-2.5 dotgui-glass border border-hairline px-5 py-3 rounded-full text-ink font-mono text-sm font-semibold shadow-2xl hover:scale-105 active:scale-95 transition-all group cursor-pointer bg-surface-card/90 backdrop-blur-xl"
           title="Tap to Expand Spending Bar"
         >
-          <ChevronUp className="w-4 h-4 text-brand-mint group-hover:-translate-y-0.5 transition-transform" />
+          <ChevronUp className="w-5 h-5 text-brand-mint group-hover:-translate-y-0.5 transition-transform" />
           <span className="truncate">Total ({period}): {formatCurrency(periodTotalSpent, baseCurrency)}</span>
         </button>
 
@@ -83,14 +83,14 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
         
         {/* Real-time Spending Total Display */}
         <div className="flex items-center gap-2.5 min-w-0 shrink-0">
-          <div className="w-9 h-9 rounded-xl border border-brand-blue/30 text-brand-blue flex items-center justify-center shrink-0 bg-surface-soft/60">
-            <TrendingDown className="w-4.5 h-4.5" />
+          <div className="w-10 h-10 rounded-xl border border-brand-blue/30 text-brand-blue flex items-center justify-center shrink-0 bg-surface-soft/60">
+            <TrendingDown className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] sm:text-xs font-mono text-muted-custom uppercase tracking-wider truncate font-semibold">
+            <div className="text-xs sm:text-sm font-mono text-muted-custom uppercase tracking-wider truncate font-semibold">
               Spent ({period})
             </div>
-            <div className="text-base sm:text-lg font-display font-bold text-ink tracking-tight truncate">
+            <div className="text-xl sm:text-2xl font-display font-bold text-ink tracking-tight truncate">
               {formatCurrency(periodTotalSpent, baseCurrency)}
             </div>
           </div>

@@ -71,7 +71,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
         <button
           type="submit"
           disabled={!inputPrompt.trim()}
-          className="border border-brand-blue text-brand-blue hover:bg-surface-soft disabled:opacity-40 w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-sm active:scale-95 bg-surface-card"
+          className="bg-brand-blue text-canvas hover:bg-brand-blue/90 disabled:opacity-40 w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-lg active:scale-95 border border-brand-blue/20"
           title="Log Expense"
         >
           <ArrowRight className="w-5 h-5" />

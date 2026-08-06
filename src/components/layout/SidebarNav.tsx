@@ -19,7 +19,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
   ];
 
   return (
-    <nav className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-6 border-b border-hairline no-scrollbar">
+    <nav className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-4 border-b border-hairline no-scrollbar">
       {items.map(item => {
         const isActive = activeTab === item.id;
         return (

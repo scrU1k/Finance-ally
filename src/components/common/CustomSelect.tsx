@@ -67,7 +67,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 
       {/* Glass Popover Menu */}
       {isOpen && (
-        <div className={`absolute left-0 right-0 ${popoverPositionClass} z-[70] dotgui-glass border border-hairline rounded-xl shadow-2xl p-1 max-h-56 overflow-y-auto space-y-0.5 animate-in fade-in zoom-in-95 duration-100 bg-surface-card/95 backdrop-blur-xl`}>
+        <div className={`absolute left-0 right-0 ${popoverPositionClass} z-[70] bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-xl shadow-2xl shadow-black/20 p-1 max-h-56 overflow-y-auto space-y-0.5 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10`}>
           {options.map(opt => {
             const isSelected = opt.value === value;
             return (
