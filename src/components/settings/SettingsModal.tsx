@@ -96,14 +96,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   };
 
-  const handleExport = () => {
-    const backupStr = exportFullDataBackup();
-    const blob = new Blob([backupStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
+  const handleExport = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    try {
+      const backupStr = exportFullDataBackup();
+      const encodedData = 'data:text/json;charset=utf-8,' + encodeURIComponent(backupStr);
+      
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', encodedData);
+      downloadAnchor.setAttribute('download', `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+
+      setImportStatus('Backup exported as .json file!');
+    } catch {
+      setImportStatus('Export failed.');
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -449,16 +461,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <div className="grid grid-cols-2 gap-3">
             {/* Export Button */}
             <button
+              type="button"
               onClick={handleExport}
-              className="bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2 rounded-xl transition-all cursor-pointer font-bold text-center"
+              className="bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2 rounded-xl transition-all cursor-pointer font-bold text-center active:scale-95 shadow-sm"
             >
               Export
             </button>
 
             {/* Import Button */}
             <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer font-bold"
+              className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer font-bold active:scale-95"
             >
               <Upload className="w-3.5 h-3.5" />
               <span>Import</span>

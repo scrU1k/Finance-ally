@@ -6,7 +6,7 @@ import { TransactionDetailModal } from './TransactionDetailModal';
 import { LiveSpendChart } from './LiveSpendChart';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { QuickLogBar } from './QuickLogBar';
-import { Search, Calendar as CalendarIcon, Sparkles, Plus, CalendarRange } from 'lucide-react';
+import { Search, Sparkles } from 'lucide-react';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 
 interface DailyTimelineProps {
@@ -20,72 +20,37 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCatFilter, setSelectedCatFilter] = useState<string>('all');
   const [showCharts, setShowCharts] = useState(true);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedDetailTx, setSelectedDetailTx] = useState<Transaction | null>(null);
+  const [showSearchInput, setShowSearchInput] = useState(false);
+  const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
 
-  const datePickerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
-        setShowDatePicker(false);
-      }
-    };
-
-    if (showDatePicker) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('touchstart', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
-    };
-  }, [showDatePicker]);
-
-  const formatDateHeader = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
-    if (dateStr === today) return `Today, ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-    if (dateStr === yesterday) return `Yesterday, ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
-  // Search & category & date filtering
   const processedTransactions = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
     return filteredTransactions.filter(tx => {
       const matchCat = selectedCatFilter === 'all' || tx.categoryId === selectedCatFilter;
-      if (!matchCat) return false;
-      if (!q) return true;
-
-      const dateHeaderStr = formatDateHeader(tx.date).toLowerCase();
-      const matchNote = tx.note.toLowerCase().includes(q);
-      const matchAmount = tx.amount.toString().includes(q);
-      const matchMethod = tx.paymentMethod?.toLowerCase().includes(q) || false;
-      const matchDateRaw = tx.date.toLowerCase().includes(q);
-      const matchDateHeader = dateHeaderStr.includes(q);
-
-      return matchNote || matchAmount || matchMethod || matchDateRaw || matchDateHeader;
+      const query = searchQuery.toLowerCase().trim();
+      const matchQuery =
+        !query ||
+        tx.note.toLowerCase().includes(query) ||
+        tx.amount.toString().includes(query) ||
+        (tx.paymentMethod && tx.paymentMethod.toLowerCase().includes(query)) ||
+        tx.date.includes(query);
+      return matchCat && matchQuery;
     });
   }, [filteredTransactions, selectedCatFilter, searchQuery]);
 
-  // Group transactions by date (YYYY-MM-DD) & convert day total to base currency
-  const groupedByDay = useMemo(() => {
-    const groups: Record<string, Transaction[]> = {};
+  const groupedByDate = useMemo(() => {
+    const map = new Map<string, Transaction[]>();
     processedTransactions.forEach(tx => {
-      if (!groups[tx.date]) groups[tx.date] = [];
-      groups[tx.date].push(tx);
+      const dateKey = tx.date;
+      if (!map.has(dateKey)) map.set(dateKey, []);
+      map.get(dateKey)!.push(tx);
     });
 
-    // Sort dates descending
-    const sortedDates = Object.keys(groups).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    const sortedDates = Array.from(map.keys()).sort((a, b) => (b > a ? 1 : -1));
+
     return sortedDates.map(date => {
-      const dayTxs = groups[date];
-      // Convert each transaction amount from its currency to the app base currency
-      const dayTotalInBaseCurrency = dayTxs.reduce((acc, t) => {
-        return acc + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
+      const dayTxs = map.get(date)!;
+      const dayTotalInBaseCurrency = dayTxs.reduce((sum, t) => {
+        return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
       }, 0);
 
       return {
@@ -96,61 +61,87 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
     });
   }, [processedTransactions, baseCurrency, forexRates]);
 
-  const handleDateSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedDate = e.target.value;
-    if (selectedDate) {
-      setSearchQuery(selectedDate);
-      setShowDatePicker(false);
-    }
-  };
-
   return (
     <div className="space-y-6 pb-24">
       
-      {/* Search & Controls Toolbar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        
-        {/* Search Input (Notes, Merchants, Amounts, Dates) */}
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search notes, merchants, amounts, dates..."
-            className="w-full bg-surface-card border border-hairline text-ink rounded-xl pl-9 pr-4 py-2 text-xs font-mono focus:outline-none focus:border-ink placeholder:text-muted-custom"
-          />
-          <Search className="w-3.5 h-3.5 text-muted-custom absolute left-3 top-3" />
-        </div>
+      {/* 1. Smart Natural Language Quick-Log Input Bar (Replaces top search bar) */}
+      <QuickLogBar />
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-2 relative" ref={datePickerRef}>
-          {/* Hide/Show Charts Button */}
-          <button
-            onClick={() => setShowCharts(!showCharts)}
-            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
-              showCharts
-                ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
-                : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-brand-yellow" />
-            <span>{showCharts ? 'Hide Charts' : 'Show Charts'}</span>
-          </button>
+      {/* 2. Controls Toolbar with Search Chip, Hide Charts Chip, and Date Chip */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar py-0.5">
+          
+          <div className="flex items-center gap-2">
+            {/* Search Chip Button (To the left of Hide Charts) */}
+            <button
+              type="button"
+              onClick={() => setShowSearchInput(!showSearchInput)}
+              className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                showSearchInput || searchQuery
+                  ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
+                  : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+              }`}
+              title="Search logs"
+            >
+              <Search className="w-3.5 h-3.5 text-brand-blue shrink-0" />
+              <span>Search</span>
+            </button>
 
-          {/* Custom App-Styled Date Picker */}
+            {/* Hide/Show Charts Chip Button */}
+            <button
+              type="button"
+              onClick={() => setShowCharts(!showCharts)}
+              className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                showCharts
+                  ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
+                  : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
+              <span>{showCharts ? 'Hide Charts' : 'Show Charts'}</span>
+            </button>
+          </div>
+
+          {/* Custom App-Styled Date Picker Chip */}
           <CustomDatePicker
             value={searchQuery.match(/^\d{4}-\d{2}-\d{2}$/) ? searchQuery : ''}
             onChange={(selectedDate) => setSearchQuery(selectedDate)}
             className="w-auto shrink-0"
           />
+
         </div>
+
+        {/* Expandable Search Input Bar */}
+        {(showSearchInput || searchQuery) && (
+          <div className="relative animate-in fade-in zoom-in-95 duration-150">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search notes, merchants, amounts, dates..."
+              autoFocus
+              className="w-full bg-surface-card border border-hairline text-ink rounded-xl pl-9 pr-8 py-2 text-xs font-mono focus:outline-none focus:border-ink placeholder:text-muted-custom shadow-sm"
+            />
+            <Search className="w-3.5 h-3.5 text-muted-custom absolute left-3 top-2.5" />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-2.5 text-muted-custom hover:text-ink cursor-pointer text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Category Tag Filter Pill Rail (Border Highlight Selection) */}
+      {/* Category Tag Filter Pill Rail */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         <button
+          type="button"
           onClick={() => setSelectedCatFilter('all')}
-          className={`px-3 py-1 rounded-full text-xs font-mono whitespace-nowrap transition-all border ${
+          className={`px-3 py-1 rounded-full text-xs font-mono whitespace-nowrap transition-all border shrink-0 cursor-pointer ${
             selectedCatFilter === 'all'
               ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
               : 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
@@ -165,8 +156,9 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
           return (
             <button
               key={cat.id}
+              type="button"
               onClick={() => setSelectedCatFilter(isSelected ? 'all' : cat.id)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono whitespace-nowrap transition-all border shrink-0 ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono whitespace-nowrap transition-all border shrink-0 cursor-pointer ${
                 isSelected
                   ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
                   : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
@@ -180,51 +172,58 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
         })}
       </div>
 
-      {/* Day-by-Day Timeline List */}
-      {groupedByDay.length === 0 ? (
-        <div className="dotgui-card p-12 text-center space-y-3">
-          <CalendarIcon className="w-10 h-10 mx-auto text-muted-custom/40" />
-          <h3 className="text-base font-display font-semibold text-ink">No Expenses Recorded</h3>
-          <p className="text-xs font-mono text-muted-custom max-w-sm mx-auto">
-            Log your daily spendings manually or use the SMS Scanner to import bank & UPI alerts.
-          </p>
-          <button
-            onClick={onOpenQuickAdd}
-            className="inline-flex items-center gap-2 border border-brand-blue text-brand-blue text-xs font-medium px-4 py-2 rounded-full shadow-sm hover:bg-surface-soft transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Expense</span>
-          </button>
+      {/* Visual Charts Overview */}
+      {showCharts && (
+        <div className="animate-in fade-in duration-200">
+          <LiveSpendChart />
+        </div>
+      )}
+
+      {/* Grouped Daily Transactions Feed */}
+      {groupedByDate.length === 0 ? (
+        <div className="dotgui-card p-12 text-center space-y-3 my-8">
+          <div className="text-muted-custom text-sm font-mono">No matching transactions found</div>
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="text-xs font-mono text-brand-blue underline cursor-pointer"
+            >
+              Clear search filter
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-6">
-          {groupedByDay.map(dayGroup => (
-            <div key={dayGroup.date} className="space-y-2.5">
+          {groupedByDate.map(group => (
+            <div key={group.date} className="space-y-2.5">
               
-              {/* Day Header */}
-              <div className="flex items-center justify-between border-b border-hairline/60 pb-1.5 px-1">
+              {/* Day Header with converted Daily Total */}
+              <div className="flex items-center justify-between px-1 border-b border-hairline/60 pb-1.5">
                 <div className="flex items-center gap-2">
-                  <CalendarIcon className="w-3.5 h-3.5 text-brand-blue" />
                   <span className="text-xs font-mono font-bold text-ink uppercase tracking-wider">
-                    {formatDateHeader(dayGroup.date)}
+                    {group.date}
+                  </span>
+                  <span className="text-[10px] font-mono text-muted-custom">
+                    ({group.transactions.length} logs)
                   </span>
                 </div>
-                <span className="text-xs font-mono font-bold text-muted-custom">
-                  Daily Spend: {formatCurrency(dayGroup.dayTotal, baseCurrency)}
-                </span>
+                <div className="text-xs font-mono font-bold text-ink">
+                  Total: {formatCurrency(group.dayTotal, baseCurrency)}
+                </div>
               </div>
 
-              {/* Transactions on this day */}
+              {/* Transactions List */}
               <div className="space-y-2">
-                {dayGroup.transactions.map(tx => (
+                {group.transactions.map(tx => (
                   <TransactionCard
                     key={tx.id}
                     transaction={tx}
                     categories={categories}
                     trips={trips}
-                    onSelect={setSelectedDetailTx}
-                    onEdit={onEditTransaction}
-                    onDelete={deleteTx}
+                    onSelect={t => setSelectedTxDetail(t)}
+                    onEdit={t => onEditTransaction(t)}
+                    onDelete={id => deleteTx(id)}
                   />
                 ))}
               </div>
@@ -234,18 +233,21 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
         </div>
       )}
 
-      {/* Live Spending Chart Widget at the Bottom */}
-      {showCharts && <LiveSpendChart />}
-
-      {/* Transaction Details Glass Popout Modal */}
-      {selectedDetailTx && (
+      {/* Transaction Detail Popout Modal */}
+      {selectedTxDetail && (
         <TransactionDetailModal
-          transaction={selectedDetailTx}
+          transaction={selectedTxDetail}
           categories={categories}
           trips={trips}
-          onClose={() => setSelectedDetailTx(null)}
-          onEdit={onEditTransaction}
-          onDelete={deleteTx}
+          onClose={() => setSelectedTxDetail(null)}
+          onEdit={t => {
+            setSelectedTxDetail(null);
+            onEditTransaction(t);
+          }}
+          onDelete={id => {
+            setSelectedTxDetail(null);
+            deleteTx(id);
+          }}
         />
       )}
 
