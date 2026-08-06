@@ -41,6 +41,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   // Backup State
   const [importStatus, setImportStatus] = useState('');
+  const [exportModalData, setExportModalData] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   if (!isOpen) return null;
@@ -101,21 +102,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       e.preventDefault();
       e.stopPropagation();
     }
-    try {
-      const backupStr = exportFullDataBackup();
-      const encodedData = 'data:text/json;charset=utf-8,' + encodeURIComponent(backupStr);
-      
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute('href', encodedData);
-      downloadAnchor.setAttribute('download', `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-
-      setImportStatus('Backup exported as .json file!');
-    } catch {
-      setImportStatus('Export failed.');
-    }
+    const backupStr = exportFullDataBackup();
+    setExportModalData(backupStr);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -393,7 +381,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <button
             onClick={handleExecuteSwitchCurrency}
             disabled={targetCurrency === baseCurrency || switching}
-            className="w-full border border-brand-coral text-brand-coral hover:bg-surface-card disabled:opacity-40 font-mono text-xs py-2 rounded-xl transition-all font-bold cursor-pointer"
+            className="w-full border border-brand-coral text-brand-coral hover:bg-surface-card disabled:opacity-40 font-mono text-xs sm:text-sm py-3 px-4 rounded-xl transition-all font-bold cursor-pointer"
           >
             {switching ? 'Converting...' : `Switch Base Currency to ${targetCurrency}`}
           </button>
@@ -488,6 +476,91 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
           {importStatus && <p className="text-[10px] font-mono text-brand-mint text-center font-bold">{importStatus}</p>}
         </div>
+
+      {exportModalData && (
+        <div
+          className="fixed inset-0 z-[70] bg-canvas/65 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setExportModalData(null)}
+        >
+          <div
+            className="max-w-md w-full dotgui-glass border border-hairline rounded-2xl p-6 shadow-2xl space-y-4 bg-surface-card/95 backdrop-blur-xl relative cursor-default"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-hairline pb-2.5">
+              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                <Database className="w-3.5 h-3.5 text-brand-yellow" /> Export Backup
+              </span>
+              <button
+                type="button"
+                onClick={() => setExportModalData(null)}
+                className="p-1 text-muted-custom hover:text-ink cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+              Export is ready! Please select a destination / method below. On mobile/Android devices, copying or sharing text is highly recommended if file downloads are blocked.
+            </p>
+
+            <div className="space-y-2 pt-2">
+              {/* Option 1: Share JSON String */}
+              {navigator.share && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.share({
+                        title: 'Finance-Ally Backup',
+                        text: exportModalData,
+                      });
+                      setImportStatus('Backup shared successfully!');
+                      setExportModalData(null);
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                  className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  📤 Share Backup String (System Dialog)
+                </button>
+              )}
+
+              {/* Option 2: Copy to Clipboard */}
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(exportModalData);
+                  setImportStatus('JSON backup copied to clipboard!');
+                  setExportModalData(null);
+                }}
+                className="w-full bg-surface-soft border border-hairline text-ink hover:border-ink font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                📋 Copy JSON to Clipboard
+              </button>
+
+              {/* Option 3: Standard File Download */}
+              <button
+                type="button"
+                onClick={() => {
+                  const encodedData = 'data:text/json;charset=utf-8,' + encodeURIComponent(exportModalData);
+                  const downloadAnchor = document.createElement('a');
+                  downloadAnchor.setAttribute('href', encodedData);
+                  downloadAnchor.setAttribute('download', `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`);
+                  document.body.appendChild(downloadAnchor);
+                  downloadAnchor.click();
+                  downloadAnchor.remove();
+                  setImportStatus('JSON file download triggered!');
+                  setExportModalData(null);
+                }}
+                className="w-full border border-hairline text-muted-custom hover:text-ink font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                💾 Download JSON File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
     </div>

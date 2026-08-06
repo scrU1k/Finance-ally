@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -10,8 +10,9 @@ import {
   PointElement,
   LineElement,
   Title,
+  Filler
 } from 'chart.js';
-import { Doughnut, Bar } from 'react-chartjs-2';
+import { Doughnut, Bar, Line } from 'react-chartjs-2';
 import { useFinance } from '../../context/FinanceContext';
 import { convertCurrencyAmount } from '../../services/currency';
 import { PieChart, TrendingUp } from 'lucide-react';
@@ -25,11 +26,13 @@ ChartJS.register(
   BarElement,
   PointElement,
   LineElement,
-  Title
+  Title,
+  Filler
 );
 
 export const LiveSpendChart: React.FC = () => {
   const { filteredTransactions, categories, baseCurrency, forexRates } = useFinance();
+  const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
 
   // 1. Prepare Category Doughnut Data (With Currency Conversion)
   const catTotals: Record<string, number> = {};
@@ -79,6 +82,23 @@ export const LiveSpendChart: React.FC = () => {
     ],
   };
 
+  const lineData = {
+    labels: barLabels,
+    datasets: [
+      {
+        label: `Spent (${baseCurrency})`,
+        data: barValues,
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderWidth: 2.5,
+        tension: 0.3,
+        fill: true,
+        pointBackgroundColor: '#10b981',
+        pointRadius: 4,
+      },
+    ],
+  };
+
   if (filteredTransactions.length === 0) {
     return (
       <div className="dotgui-card p-6 text-center text-muted-custom space-y-2">
@@ -87,6 +107,24 @@ export const LiveSpendChart: React.FC = () => {
       </div>
     );
   }
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: {
+        ticks: { font: { family: 'JetBrains Mono', size: 9 }, color: '#8a867c' },
+        grid: { display: false },
+      },
+      y: {
+        ticks: { font: { family: 'JetBrains Mono', size: 9 }, color: '#8a867c' },
+        grid: { color: 'rgba(128,128,128,0.1)' },
+      },
+    },
+    plugins: {
+      legend: { display: false },
+    },
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
@@ -124,39 +162,30 @@ export const LiveSpendChart: React.FC = () => {
         </div>
       </div>
 
-      {/* Daily Trend Bar */}
+      {/* Daily Trend Bar/Line Chart */}
       <div className="dotgui-card p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-brand-mint" />
-            <h3 className="text-sm font-mono font-semibold text-ink uppercase">Daily Spending Trend</h3>
+            <h3
+              onClick={() => setChartType(prev => prev === 'bar' ? 'line' : 'bar')}
+              className="text-sm font-mono font-semibold text-ink uppercase cursor-pointer hover:text-brand-mint hover:underline transition-all"
+              title="Click to toggle between Bar and Line chart"
+            >
+              Daily Spending Trend
+            </h3>
           </div>
           <span className="text-[10px] font-mono text-muted-custom">
-            {sortedDates.length} days
+            {sortedDates.length} days • click title to switch
           </span>
         </div>
 
         <div className="h-56 relative flex items-center justify-center">
-          <Bar
-            data={barData}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                x: {
-                  ticks: { font: { family: 'JetBrains Mono', size: 9 }, color: '#8a867c' },
-                  grid: { display: false },
-                },
-                y: {
-                  ticks: { font: { family: 'JetBrains Mono', size: 9 }, color: '#8a867c' },
-                  grid: { color: 'rgba(128,128,128,0.1)' },
-                },
-              },
-              plugins: {
-                legend: { display: false },
-              },
-            }}
-          />
+          {chartType === 'bar' ? (
+            <Bar data={barData} options={chartOptions} />
+          ) : (
+            <Line data={lineData} options={chartOptions} />
+          )}
         </div>
       </div>
 
