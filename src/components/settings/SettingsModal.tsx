@@ -149,7 +149,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto cursor-pointer"
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto cursor-pointer animate-in fade-in duration-200"
     >
       {/* Fixed FAB Exit Cross Button (stuck to screen layer, positioned lower for aesthetic) */}
       <button
@@ -163,7 +163,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       {/* Modal Card Window */}
       <div
         onClick={e => e.stopPropagation()}
-        className="max-w-2xl w-full dotgui-glass border border-hairline rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto relative cursor-default"
+        className="max-w-2xl w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/20 space-y-6 max-h-[90vh] overflow-y-auto relative cursor-default ring-1 ring-white/10"
       >
         
         {/* Header */}
@@ -483,11 +483,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
       {exportModalData && (
         <div
-          className="fixed inset-0 z-[70] bg-canvas/65 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
+          className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer animate-in fade-in duration-200"
           onClick={() => setExportModalData(null)}
         >
           <div
-            className="max-w-md w-full dotgui-glass border border-hairline rounded-2xl p-6 shadow-2xl space-y-4 bg-surface-card/95 backdrop-blur-xl relative cursor-default"
+            className="max-w-md w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl p-6 shadow-2xl shadow-black/20 space-y-4 relative cursor-default ring-1 ring-white/10"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-hairline pb-2.5">

@@ -57,14 +57,14 @@ export const CustomTimePicker: React.FC<CustomTimePickerProps> = ({ value, onCha
 
       {/* Centered Glass Screen Modal */}
       {isOpen && (
-        <div
-          className="fixed inset-0 z-[80] bg-canvas/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setIsOpen(false)}
-        >
           <div
-            className="dotgui-glass border border-hairline rounded-2xl shadow-2xl p-4 space-y-3 animate-in fade-in zoom-in-95 duration-100 bg-surface-card/95 backdrop-blur-xl w-64 max-w-[92vw]"
-            onClick={e => e.stopPropagation()}
+            className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+            onClick={() => setIsOpen(false)}
           >
+            <div
+              className="bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl shadow-2xl shadow-black/20 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-100 w-64 max-w-[92vw] ring-1 ring-white/10"
+              onClick={e => e.stopPropagation()}
+            >
             
             {/* Header */}
             <div className="flex items-center justify-between border-b border-hairline pb-2">

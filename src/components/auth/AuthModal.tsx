@@ -22,8 +22,8 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-canvas/95 backdrop-blur-xl flex items-center justify-center p-4">
-      <div className="max-w-sm w-full bg-surface-card border border-hairline rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6 text-center">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="max-w-sm w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-3xl p-8 shadow-2xl shadow-black/20 text-center space-y-6 ring-1 ring-white/10">
         
         <div className="w-14 h-14 rounded-2xl bg-brand-blue/10 border border-brand-blue/20 flex items-center justify-center text-brand-blue mx-auto">
           <Lock className="w-7 h-7" />

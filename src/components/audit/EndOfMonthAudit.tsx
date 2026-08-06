@@ -265,15 +265,15 @@ export const EndOfMonthAudit: React.FC = () => {
       </div>
 
       {/* Centered Glassmorphic Month & Year Selection Dialog */}
-      {isMonthModalOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-canvas/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setIsMonthModalOpen(false)}
-        >
+        {isMonthModalOpen && (
           <div
-            className="dotgui-glass border border-hairline rounded-2xl shadow-2xl p-5 space-y-4 bg-surface-card/95 backdrop-blur-xl w-80 max-w-[92vw]"
-            onClick={e => e.stopPropagation()}
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+            onClick={() => setIsMonthModalOpen(false)}
           >
+            <div
+              className="bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl shadow-2xl shadow-black/20 p-5 space-y-4 w-80 max-w-[92vw] ring-1 ring-white/10"
+              onClick={e => e.stopPropagation()}
+            >
             <div className="flex items-center justify-between border-b border-hairline pb-2">
               <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-brand-purple" /> Audit Month & Year

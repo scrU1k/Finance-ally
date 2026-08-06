@@ -50,8 +50,8 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
   }));
 
   return (
-    <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="max-w-md w-full dotgui-glass border border-hairline rounded-2xl p-6 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="max-w-md w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl p-6 shadow-2xl shadow-black/20 space-y-4 ring-1 ring-white/10">
         
         <div className="flex items-center justify-between border-b border-hairline pb-3">
           <div className="flex items-center gap-2">

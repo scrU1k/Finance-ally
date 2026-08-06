@@ -43,12 +43,12 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150 cursor-pointer"
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200 cursor-pointer"
     >
       {/* Glass Popout Card */}
       <div
         onClick={e => e.stopPropagation()}
-        className="max-w-lg w-full dotgui-glass border border-hairline rounded-2xl p-6 shadow-2xl space-y-6 relative max-h-[90vh] overflow-y-auto cursor-default"
+        className="max-w-lg w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl p-6 shadow-2xl shadow-black/20 space-y-6 relative max-h-[90vh] overflow-y-auto cursor-default ring-1 ring-white/10"
       >
         
         {/* Sticky Exit FAB */}
@@ -89,11 +89,11 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
         </div>
 
         {/* Full Untruncated Expense Note */}
-        <div className="space-y-1.5 bg-surface-soft p-4 rounded-xl border border-hairline">
+        <div className="space-y-1.5 bg-surface-soft/40 backdrop-blur-md p-4 rounded-xl border border-hairline">
           <label className="text-[10px] font-mono text-muted-custom uppercase font-bold tracking-wider">
             Note / Description
           </label>
-          <p className="text-sm font-sans-custom font-medium text-ink whitespace-pre-wrap break-words leading-relaxed">
+          <p className="text-sm font-mono text-ink whitespace-pre-wrap leading-relaxed break-words">
             {transaction.note || 'No note attached'}
           </p>
         </div>
@@ -102,7 +102,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
         <div className="grid grid-cols-2 gap-3 text-xs font-mono">
           
           {/* Date */}
-          <div className="bg-surface-card p-3 rounded-xl border border-hairline space-y-1">
+          <div className="bg-surface-card/50 backdrop-blur-sm p-3 rounded-xl border border-hairline space-y-1">
             <span className="text-[10px] text-muted-custom uppercase flex items-center gap-1">
               <Calendar className="w-3 h-3 text-brand-blue" /> Date
             </span>
@@ -110,7 +110,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
           </div>
 
           {/* Time */}
-          <div className="bg-surface-card p-3 rounded-xl border border-hairline space-y-1">
+          <div className="bg-surface-card/50 backdrop-blur-sm p-3 rounded-xl border border-hairline space-y-1">
             <span className="text-[10px] text-muted-custom uppercase flex items-center gap-1">
               <Clock className="w-3 h-3 text-brand-mint" /> Time
             </span>
@@ -118,7 +118,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
           </div>
 
           {/* Payment Method */}
-          <div className="bg-surface-card p-3 rounded-xl border border-hairline space-y-1">
+          <div className="bg-surface-card/50 backdrop-blur-sm p-3 rounded-xl border border-hairline space-y-1">
             <span className="text-[10px] text-muted-custom uppercase flex items-center gap-1">
               <CreditCard className="w-3 h-3 text-brand-purple" /> Payment Method
             </span>
@@ -126,7 +126,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
           </div>
 
           {/* Trip Vault */}
-          <div className="bg-surface-card p-3 rounded-xl border border-hairline space-y-1">
+          <div className="bg-surface-card/50 backdrop-blur-sm p-3 rounded-xl border border-hairline space-y-1">
             <span className="text-[10px] text-muted-custom uppercase flex items-center gap-1">
               <Plane className="w-3 h-3 text-brand-coral" /> Vault
             </span>
