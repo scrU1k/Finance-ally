@@ -15,6 +15,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
   const [parsedExpense, setParsedExpense] = useState<ParsedNaturalExpense | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>('UPI');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isTagPopupOpen, setIsTagPopupOpen] = useState(false);
 
   const handleParse = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -113,10 +114,16 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-muted-custom">
-            <span className="flex items-center gap-1 text-ink font-semibold">
-              <Tag className="w-3 h-3 text-brand-purple" />
+            {/* Clickable Auto-detected Tag selector */}
+            <button
+              type="button"
+              onClick={() => setIsTagPopupOpen(true)}
+              className="flex items-center gap-1.5 text-ink font-semibold hover:bg-surface-card px-2 py-0.5 rounded-lg border border-hairline transition-all cursor-pointer"
+              title="Click to change category tag"
+            >
+              <Tag className="w-3 h-3 text-brand-purple shrink-0" />
               <span>{parsedExpense.categoryName}</span>
-            </span>
+            </button>
 
             <span>•</span>
 
@@ -153,6 +160,63 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* Centered Glassmorphic Category Tag Selection Popup */}
+      {isTagPopupOpen && parsedExpense && (
+        <div
+          className="fixed inset-0 z-[80] bg-canvas/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setIsTagPopupOpen(false)}
+        >
+          <div
+            className="dotgui-glass border border-hairline rounded-2xl shadow-2xl p-5 space-y-4 bg-surface-card/95 backdrop-blur-xl w-72 max-w-[92vw]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-hairline pb-2">
+              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-brand-purple" /> Select Tag
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsTagPopupOpen(false)}
+                className="p-1 text-muted-custom hover:text-ink cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-1.5 max-h-60 overflow-y-auto no-scrollbar">
+              {categories.map(cat => {
+                const isSelected = parsedExpense.categoryId === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      setParsedExpense({
+                        ...parsedExpense,
+                        categoryId: cat.id,
+                        categoryName: cat.name,
+                      });
+                      setIsTagPopupOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 p-2 rounded-xl border text-xs font-mono text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-ink text-ink font-bold bg-surface-soft'
+                        : 'border-hairline bg-surface-card text-body-custom hover:border-ink'
+                    }`}
+                  >
+                    <span
+                      className="w-3.5 h-3.5 rounded-full shrink-0"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    <span className="truncate">{cat.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 

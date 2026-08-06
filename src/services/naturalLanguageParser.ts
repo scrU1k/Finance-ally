@@ -80,12 +80,23 @@ export function parseNaturalLanguageExpense(
       timeStr = '22:00';
       timeLabel = 'Night';
     } else {
-      // Check for explicit time like 3pm, 14:30
-      const timeMatch = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i) || lower.match(/(\d{1,2}):(\d{2})/);
+      // Check for explicit time like 12.30pm, at 14:30, at 1430
+      const timeMatch = lower.match(/\bat\s+(\d{1,2})[.:](\d{2})\s*(am|pm)?\b/i) ||
+                        lower.match(/\b(\d{1,2})[.:](\d{2})\s*(am|pm)\b/i) ||
+                        lower.match(/\b(\d{1,2})\s*(am|pm)\b/i) ||
+                        lower.match(/\bat\s+(\d{1,2}):(\d{2})\b/i) ||
+                        lower.match(/\bat\s+(\d{2})(\d{2})\b/i);
+
       if (timeMatch) {
         let h = parseInt(timeMatch[1], 10);
-        const m = parseInt(timeMatch[2] || '0', 10);
-        const ampm = (timeMatch[3] || '').toLowerCase();
+        let m = parseInt(timeMatch[2] || '0', 10);
+        // If it's the 12am/pm format (no minutes group, but am/pm group is at index 2)
+        let ampm = (timeMatch[3] || '').toLowerCase();
+        if (!timeMatch[2] && (timeMatch[2] === 'am' || timeMatch[2] === 'pm')) {
+          ampm = timeMatch[2].toLowerCase();
+          m = 0;
+        }
+        
         if (ampm === 'pm' && h < 12) h += 12;
         if (ampm === 'am' && h === 12) h = 0;
         timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
