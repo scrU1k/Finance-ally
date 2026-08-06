@@ -277,16 +277,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         {/* 2. CURRENCY CONVERTER */}
         <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-              <ArrowRightLeft className="w-3.5 h-3.5 text-brand-blue" />
+            <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1">
+              <ArrowRightLeft className="w-2.5 h-2.5 text-brand-blue shrink-0" />
               <span>Currency Converter</span>
             </h3>
             <button
               onClick={handleSyncRates}
               disabled={syncing}
-              className="text-[10px] font-mono border border-brand-blue text-brand-blue px-3 py-1 rounded-full flex items-center gap-1 hover:bg-surface-card transition-all cursor-pointer font-bold"
+              className="text-[10px] font-mono border border-brand-blue text-brand-blue px-2 py-0.5 rounded-full flex items-center gap-1 hover:bg-surface-card transition-all cursor-pointer font-bold"
             >
-              <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-2.5 h-2.5 shrink-0 ${syncing ? 'animate-spin' : ''}`} />
               <span>Live</span>
             </button>
           </div>

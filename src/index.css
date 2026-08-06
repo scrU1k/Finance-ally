@@ -32,7 +32,7 @@
     --hairline: rgba(228, 224, 216, 0.85);
     --hairline-soft: rgba(240, 238, 231, 0.5);
 
-    --brand-blue: #2b6be4;
+    --brand-blue: #0f766e;
     --brand-mint: #3ea45c;
     --term-green: #2e8b4a;
     --brand-yellow: #f2b300;
@@ -57,7 +57,7 @@
     --hairline: rgba(42, 42, 36, 0.85);
     --hairline-soft: rgba(32, 32, 27, 0.5);
 
-    --brand-blue: #3b82f6;
+    --brand-blue: #2dd4bf;
     --brand-mint: #7ee29b;
     --term-green: #7ee29b;
     --brand-yellow: #f2b300;
@@ -75,7 +75,7 @@
     --body: #d1d5db;
     --muted: #6b7280;
     --hairline: rgba(255, 0, 85, 0.25);
-    --brand-blue: #00f0ff;
+    --brand-blue: #00ffcc;
     --term-green: #00ff66;
     --brand-yellow: #ffe600;
     --brand-coral: #ff0055;
@@ -91,7 +91,7 @@
     --body: #9ccab6;
     --muted: #4e806b;
     --hairline: rgba(24, 72, 53, 0.85);
-    --brand-blue: #2dd4bf;
+    --brand-blue: #34d399;
     --term-green: #34d399;
     --brand-yellow: #fbbf24;
     --brand-coral: #f87171;
@@ -107,7 +107,7 @@
     --body: #d6b8b0;
     --muted: #8c6a61;
     --hairline: rgba(61, 38, 32, 0.85);
-    --brand-blue: #38bdf8;
+    --brand-blue: #f97316;
     --term-green: #4ade80;
     --brand-yellow: #f59e0b;
     --brand-coral: #ff5722;

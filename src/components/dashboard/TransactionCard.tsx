@@ -62,7 +62,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
               className="text-[10px] font-mono px-2 py-0.5 rounded-full font-medium truncate whitespace-nowrap max-w-[110px]"
               style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
             >
-              {category.name}
+              {(category.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : category.name}
             </span>
 
             {/* Trip Tag Pill */}

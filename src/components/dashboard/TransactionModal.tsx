@@ -16,6 +16,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
   const [amount, setAmount] = useState<string>('');
   const [currency, setCurrency] = useState<CurrencyCode>(baseCurrency);
   const [categoryId, setCategoryId] = useState<string>(categories[0]?.id || 'cat-food');
+  const [customCategoryName, setCustomCategoryName] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState<string>(
     new Date().toTimeString().split(' ')[0].substring(0, 5)
@@ -29,6 +30,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
       setAmount(initialData.amount.toString());
       setCurrency(initialData.currency);
       setCategoryId(initialData.categoryId);
+      setCustomCategoryName(initialData.customCategoryName || '');
       setDate(initialData.date);
       setTime(initialData.time || '12:00');
       setNote(initialData.note);
@@ -38,6 +40,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
       setAmount('');
       setCurrency(baseCurrency);
       setCategoryId(categories[0]?.id || 'cat-food');
+      setCustomCategoryName('');
       setDate(new Date().toISOString().split('T')[0]);
       setTime(new Date().toTimeString().split(' ')[0].substring(0, 5));
       setNote('');
@@ -53,29 +56,25 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) return;
 
+    const payload = {
+      amount: numAmount,
+      currency,
+      categoryId,
+      customCategoryName: categoryId === 'cat-others' && customCategoryName.trim() ? customCategoryName.trim() : undefined,
+      date,
+      time,
+      note,
+      paymentMethod,
+      tripId: tripId || undefined,
+    };
+
     if (initialData) {
       await editTransaction({
         ...initialData,
-        amount: numAmount,
-        currency,
-        categoryId,
-        date,
-        time,
-        note,
-        paymentMethod,
-        tripId: tripId || undefined,
+        ...payload,
       });
     } else {
-      await addTransaction({
-        amount: numAmount,
-        currency,
-        categoryId,
-        date,
-        time,
-        note,
-        paymentMethod,
-        tripId: tripId || undefined,
-      });
+      await addTransaction(payload);
     }
 
     onClose();
@@ -176,11 +175,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
               <label className="text-[11px] font-mono text-muted-custom uppercase font-bold">Custom Tag Name</label>
               <input
                 type="text"
-                value={note.startsWith('Custom: ') ? note.split('Custom: ')[1] : ''}
-                onChange={e => {
-                  const val = e.target.value;
-                  if (val) setNote(`Custom: ${val}`);
-                }}
+                value={customCategoryName}
+                onChange={e => setCustomCategoryName(e.target.value)}
                 placeholder="e.g. Pet Care, Hobbies, Subscriptions"
                 className="w-full bg-surface-card border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink focus:outline-none focus:border-ink"
               />

@@ -65,7 +65,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: category?.color || '#2b6be4' }} />
             <span className="text-xs font-mono font-bold text-ink uppercase tracking-wider">
-              {category?.name || 'General Expense'}
+              {(category?.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : (category?.name || 'General Expense')}
             </span>
             {transaction.isAutoParsed && (
               <span className="text-[10px] font-mono text-brand-yellow border border-brand-yellow/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">

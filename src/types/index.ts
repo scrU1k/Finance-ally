@@ -26,6 +26,7 @@ export interface Transaction {
   originalAmount?: number;
   originalCurrency?: CurrencyCode;
   categoryId: string;
+  customCategoryName?: string; // Independent custom tag name for Others category
   date: string; // YYYY-MM-DD
   time?: string; // HH:mm
   note: string;
