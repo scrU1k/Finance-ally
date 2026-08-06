@@ -164,18 +164,19 @@ export const LiveSpendChart: React.FC = () => {
 
       {/* Daily Trend Bar/Line Chart */}
       <div className="dotgui-card p-5 space-y-3">
-        <div className="flex items-center justify-between border-b border-hairline pb-2">
-          <button
-            type="button"
-            onClick={() => setChartType(prev => prev === 'bar' ? 'line' : 'bar')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-soft border border-hairline hover:border-ink rounded-xl text-xs font-mono font-bold text-ink transition-all cursor-pointer active:scale-95 shadow-sm"
-            title="Click to toggle between Bar and Line chart"
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-brand-mint shrink-0" />
-            <span>Daily Trend ({chartType === 'bar' ? 'Bar' : 'Line'})</span>
-          </button>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-brand-mint" />
+            <h3
+              onClick={() => setChartType(prev => prev === 'bar' ? 'line' : 'bar')}
+              className="text-sm font-mono font-semibold text-ink uppercase cursor-pointer hover:text-brand-mint hover:underline transition-all"
+              title="Click to toggle between Bar and Line chart"
+            >
+              Daily Spending Trend
+            </h3>
+          </div>
           <span className="text-[10px] font-mono text-muted-custom">
-            {sortedDates.length} days
+            {sortedDates.length} days • click title to switch
           </span>
         </div>
 

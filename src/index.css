@@ -113,48 +113,6 @@
     --brand-coral: #ff5722;
     --brand-purple: #c084fc;
   }
-
-  /* Minimal Light Theme */
-  .theme-minimal-light {
-    --canvas: rgba(248, 250, 252, 0.95);
-    --surface-card: rgba(241, 245, 249, 0.75);
-    --surface-soft: rgba(248, 250, 252, 0.65);
-    --surface-dark: #0f172a;
-    --ink: #334155;
-    --body: #475569;
-    --muted: #64748b;
-    --hairline: rgba(226, 232, 240, 0.85);
-    --hairline-soft: rgba(241, 245, 249, 0.5);
-
-    --brand-blue: #64748b;
-    --brand-mint: #8da399;
-    --term-green: #8da399;
-    --brand-yellow: #cbd5e1;
-    --brand-coral: #b4a29e;
-    --brand-purple: #94a3b8;
-    --brand-lavender: #cbd5e1;
-  }
-
-  /* Minimal Dark Theme */
-  .theme-minimal-dark {
-    --canvas: rgba(15, 23, 42, 0.95);
-    --surface-card: rgba(30, 41, 59, 0.75);
-    --surface-soft: rgba(51, 65, 85, 0.65);
-    --surface-dark: #020617;
-    --ink: #f8fafc;
-    --body: #94a3b8;
-    --muted: #64748b;
-    --hairline: rgba(71, 85, 105, 0.85);
-    --hairline-soft: rgba(51, 65, 85, 0.5);
-
-    --brand-blue: #94a3b8;
-    --brand-mint: #8da399;
-    --term-green: #8da399;
-    --brand-yellow: #475569;
-    --brand-coral: #a1a1aa;
-    --brand-purple: #94a3b8;
-    --brand-lavender: #475569;
-  }
 }
 
 /* Custom Font Family Classes */

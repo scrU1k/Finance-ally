@@ -6,6 +6,9 @@ import { TOP_CURRENCIES, convertCurrencyAmount, formatCurrency } from '../../ser
 import { exportFullDataBackup, importFullDataBackup } from '../../services/db';
 import { CustomSelect } from '../common/CustomSelect';
 import { CurrencyCode } from '../../types';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { Capacitor } from '@capacitor/core';
 import { X, Settings as SettingsIcon, RefreshCw, Palette, Database, RefreshCcw, ArrowRightLeft, Lock, Eye, EyeOff, Upload } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -16,7 +19,7 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { user, toggleRequirePassword, changePassword } = useAuth();
   const { baseCurrency, switchBaseCurrency, syncForexRates, forexRates } = useFinance();
-  const { theme, setTheme, minimalSub, setMinimalSub, fontFamily, setFontFamily } = useTheme();
+  const { theme, setTheme, fontFamily, setFontFamily } = useTheme();
 
   // Embedded Converter State
   const [calcAmount, setCalcAmount] = useState('100');
@@ -127,12 +130,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   const themes: { id: ThemeMode; label: string; bg: string }[] = [
+    { id: 'system', label: 'System Default', bg: 'linear-gradient(135deg, #0e0e0c 50%, #fafaf7 50%)' },
     { id: 'dotgui-dark', label: 'Obsidian Dark', bg: '#0e0e0c' },
     { id: 'dotgui-light', label: 'Warm Light', bg: '#fafaf7' },
     { id: 'cyberpunk', label: 'Cyberpunk Neon', bg: '#05050c' },
     { id: 'emerald', label: 'Emerald Mint', bg: '#04140d' },
     { id: 'sunset', label: 'Sunset Copper', bg: '#120b09' },
-    { id: 'minimal', label: 'Minimal', bg: '#475569' },
   ];
 
   const fonts: { id: FontFamily; label: string; style: React.CSSProperties }[] = [
@@ -406,38 +409,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     : 'border-hairline bg-surface-card text-body-custom hover:border-ink'
                 }`}
               >
-                <span className="w-3 h-3 rounded-full border border-hairline" style={{ backgroundColor: t.bg }} />
+                <span className="w-3 h-3 rounded-full border border-hairline" style={{ background: t.bg }} />
                 <span className="truncate">{t.label}</span>
               </button>
             ))}
           </div>
-
-          {/* Secondary Sub-menu for Minimal Theme Selection */}
-          {theme === 'minimal' && (
-            <div className="bg-surface-soft p-3 rounded-xl border border-hairline/60 space-y-1.5 animate-in fade-in duration-150">
-              <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Minimal Mode Options</label>
-              <div className="flex gap-1.5">
-                {[
-                  { id: 'light', label: 'Minimal Light' },
-                  { id: 'dark', label: 'Minimal Dark' },
-                  { id: 'system', label: 'System Theme' },
-                ].map(sub => (
-                  <button
-                    key={sub.id}
-                    type="button"
-                    onClick={() => setMinimalSub(sub.id as any)}
-                    className={`flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-mono border transition-all cursor-pointer ${
-                      minimalSub === sub.id
-                        ? 'border-ink text-ink font-bold bg-surface-card shadow-sm'
-                        : 'bg-surface-soft text-body-custom border-hairline hover:border-ink'
-                    }`}
-                  >
-                    {sub.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Hair-thin Section Divider above Typography */}
           <div className="border-t border-hairline/60 pt-2" />
@@ -532,27 +508,46 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             </p>
 
             <div className="space-y-2 pt-2">
-              {/* Option 1: Share JSON String */}
-              {navigator.share && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
+              {/* Option 1: Native Share / Save Sheet */}
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
+
+                    if (Capacitor.isNativePlatform()) {
+                      const writeResult = await Filesystem.writeFile({
+                        path: filename,
+                        data: exportModalData,
+                        directory: Directory.Cache,
+                        encoding: 'utf8' as any,
+                      });
+
+                      await Share.share({
+                        title: 'Finance-Ally Backup',
+                        url: writeResult.uri,
+                        dialogTitle: 'Select destination to save JSON file',
+                      });
+                      setImportStatus('Backup saved/shared successfully!');
+                    } else if (navigator.share) {
                       await navigator.share({
                         title: 'Finance-Ally Backup',
                         text: exportModalData,
                       });
                       setImportStatus('Backup shared successfully!');
-                      setExportModalData(null);
-                    } catch {
-                      // ignore
+                    } else {
+                      navigator.clipboard.writeText(exportModalData);
+                      setImportStatus('JSON backup copied to clipboard!');
                     }
-                  }}
-                  className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-                >
-                  📤 Share Backup String (System Dialog)
-                </button>
-              )}
+                    setExportModalData(null);
+                  } catch (err: any) {
+                    setImportStatus(`Share error: ${err.message || err}`);
+                  }
+                }}
+                className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                📤 Share & Choose Destination (Save to Drive/Files)
+              </button>
 
               {/* Option 2: Copy to Clipboard */}
               <button
@@ -567,23 +562,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 📋 Copy JSON to Clipboard
               </button>
 
-              {/* Option 3: Standard File Download */}
+              {/* Option 3: Local File Download */}
               <button
                 type="button"
-                onClick={() => {
-                  const encodedData = 'data:text/json;charset=utf-8,' + encodeURIComponent(exportModalData);
-                  const downloadAnchor = document.createElement('a');
-                  downloadAnchor.setAttribute('href', encodedData);
-                  downloadAnchor.setAttribute('download', `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`);
-                  document.body.appendChild(downloadAnchor);
-                  downloadAnchor.click();
-                  downloadAnchor.remove();
-                  setImportStatus('JSON file download triggered!');
-                  setExportModalData(null);
+                onClick={async () => {
+                  try {
+                    const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
+                    
+                    if (Capacitor.isNativePlatform()) {
+                      await Filesystem.writeFile({
+                        path: filename,
+                        data: exportModalData,
+                        directory: Directory.Documents,
+                        encoding: 'utf8' as any,
+                      });
+                      setImportStatus(`File saved to Documents folder: ${filename}`);
+                    } else {
+                      const encodedData = 'data:text/json;charset=utf-8,' + encodeURIComponent(exportModalData);
+                      const downloadAnchor = document.createElement('a');
+                      downloadAnchor.setAttribute('href', encodedData);
+                      downloadAnchor.setAttribute('download', filename);
+                      document.body.appendChild(downloadAnchor);
+                      downloadAnchor.click();
+                      downloadAnchor.remove();
+                      setImportStatus('JSON file download triggered!');
+                    }
+                    setExportModalData(null);
+                  } catch (err: any) {
+                    setImportStatus(`Download failed: ${err.message || err}`);
+                  }
                 }}
                 className="w-full border border-hairline text-muted-custom hover:text-ink font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
               >
-                💾 Download JSON File
+                💾 Save File to Local Storage
               </button>
             </div>
           </div>

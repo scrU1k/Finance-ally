@@ -1,15 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type ThemeMode = 'dotgui-dark' | 'dotgui-light' | 'cyberpunk' | 'emerald' | 'sunset' | 'minimal';
-export type MinimalSub = 'light' | 'dark' | 'system';
+export type ThemeMode = 'dotgui-dark' | 'dotgui-light' | 'cyberpunk' | 'emerald' | 'sunset' | 'system';
 export type FontFamily = 'geist' | 'inter' | 'mono' | 'outfit' | 'space';
 
 interface ThemeContextType {
   theme: ThemeMode;
-  minimalSub: MinimalSub;
   fontFamily: FontFamily;
   setTheme: (t: ThemeMode) => void;
-  setMinimalSub: (s: MinimalSub) => void;
   setFontFamily: (f: FontFamily) => void;
 }
 
@@ -17,11 +14,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
-    return (localStorage.getItem('fa_theme') as ThemeMode) || 'dotgui-dark';
-  });
-
-  const [minimalSub, setMinimalSubState] = useState<MinimalSub>(() => {
-    return (localStorage.getItem('fa_minimal_sub') as MinimalSub) || 'dark';
+    return (localStorage.getItem('fa_theme') as ThemeMode) || 'system';
   });
 
   const [fontFamily, setFontState] = useState<FontFamily>(() => {
@@ -30,59 +23,36 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     localStorage.setItem('fa_theme', theme);
-    localStorage.setItem('fa_minimal_sub', minimalSub);
-    
     const root = document.documentElement;
-    root.classList.remove(
-      'dark',
-      'theme-cyberpunk',
-      'theme-emerald',
-      'theme-sunset',
-      'theme-minimal-light',
-      'theme-minimal-dark'
-    );
 
-    const handleSystemTheme = (e: MediaQueryListEvent | MediaQueryList) => {
-      if (theme === 'minimal' && minimalSub === 'system') {
-        if (e.matches) {
-          root.classList.add('dark', 'theme-minimal-dark');
-        } else {
-          root.classList.add('theme-minimal-light');
-        }
+    const applyTheme = (currentTheme: ThemeMode) => {
+      let resolvedTheme = currentTheme;
+      if (currentTheme === 'system') {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        resolvedTheme = isDark ? 'dotgui-dark' : 'dotgui-light';
+      }
+
+      root.classList.remove('dark', 'theme-cyberpunk', 'theme-emerald', 'theme-sunset');
+      if (resolvedTheme === 'dotgui-dark') {
+        root.classList.add('dark');
+      } else if (resolvedTheme === 'cyberpunk') {
+        root.classList.add('dark', 'theme-cyberpunk');
+      } else if (resolvedTheme === 'emerald') {
+        root.classList.add('dark', 'theme-emerald');
+      } else if (resolvedTheme === 'sunset') {
+        root.classList.add('dark', 'theme-sunset');
       }
     };
 
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    applyTheme(theme);
 
-    if (theme === 'dotgui-dark') {
-      root.classList.add('dark');
-    } else if (theme === 'cyberpunk') {
-      root.classList.add('dark', 'theme-cyberpunk');
-    } else if (theme === 'emerald') {
-      root.classList.add('dark', 'theme-emerald');
-    } else if (theme === 'sunset') {
-      root.classList.add('dark', 'theme-sunset');
-    } else if (theme === 'minimal') {
-      if (minimalSub === 'light') {
-        root.classList.add('theme-minimal-light');
-      } else if (minimalSub === 'dark') {
-        root.classList.add('dark', 'theme-minimal-dark');
-      } else if (minimalSub === 'system') {
-        // Initial setup
-        if (mediaQuery.matches) {
-          root.classList.add('dark', 'theme-minimal-dark');
-        } else {
-          root.classList.add('theme-minimal-light');
-        }
-        // Listen for system preference changes
-        mediaQuery.addEventListener('change', handleSystemTheme);
-      }
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const listener = () => applyTheme('system');
+      mediaQuery.addEventListener('change', listener);
+      return () => mediaQuery.removeEventListener('change', listener);
     }
-
-    return () => {
-      mediaQuery.removeEventListener('change', handleSystemTheme);
-    };
-  }, [theme, minimalSub]);
+  }, [theme]);
 
   useEffect(() => {
     localStorage.setItem('fa_font', fontFamily);
@@ -97,11 +67,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [fontFamily]);
 
   const setTheme = (t: ThemeMode) => setThemeState(t);
-  const setMinimalSub = (s: MinimalSub) => setMinimalSubState(s);
   const setFontFamily = (f: FontFamily) => setFontState(f);
 
   return (
-    <ThemeContext.Provider value={{ theme, minimalSub, fontFamily, setTheme, setMinimalSub, setFontFamily }}>
+    <ThemeContext.Provider value={{ theme, fontFamily, setTheme, setFontFamily }}>
       {children}
     </ThemeContext.Provider>
   );
