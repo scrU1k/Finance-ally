@@ -62,17 +62,17 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
             value={inputPrompt}
             onChange={e => setInputPrompt(e.target.value)}
             placeholder="Quick Log: e.g. 300Rs spent on Burger at McD on Wednesday afternoon"
-            className="w-full bg-surface-soft border border-hairline rounded-xl pl-9 pr-4 py-2.5 text-xs sm:text-sm font-sans-custom text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[42px]"
+            className="w-full bg-surface-soft border border-hairline rounded-xl pl-11 pr-4 py-3 text-xs sm:text-sm md:text-base font-sans-custom text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[48px]"
           />
-          <Sparkles className="w-4 h-4 text-brand-yellow absolute left-3 top-1/2 -translate-y-1/2" />
+          <Sparkles className="w-4 h-4 text-brand-yellow absolute left-4 top-1/2 -translate-y-1/2" />
         </div>
 
         <button
           type="submit"
           disabled={!inputPrompt.trim()}
-          className="border border-brand-blue text-brand-blue hover:bg-surface-soft disabled:opacity-40 px-4 py-2.5 rounded-xl font-mono text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer min-h-[42px]"
+          className="border border-brand-blue text-brand-blue hover:bg-surface-soft disabled:opacity-40 px-4 py-3 rounded-xl font-mono text-xs sm:text-sm font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer min-h-[48px]"
         >
-          <span>Smart Log</span>
+          <span>Log</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </form>

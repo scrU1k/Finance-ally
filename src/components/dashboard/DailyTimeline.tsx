@@ -172,12 +172,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
         })}
       </div>
 
-      {/* Visual Charts Overview */}
-      {showCharts && (
-        <div className="animate-in fade-in duration-200">
-          <LiveSpendChart />
-        </div>
-      )}
+
 
       {/* Grouped Daily Transactions Feed */}
       {groupedByDate.length === 0 ? (
@@ -230,6 +225,13 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
 
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Visual Charts Overview */}
+      {showCharts && (
+        <div className="animate-in fade-in duration-200 mt-6">
+          <LiveSpendChart />
         </div>
       )}
 
