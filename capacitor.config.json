@@ -1,0 +1,6 @@
+{
+  "appId": "com.financeally.app",
+  "appName": "Finance-Ally",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

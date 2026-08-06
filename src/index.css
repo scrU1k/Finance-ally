@@ -1,0 +1,192 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-mint: var(--brand-mint);
+  --color-brand-coral: var(--brand-coral);
+  --color-brand-purple: var(--brand-purple);
+  --color-brand-yellow: var(--brand-yellow);
+  --color-canvas: var(--canvas);
+  --color-surface-card: var(--surface-card);
+  --color-surface-soft: var(--surface-soft);
+  --color-ink: var(--ink);
+  --color-body-custom: var(--body);
+  --color-muted-custom: var(--muted);
+  --color-hairline: var(--hairline);
+}
+
+@layer base {
+  :root {
+    --font-sans: 'Geist', 'Inter', -apple-system, sans-serif;
+    --font-display: 'Fraunces', 'Geist', sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    /* Theme 1: dotgui Warm Light (Default Light) */
+    --canvas: rgba(250, 250, 247, 0.94);
+    --surface-card: rgba(240, 238, 231, 0.75);
+    --surface-soft: rgba(244, 242, 236, 0.65);
+    --surface-dark: #151512;
+    --ink: #3b3230;
+    --body: #504846;
+    --muted: #78706e;
+    --hairline: rgba(228, 224, 216, 0.85);
+    --hairline-soft: rgba(240, 238, 231, 0.5);
+
+    --brand-blue: #2b6be4;
+    --brand-mint: #3ea45c;
+    --term-green: #2e8b4a;
+    --brand-yellow: #f2b300;
+    --brand-coral: #ee5f1c;
+    --brand-purple: #9d5bea;
+    --brand-lavender: #c9b2f5;
+
+    --radius-pill: 9999px;
+    --radius-xl: 16px;
+    --radius-lg: 12px;
+  }
+
+  .dark {
+    /* Theme 1: dotgui Obsidian Dark (Default Dark) */
+    --canvas: rgba(14, 14, 12, 0.94);
+    --surface-card: rgba(21, 21, 18, 0.75);
+    --surface-soft: rgba(28, 28, 24, 0.65);
+    --surface-dark: #080807;
+    --ink: #fafaf7;
+    --body: #a8a49a;
+    --muted: #6f6b61;
+    --hairline: rgba(42, 42, 36, 0.85);
+    --hairline-soft: rgba(32, 32, 27, 0.5);
+
+    --brand-blue: #3b82f6;
+    --brand-mint: #7ee29b;
+    --term-green: #7ee29b;
+    --brand-yellow: #f2b300;
+    --brand-coral: #ff6b35;
+    --brand-purple: #ab69f4;
+    --brand-lavender: #d4c2f8;
+  }
+
+  /* Cyberpunk Theme Override */
+  .theme-cyberpunk {
+    --canvas: rgba(5, 5, 12, 0.94);
+    --surface-card: rgba(13, 13, 30, 0.75);
+    --surface-soft: rgba(20, 20, 43, 0.65);
+    --ink: #00ffcc;
+    --body: #d1d5db;
+    --muted: #6b7280;
+    --hairline: rgba(255, 0, 85, 0.25);
+    --brand-blue: #00f0ff;
+    --term-green: #00ff66;
+    --brand-yellow: #ffe600;
+    --brand-coral: #ff0055;
+    --brand-purple: #b000ff;
+  }
+
+  /* Emerald Mint Theme Override */
+  .theme-emerald {
+    --canvas: rgba(4, 20, 13, 0.94);
+    --surface-card: rgba(8, 36, 25, 0.75);
+    --surface-soft: rgba(13, 53, 38, 0.65);
+    --ink: #e6f4ee;
+    --body: #9ccab6;
+    --muted: #4e806b;
+    --hairline: rgba(24, 72, 53, 0.85);
+    --brand-blue: #2dd4bf;
+    --term-green: #34d399;
+    --brand-yellow: #fbbf24;
+    --brand-coral: #f87171;
+    --brand-purple: #a78bfa;
+  }
+
+  /* Sunset Copper Theme Override */
+  .theme-sunset {
+    --canvas: rgba(18, 11, 9, 0.94);
+    --surface-card: rgba(32, 19, 15, 0.75);
+    --surface-soft: rgba(44, 27, 22, 0.65);
+    --ink: #fdf5f2;
+    --body: #d6b8b0;
+    --muted: #8c6a61;
+    --hairline: rgba(61, 38, 32, 0.85);
+    --brand-blue: #38bdf8;
+    --term-green: #4ade80;
+    --brand-yellow: #f59e0b;
+    --brand-coral: #ff5722;
+    --brand-purple: #c084fc;
+  }
+}
+
+/* Custom Font Family Classes */
+.font-sans-custom { font-family: var(--font-sans); }
+.font-display-custom { font-family: var(--font-display); }
+.font-mono-custom { font-family: var(--font-mono); }
+
+/* Dotgui Visual Utilities & Glassmorphism */
+.bg-canvas { background-color: var(--canvas); }
+.bg-surface-card { background-color: var(--surface-card); }
+.bg-surface-soft { background-color: var(--surface-soft); }
+.text-ink { color: var(--ink); }
+.text-body-custom { color: var(--body); }
+.text-muted-custom { color: var(--muted); }
+.border-hairline { border-color: var(--hairline); }
+
+/* Dotgui Card Base with Backdrop Glass Blur */
+.dotgui-card {
+  background-color: var(--surface-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--hairline);
+  border-radius: 1rem;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.dotgui-card:hover {
+  border-color: var(--ink);
+}
+
+.dotgui-glass {
+  background: var(--surface-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--hairline);
+}
+
+/* dotgui Pill Badge */
+.dotgui-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+/* Subtle Micro Grid Texture */
+.bg-grid-pattern {
+  background-size: 24px 24px;
+  background-image: 
+    linear-gradient(to right, rgba(128, 128, 128, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(128, 128, 128, 0.05) 1px, transparent 1px);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
