@@ -55,7 +55,7 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
           title="Tap to Expand Spending Bar"
         >
           <ChevronUp className="w-5 h-5 text-brand-mint group-hover:-translate-y-0.5 transition-transform shrink-0" />
-          <span className="truncate">Total ({period}): {formatCurrency(periodTotalSpent, baseCurrency)}</span>
+          <span className="whitespace-nowrap font-bold">{formatCurrency(periodTotalSpent, baseCurrency)} <span className="font-normal text-muted-custom">({period})</span></span>
         </button>
 
         {/* Border Highlighted + Button */}

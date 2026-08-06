@@ -240,11 +240,23 @@ export const SplitBillModal: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-1.5 pt-2 border-t border-hairline">
+              <div className="space-y-2 pt-2 border-t border-hairline">
                 {members.map(m => (
                   <div key={m.id} className="flex items-center justify-between text-xs font-mono">
-                    <span className="text-body-custom">{m.name}</span>
-                    <span className="font-bold text-ink">{formatCurrency(perPersonEqual, currency)}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        onClick={() => handleTogglePaid(m.id)}
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition-colors shrink-0 cursor-pointer ${
+                          m.isPaid 
+                            ? 'bg-brand-mint/10 text-brand-mint border-brand-mint/30'
+                            : 'bg-brand-coral/10 text-brand-coral border-brand-coral/30'
+                        }`}
+                      >
+                        {m.isPaid ? 'PAID' : 'PENDING'}
+                      </button>
+                      <span className="text-body-custom truncate">{m.name}</span>
+                    </div>
+                    <span className="font-bold text-ink shrink-0">{formatCurrency(perPersonEqual, currency)}</span>
                   </div>
                 ))}
               </div>
