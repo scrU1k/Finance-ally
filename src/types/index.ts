@@ -55,7 +55,7 @@ export interface UserProfile {
   username: string;
   passwordHash: string; // Salted local SHA-256 hash
   baseCurrency: CurrencyCode;
-  theme: 'dotgui-dark' | 'dotgui-light' | 'cyberpunk' | 'emerald' | 'sunset';
+  theme: 'dotgui-dark' | 'dotgui-light' | 'cyberpunk' | 'emerald' | 'sunset' | 'minimal';
   fontFamily: 'geist' | 'inter' | 'mono' | 'outfit' | 'space';
   emailForReport?: string;
   reportFrequency?: 'weekly' | 'monthly' | 'annually' | 'none';

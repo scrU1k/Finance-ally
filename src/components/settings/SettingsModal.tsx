@@ -16,7 +16,7 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { user, toggleRequirePassword, changePassword } = useAuth();
   const { baseCurrency, switchBaseCurrency, syncForexRates, forexRates } = useFinance();
-  const { theme, setTheme, fontFamily, setFontFamily } = useTheme();
+  const { theme, setTheme, minimalSub, setMinimalSub, fontFamily, setFontFamily } = useTheme();
 
   // Embedded Converter State
   const [calcAmount, setCalcAmount] = useState('100');
@@ -132,6 +132,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     { id: 'cyberpunk', label: 'Cyberpunk Neon', bg: '#05050c' },
     { id: 'emerald', label: 'Emerald Mint', bg: '#04140d' },
     { id: 'sunset', label: 'Sunset Copper', bg: '#120b09' },
+    { id: 'minimal', label: 'Minimal', bg: '#475569' },
   ];
 
   const fonts: { id: FontFamily; label: string; style: React.CSSProperties }[] = [
@@ -410,6 +411,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </button>
             ))}
           </div>
+
+          {/* Secondary Sub-menu for Minimal Theme Selection */}
+          {theme === 'minimal' && (
+            <div className="bg-surface-soft p-3 rounded-xl border border-hairline/60 space-y-1.5 animate-in fade-in duration-150">
+              <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Minimal Mode Options</label>
+              <div className="flex gap-1.5">
+                {[
+                  { id: 'light', label: 'Minimal Light' },
+                  { id: 'dark', label: 'Minimal Dark' },
+                  { id: 'system', label: 'System Theme' },
+                ].map(sub => (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => setMinimalSub(sub.id as any)}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-mono border transition-all cursor-pointer ${
+                      minimalSub === sub.id
+                        ? 'border-ink text-ink font-bold bg-surface-card shadow-sm'
+                        : 'bg-surface-soft text-body-custom border-hairline hover:border-ink'
+                    }`}
+                  >
+                    {sub.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Hair-thin Section Divider above Typography */}
           <div className="border-t border-hairline/60 pt-2" />
