@@ -63,18 +63,18 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
             value={inputPrompt}
             onChange={e => setInputPrompt(e.target.value)}
             placeholder="Quick Log: e.g. 300Rs spent on Burger at McD on Wednesday afternoon"
-            className="w-full bg-surface-soft border border-hairline rounded-xl pl-11 pr-4 py-3 text-xs sm:text-sm md:text-base font-sans-custom text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[48px]"
+            className="w-full bg-surface-soft border border-hairline rounded-2xl pl-12 pr-4 py-3.5 text-sm sm:text-base font-sans-custom text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[54px]"
           />
-          <Sparkles className="w-4 h-4 text-brand-yellow absolute left-4 top-1/2 -translate-y-1/2" />
+          <Sparkles className="w-4 h-4 text-brand-yellow absolute left-4.5 top-1/2 -translate-y-1/2" />
         </div>
 
         <button
           type="submit"
           disabled={!inputPrompt.trim()}
-          className="border border-brand-blue text-brand-blue hover:bg-surface-soft disabled:opacity-40 px-4 py-3 rounded-xl font-mono text-xs sm:text-sm font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer min-h-[48px]"
+          className="border border-brand-blue text-brand-blue hover:bg-surface-soft disabled:opacity-40 w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-sm active:scale-95 bg-surface-card"
+          title="Log Expense"
         >
-          <span>Log</span>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="w-5 h-5" />
         </button>
       </form>
 

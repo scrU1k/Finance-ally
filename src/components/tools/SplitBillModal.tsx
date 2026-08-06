@@ -3,6 +3,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency } from '../../services/currency';
 import { TOP_CURRENCIES } from '../../services/currency';
 import { CurrencyCode, SplitMember } from '../../types';
+import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { Users, Copy, Plus, Trash2, Check, Calculator, Percent } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -27,6 +28,11 @@ export const SplitBillModal: React.FC = () => {
   const numTip = parseFloat(tipPercent) || 0;
   const totalWithTip = numAmount + (numAmount * numTip) / 100;
 
+  const currencyOptions: SelectOption[] = TOP_CURRENCIES.map(c => ({
+    value: c.code,
+    label: `${c.flag} ${c.code}`,
+  }));
+
   // Calculate per person share
   const perPersonEqual = members.length > 0 ? totalWithTip / members.length : 0;
 
@@ -42,51 +48,50 @@ export const SplitBillModal: React.FC = () => {
     setMembers(prev => prev.filter(m => m.id !== id));
   };
 
-  const handleCopySummary = () => {
-    const lines = [
-      `🧾 Bill Split Summary (${formatCurrency(totalWithTip, currency)})`,
-      `Total: ${formatCurrency(numAmount, currency)} + ${numTip}% Tip/Tax`,
-      `People (${members.length}):`,
-    ];
+  const handleTogglePaid = (id: string) => {
+    setMembers(prev => prev.map(m => m.id === id ? { ...m, isPaid: !m.isPaid } : m));
+  };
 
-    members.forEach((m, idx) => {
-      lines.push(`${idx + 1}. ${m.name}: ${formatCurrency(perPersonEqual, currency)}`);
-    });
-
-    lines.push('\nCalculated via Finance-Ally App');
-
-    navigator.clipboard.writeText(lines.join('\n'));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+  const handleNameChange = (id: string, newName: string) => {
+    setMembers(prev => prev.map(m => m.id === id ? { ...m, name: newName } : m));
   };
 
   const handleLogMyShare = async () => {
-    if (perPersonEqual <= 0) return;
-
+    if (loggedShare) return;
     await addTransaction({
-      amount: Math.round(perPersonEqual * 100) / 100,
+      amount: perPersonEqual,
       currency,
-      categoryId: categories[0]?.id || 'cat-food',
+      categoryId: 'cat-others',
       date: new Date().toISOString().split('T')[0],
       time: new Date().toTimeString().split(' ')[0].substring(0, 5),
-      note: `Split Bill Share (${members.length} people)`,
-      paymentMethod: 'Split Bill',
+      note: `Split bill share for: ${members.map(m => m.name).join(', ')}`,
+      paymentMethod: 'UPI',
     });
-
-    confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 } });
     setLoggedShare(true);
+    confetti({
+      particleCount: 80,
+      spread: 60,
+      origin: { y: 0.8 }
+    });
+  };
+
+  const shareText = `Split Bill Summary:\nTotal: ${formatCurrency(totalWithTip, currency)}\nPer Person: ${formatCurrency(perPersonEqual, currency)}\n\nMembers:\n` + 
+    members.map(m => `- ${m.name}: ${formatCurrency(perPersonEqual, currency)} (${m.isPaid ? 'PAID' : 'PENDING'})`).join('\n');
+
+  const handleCopyShare = () => {
+    navigator.clipboard.writeText(shareText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div className="space-y-6 pb-24 max-w-full overflow-hidden">
       
       {/* Header */}
-      <div className="border-b border-hairline pb-3">
+      <div className="flex items-center justify-between border-b border-hairline pb-3">
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-brand-blue" />
-          <h2 className="text-xl font-display font-bold text-ink">
-            Split Bills
-          </h2>
+          <h2 className="text-xl font-display font-bold text-ink">Split Bills</h2>
         </div>
       </div>
 
@@ -98,17 +103,13 @@ export const SplitBillModal: React.FC = () => {
           <div className="space-y-1">
             <label className="text-xs font-mono text-muted-custom uppercase">Total Bill Amount</label>
             <div className="flex items-center gap-2">
-              <select
+              <CustomSelect
+                direction="down"
+                options={currencyOptions}
                 value={currency}
-                onChange={e => setCurrency(e.target.value as CurrencyCode)}
-                className="bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink cursor-pointer"
-              >
-                {TOP_CURRENCIES.map(c => (
-                  <option key={c.code} value={c.code}>
-                    {c.flag} {c.code}
-                  </option>
-                ))}
-              </select>
+                onChange={val => setCurrency(val as CurrencyCode)}
+                className="w-32 shrink-0"
+              />
 
               <input
                 type="number"
@@ -254,7 +255,7 @@ export const SplitBillModal: React.FC = () => {
           {/* Action Buttons */}
           <div className="space-y-2 pt-4 border-t border-hairline">
             <button
-              onClick={handleCopySummary}
+              onClick={handleCopyShare}
               className="w-full flex items-center justify-center gap-2 bg-surface-soft hover:border-ink border border-hairline text-ink font-mono text-xs py-2.5 rounded-full transition-all cursor-pointer"
             >
               <Copy className="w-3.5 h-3.5" />

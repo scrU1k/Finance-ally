@@ -3,6 +3,7 @@ import { CurrencyCode } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { TOP_CURRENCIES } from '../../services/currency';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
+import { CustomDatePicker } from '../common/CustomDatePicker';
 import { X, Check, Plane } from 'lucide-react';
 
 interface TripModalProps {
@@ -131,7 +132,7 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
               <div className="space-y-1">
                 <label className="text-xs font-mono text-muted-custom uppercase">Currency</label>
                 <div className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink flex items-center min-h-[38px]">
-                  {baseCurrency} (App Default)
+                  {baseCurrency}
                 </div>
               </div>
             )}
@@ -152,20 +153,16 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-mono text-muted-custom uppercase">Start Date</label>
-              <input
-                type="date"
+              <CustomDatePicker
                 value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink min-h-[38px]"
+                onChange={val => setStartDate(val)}
               />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-mono text-muted-custom uppercase">End Date</label>
-              <input
-                type="date"
+              <CustomDatePicker
                 value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink min-h-[38px]"
+                onChange={val => setEndDate(val)}
               />
             </div>
           </div>

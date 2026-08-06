@@ -3,8 +3,26 @@ import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
 import { generateEndOfMonthAudit } from '../../services/insightsEngine';
 import { formatCurrency } from '../../services/currency';
-import { PieChart, Award, AlertTriangle, CheckCircle, Calendar, HelpCircle, Mail, Save } from 'lucide-react';
+import { PieChart, Award, AlertTriangle, CheckCircle, Calendar, HelpCircle, Mail, Save, X } from 'lucide-react';
 import { saveUserProfile } from '../../services/auth';
+import { CustomSelect, SelectOption } from '../common/CustomSelect';
+
+const MONTHS = [
+  { value: '01', label: 'January' },
+  { value: '02', label: 'February' },
+  { value: '03', label: 'March' },
+  { value: '04', label: 'April' },
+  { value: '05', label: 'May' },
+  { value: '06', label: 'June' },
+  { value: '07', label: 'July' },
+  { value: '08', label: 'August' },
+  { value: '09', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' },
+];
+
+const YEARS = ['2026', '2025', '2024', '2023'];
 
 export const EndOfMonthAudit: React.FC = () => {
   const { transactions, categories, baseCurrency } = useFinance();
@@ -12,6 +30,7 @@ export const EndOfMonthAudit: React.FC = () => {
   const currentMonthKey = new Date().toISOString().substring(0, 7); // YYYY-MM
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
   const [showGradeExplanation, setShowGradeExplanation] = useState(false);
+  const [isMonthModalOpen, setIsMonthModalOpen] = useState(false);
 
   // Email Config State
   const [email, setEmail] = useState(user?.emailForReport || '');
@@ -31,6 +50,17 @@ export const EndOfMonthAudit: React.FC = () => {
     }
   };
 
+  const [year, month] = selectedMonth.split('-');
+  const currentMonthObj = MONTHS.find(m => m.value === month);
+  const currentMonthLabel = currentMonthObj ? currentMonthObj.label : 'Select Month';
+
+  const frequencyOptions: SelectOption[] = [
+    { value: 'weekly', label: 'Weekly Spending Summary' },
+    { value: 'monthly', label: 'Monthly Spending Digest' },
+    { value: 'annually', label: 'Annual Audit Report' },
+    { value: 'none', label: 'Disabled' },
+  ];
+
   return (
     <div className="space-y-6 pb-24 max-w-full overflow-hidden">
       
@@ -43,15 +73,15 @@ export const EndOfMonthAudit: React.FC = () => {
           </h2>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-custom" />
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={e => setSelectedMonth(e.target.value)}
-            className="bg-surface-card border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink focus:outline-none focus:border-ink"
-          />
-        </div>
+        {/* Custom Styled Month & Year Chip */}
+        <button
+          type="button"
+          onClick={() => setIsMonthModalOpen(true)}
+          className="flex items-center gap-1.5 bg-surface-card border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink cursor-pointer hover:border-ink"
+        >
+          <Calendar className="w-3.5 h-3.5 text-brand-purple" />
+          <span>{currentMonthLabel} {year}</span>
+        </button>
       </div>
 
       {/* Main Audit Card */}
@@ -61,7 +91,7 @@ export const EndOfMonthAudit: React.FC = () => {
         <div className="flex items-center justify-between border-b border-hairline pb-4">
           <div>
             <div className="text-[10px] font-mono text-muted-custom uppercase">AUDIT PERIOD REPORT</div>
-            <div className="text-2xl font-display font-bold text-ink">{selectedMonth} Audit</div>
+            <div className="text-2xl font-display font-bold text-ink">{currentMonthLabel} {year} Audit</div>
           </div>
 
           {/* Health Score Badge & Interactive Grade Explanation */}
@@ -73,7 +103,7 @@ export const EndOfMonthAudit: React.FC = () => {
                   <span>Health Grade</span>
                   <button
                     onClick={() => setShowGradeExplanation(!showGradeExplanation)}
-                    className="text-brand-purple hover:underline"
+                    className="text-brand-purple hover:underline cursor-pointer"
                     title="How is this grade decided?"
                   >
                     <HelpCircle className="w-3 h-3" />
@@ -190,7 +220,7 @@ export const EndOfMonthAudit: React.FC = () => {
 
       </div>
 
-      {/* Periodic Audit Report Email Settings (Moved to Bottom Section of Financial Audit) */}
+      {/* Periodic Audit Report Email Settings */}
       <div className="dotgui-card p-5 bg-surface-card space-y-3">
         <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
           <Mail className="w-4 h-4 text-brand-mint" />
@@ -211,16 +241,12 @@ export const EndOfMonthAudit: React.FC = () => {
 
           <div className="space-y-1">
             <label className="text-[10px] font-mono text-muted-custom uppercase">Report Frequency</label>
-            <select
+            <CustomSelect
+              direction="up"
+              options={frequencyOptions}
               value={frequency}
-              onChange={e => setFrequency(e.target.value as any)}
-              className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink"
-            >
-              <option value="weekly">Weekly Spending Summary</option>
-              <option value="monthly">Monthly Spending Digest</option>
-              <option value="annually">Annual Audit Report</option>
-              <option value="none">Disabled</option>
-            </select>
+              onChange={val => setFrequency(val as any)}
+            />
           </div>
         </div>
 
@@ -237,6 +263,90 @@ export const EndOfMonthAudit: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Centered Glassmorphic Month & Year Selection Dialog */}
+      {isMonthModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-canvas/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setIsMonthModalOpen(false)}
+        >
+          <div
+            className="dotgui-glass border border-hairline rounded-2xl shadow-2xl p-5 space-y-4 bg-surface-card/95 backdrop-blur-xl w-80 max-w-[92vw]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-hairline pb-2">
+              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-brand-purple" /> Audit Month & Year
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsMonthModalOpen(false)}
+                className="p-1 text-muted-custom hover:text-ink cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Month Selection */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Month</label>
+                <div className="space-y-1 max-h-48 overflow-y-auto no-scrollbar border border-hairline/60 rounded-xl p-1 bg-surface-soft">
+                  {MONTHS.map(m => {
+                    const isSel = month === m.value;
+                    return (
+                      <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => setSelectedMonth(`${year}-${m.value}`)}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                          isSel
+                            ? 'border-brand-purple bg-surface-card text-brand-purple font-bold'
+                            : 'text-body-custom hover:bg-surface-card'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Year Selection */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Year</label>
+                <div className="space-y-1 max-h-48 overflow-y-auto no-scrollbar border border-hairline/60 rounded-xl p-1 bg-surface-soft">
+                  {YEARS.map(y => {
+                    const isSel = year === y;
+                    return (
+                      <button
+                        key={y}
+                        type="button"
+                        onClick={() => setSelectedMonth(`${y}-${month}`)}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                          isSel
+                            ? 'border-brand-purple bg-surface-card text-brand-purple font-bold'
+                            : 'text-body-custom hover:bg-surface-card'
+                        }`}
+                      >
+                        {y}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsMonthModalOpen(false)}
+              className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft py-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer"
+            >
+              Apply Filter
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );
