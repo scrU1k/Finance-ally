@@ -117,9 +117,20 @@ export async function deleteTransaction(id: string): Promise<void> {
 
 export async function loadCategories(): Promise<Category[]> {
   const local = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
-  if (local) return JSON.parse(local);
-  localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(DEFAULT_CATEGORIES));
-  return DEFAULT_CATEGORIES;
+  let categories: Category[] = local ? JSON.parse(local) : [];
+
+  // Always merge DEFAULT_CATEGORIES to ensure updated hex colors & new categories (e.g. cat-others) are synced
+  DEFAULT_CATEGORIES.forEach(def => {
+    const existingIdx = categories.findIndex(c => c.id === def.id);
+    if (existingIdx >= 0) {
+      categories[existingIdx] = { ...categories[existingIdx], color: def.color, name: def.name };
+    } else {
+      categories.push(def);
+    }
+  });
+
+  localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+  return categories;
 }
 
 export async function saveCategory(category: Category): Promise<void> {

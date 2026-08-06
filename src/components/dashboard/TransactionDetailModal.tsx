@@ -41,10 +41,15 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
-      
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150 cursor-pointer"
+    >
       {/* Glass Popout Card */}
-      <div className="max-w-lg w-full dotgui-glass border border-hairline rounded-2xl p-6 shadow-2xl space-y-6 relative max-h-[90vh] overflow-y-auto">
+      <div
+        onClick={e => e.stopPropagation()}
+        className="max-w-lg w-full dotgui-glass border border-hairline rounded-2xl p-6 shadow-2xl space-y-6 relative max-h-[90vh] overflow-y-auto cursor-default"
+      >
         
         {/* Sticky Exit FAB */}
         <button

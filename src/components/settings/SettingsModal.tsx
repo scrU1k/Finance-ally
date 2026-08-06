@@ -142,19 +142,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      {/* Modal Card Window */}
-      <div className="max-w-2xl w-full dotgui-glass border border-hairline rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto relative">
-        
-        {/* Inside FAB Exit Button (Fits completely inside Settings Card Boundary) */}
-        <button
-          onClick={onClose}
-          className="absolute top-5 right-5 z-50 p-2 rounded-full bg-surface-soft border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-md active:scale-95 cursor-pointer"
-          title="Close Settings"
-        >
-          <X className="w-4 h-4" />
-        </button>
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto cursor-pointer"
+    >
+      {/* Fixed FAB Exit Cross Button (stuck to screen layer, positioned lower for aesthetic) */}
+      <button
+        onClick={onClose}
+        className="fixed top-12 right-8 z-[60] p-2.5 rounded-full dotgui-glass border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer bg-surface-card/90"
+        title="Close Settings"
+      >
+        <X className="w-4.5 h-4.5" />
+      </button>
 
+      {/* Modal Card Window */}
+      <div
+        onClick={e => e.stopPropagation()}
+        className="max-w-2xl w-full dotgui-glass border border-hairline rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto relative cursor-default"
+      >
+        
         {/* Header */}
         <div className="flex items-center justify-between border-b border-hairline pb-4 pr-12">
           <div className="flex items-center gap-2">

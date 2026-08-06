@@ -48,11 +48,11 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
   // 1. MINIMIZED GLASSMORPHIC PILL VIEW
   if (isMinimized) {
     return (
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 max-w-[92vw]">
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 max-w-[92vw]">
         {/* Glassmorphic Spending Total Pill */}
         <button
           onClick={() => setIsMinimized(false)}
-          className="flex items-center gap-2 dotgui-glass px-4 py-2 rounded-full text-ink font-mono text-xs font-semibold shadow-xl hover:scale-105 active:scale-95 transition-all group cursor-pointer"
+          className="flex items-center gap-2.5 dotgui-glass border border-hairline px-4 py-2 rounded-full text-ink font-mono text-xs font-semibold shadow-2xl hover:scale-105 active:scale-95 transition-all group cursor-pointer bg-surface-card/90 backdrop-blur-xl"
           title="Tap to Expand Spending Bar"
         >
           <ChevronUp className="w-4 h-4 text-brand-mint group-hover:-translate-y-0.5 transition-transform" />
@@ -62,46 +62,46 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
         {/* Border Highlighted + Button */}
         <button
           onClick={onOpenQuickAdd}
-          className="p-2.5 border border-brand-blue text-brand-blue bg-surface-card/90 backdrop-blur-md rounded-full shadow-xl hover:bg-surface-soft active:scale-95 transition-all shrink-0 cursor-pointer"
+          className="p-2.5 border border-brand-blue text-brand-blue bg-surface-card/90 backdrop-blur-xl rounded-full shadow-2xl hover:bg-surface-soft active:scale-95 transition-all shrink-0 cursor-pointer"
           title="Add Expense"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-5 h-5" />
         </button>
       </div>
     );
   }
 
-  // 2. EXPANDED PREVIOUS SLEEK GLASSMORPHIC BOTTOM PERIOD BAR VIEW (No Chevron Icon)
+  // 2. EXPANDED ORIGINAL SLEEK GLASSMORPHIC BOTTOM PERIOD BAR VIEW (No Chevron Icon)
   return (
     <div
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="fixed bottom-0 left-0 right-0 z-40 dotgui-glass border-t border-hairline px-4 py-3 sm:px-6 sm:py-4 shadow-2xl max-w-full overflow-hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 dotgui-glass border-t border-hairline px-4 py-3 sm:px-6 sm:py-4 shadow-2xl max-w-full overflow-hidden bg-surface-card/90 backdrop-blur-xl"
     >
-      <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+      <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
         
         {/* Real-time Spending Total Display */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-full border border-brand-blue/30 text-brand-blue flex items-center justify-center shrink-0">
-            <TrendingDown className="w-4 h-4" />
+          <div className="w-10 h-10 rounded-2xl border border-brand-blue/30 text-brand-blue flex items-center justify-center shrink-0 bg-surface-soft/60">
+            <TrendingDown className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] font-mono text-muted-custom uppercase tracking-wider truncate">
-              Total Spent ({period})
+            <div className="text-[10px] font-mono text-muted-custom uppercase tracking-wider truncate font-semibold">
+              Spent ({period})
             </div>
-            <div className="text-lg sm:text-xl font-display font-bold text-ink tracking-tight truncate">
+            <div className="text-xl sm:text-2xl font-display font-bold text-ink tracking-tight truncate">
               {formatCurrency(periodTotalSpent, baseCurrency)}
             </div>
           </div>
 
-          <div className="hidden sm:inline-block text-[11px] font-mono text-muted-custom bg-surface-soft px-3 py-1 rounded-full border border-hairline shrink-0 ml-1">
+          <div className="hidden sm:inline-block text-xs font-mono text-muted-custom bg-surface-soft px-3 py-1 rounded-full border border-hairline shrink-0 ml-2">
             {filteredTransactions.length} items
           </div>
         </div>
 
-        {/* Period Selector Dropdown & Border-Highlighted Log Button */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        {/* Period Selector & Large + Log Button */}
+        <div className="flex items-center gap-3 shrink-0">
           
           {/* Dropdown Period Selector */}
           <div className="relative">
@@ -109,14 +109,14 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
               <button
                 type="button"
                 onClick={() => setIsPeriodSelectorOpen(true)}
-                className="flex items-center gap-1.5 bg-surface-soft hover:border-ink border border-hairline px-3.5 py-1.5 rounded-full text-xs font-mono font-bold text-ink transition-all cursor-pointer"
+                className="flex items-center gap-1.5 bg-surface-soft hover:border-ink border border-hairline px-4 py-2 rounded-full text-xs font-mono font-bold text-ink transition-all cursor-pointer shadow-sm"
               >
                 <span>{currentPeriodLabel}</span>
-                <ChevronDown className="w-3 h-3 text-muted-custom" />
+                <ChevronDown className="w-3.5 h-3.5 text-muted-custom" />
               </button>
             ) : (
               /* Expanded Horizontal Selection */
-              <div className="flex items-center bg-surface-soft p-1 rounded-full border border-hairline gap-1 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center bg-surface-soft p-1 rounded-full border border-hairline gap-1 animate-in fade-in zoom-in-95 duration-150 shadow-md">
                 {periods.map(p => (
                   <button
                     key={p.key}
@@ -127,7 +127,7 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
                     }}
                     className={`px-3 py-1 rounded-full text-xs font-mono font-medium transition-all cursor-pointer ${
                       period === p.key
-                        ? 'border border-ink text-ink font-bold bg-surface-card'
+                        ? 'border border-ink text-ink font-bold bg-surface-card shadow-sm'
                         : 'text-body-custom hover:text-ink'
                     }`}
                   >
@@ -138,14 +138,14 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
             )}
           </div>
 
-          {/* Border-Highlighted + Log Button */}
+          {/* Large Easy-to-Tap + Log Button */}
           <button
             onClick={onOpenQuickAdd}
-            className="flex items-center gap-1.5 border border-brand-blue text-brand-blue bg-surface-card/90 hover:bg-surface-soft px-4 py-1.5 rounded-full text-xs font-mono font-bold shadow-sm active:scale-95 transition-all cursor-pointer"
+            className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 border border-brand-blue text-brand-blue bg-surface-card/90 hover:bg-surface-soft px-4 py-1.5 sm:py-2 rounded-2xl sm:rounded-full text-xs font-mono font-bold shadow-md active:scale-95 transition-all cursor-pointer shrink-0"
             title="Log New Expense"
           >
-            <Plus className="w-4 h-4" />
-            <span>Log</span>
+            <Plus className="w-4 h-4 sm:w-4 sm:h-4 stroke-[2.5]" />
+            <span className="text-[10px] sm:text-xs">Log</span>
           </button>
 
         </div>
