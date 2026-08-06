@@ -77,7 +77,7 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="fixed bottom-0 left-0 right-0 z-40 dotgui-glass border-t border-hairline px-3 py-3 sm:px-6 sm:py-4 shadow-2xl max-w-full overflow-hidden bg-surface-card/90 backdrop-blur-xl"
+      className="fixed bottom-0 left-0 right-0 z-40 dotgui-glass border-t border-hairline px-3 py-4 sm:px-6 sm:py-5 shadow-2xl max-w-full overflow-hidden bg-surface-card/90 backdrop-blur-xl"
     >
       <div className={`max-w-5xl mx-auto flex items-center justify-between gap-2.5 ${isPeriodSelectorOpen ? 'overflow-x-auto no-scrollbar' : 'overflow-hidden'}`}>
         

@@ -59,9 +59,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         <ChevronDown className={`w-3.5 h-3.5 text-muted-custom transition-transform duration-150 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* Glass Popover Menu */}
+      {/* Glass Popover Menu (Appears ABOVE selection area) */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-[70] dotgui-glass border border-hairline rounded-xl shadow-2xl p-1 max-h-56 overflow-y-auto space-y-0.5 animate-in fade-in zoom-in-95 duration-100 bg-surface-card/95 backdrop-blur-xl">
+        <div className="absolute left-0 right-0 bottom-full mb-1.5 z-[70] dotgui-glass border border-hairline rounded-xl shadow-2xl p-1 max-h-56 overflow-y-auto space-y-0.5 animate-in fade-in zoom-in-95 duration-100 bg-surface-card/95 backdrop-blur-xl">
           {options.map(opt => {
             const isSelected = opt.value === value;
             return (

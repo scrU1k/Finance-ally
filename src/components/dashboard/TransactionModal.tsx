@@ -3,6 +3,8 @@ import { Transaction, Category, Trip, CurrencyCode } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { TOP_CURRENCIES } from '../../services/currency';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
+import { CustomDatePicker } from '../common/CustomDatePicker';
+import { CustomTimePicker } from '../common/CustomTimePicker';
 import { X, Check, Calendar, Clock, CreditCard, Plane } from 'lucide-react';
 
 interface TransactionModalProps {
@@ -206,23 +208,18 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
               <label className="text-[11px] font-mono text-muted-custom uppercase flex items-center gap-1">
                 <Calendar className="w-3 h-3" /> Date
               </label>
-              <input
-                type="date"
+              <CustomDatePicker
                 value={date}
-                onChange={e => setDate(e.target.value)}
-                required
-                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink min-h-[38px]"
+                onChange={val => setDate(val)}
               />
             </div>
             <div className="space-y-1">
               <label className="text-[11px] font-mono text-muted-custom uppercase flex items-center gap-1">
                 <Clock className="w-3 h-3" /> Time
               </label>
-              <input
-                type="time"
+              <CustomTimePicker
                 value={time}
-                onChange={e => setTime(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink min-h-[38px]"
+                onChange={val => setTime(val)}
               />
             </div>
           </div>

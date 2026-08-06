@@ -4,6 +4,7 @@ import { Transaction } from '../../types';
 import { TransactionCard } from './TransactionCard';
 import { TransactionDetailModal } from './TransactionDetailModal';
 import { LiveSpendChart } from './LiveSpendChart';
+import { CustomDatePicker } from '../common/CustomDatePicker';
 import { Search, Calendar as CalendarIcon, Sparkles, Plus, CalendarRange } from 'lucide-react';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 
@@ -135,31 +136,12 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             <span>{showCharts ? 'Hide Charts' : 'Show Charts'}</span>
           </button>
 
-          {/* Date Picker Toggle Button */}
-          <button
-            onClick={() => setShowDatePicker(!showDatePicker)}
-            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
-              showDatePicker
-                ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
-                : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
-            }`}
-            title="Go to specific date"
-          >
-            <CalendarRange className="w-3.5 h-3.5 text-brand-blue" />
-            <span>Date</span>
-          </button>
-
-          {/* Hidden HTML Date Picker Popover */}
-          {showDatePicker && (
-            <div className="absolute right-0 top-10 z-20 bg-surface-card border border-hairline p-3 rounded-xl shadow-xl animate-in fade-in duration-100 dotgui-glass">
-              <label className="block text-[10px] font-mono text-muted-custom uppercase mb-1 font-bold">Select Date</label>
-              <input
-                type="date"
-                onChange={handleDateSelect}
-                className="bg-surface-soft border border-hairline rounded-lg px-2 py-1 text-xs font-mono text-ink focus:outline-none cursor-pointer"
-              />
-            </div>
-          )}
+          {/* Custom App-Styled Date Picker */}
+          <CustomDatePicker
+            value={searchQuery.match(/^\d{4}-\d{2}-\d{2}$/) ? searchQuery : ''}
+            onChange={(selectedDate) => setSearchQuery(selectedDate)}
+            className="w-36"
+          />
         </div>
       </div>
 

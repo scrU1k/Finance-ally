@@ -411,13 +411,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             ))}
           </div>
 
-          <div className="flex flex-wrap gap-2 pt-2">
+          {/* Hair-thin Section Divider above Typography */}
+          <div className="border-t border-hairline/60 pt-2" />
+
+          {/* 2-Column Typography Grid */}
+          <div className="grid grid-cols-2 gap-2">
             {fonts.map(f => (
               <button
                 key={f.id}
                 onClick={() => setFontFamily(f.id)}
                 style={f.style}
-                className={`px-3.5 py-2 rounded-full text-xs border transition-all cursor-pointer ${
+                className={`px-3 py-2 rounded-xl text-xs border transition-all text-center truncate cursor-pointer ${
                   fontFamily === f.id
                     ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
                     : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
@@ -431,27 +435,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
         {/* 5. BACKUP & FILE IMPORT DATA */}
         <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
-          <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-            <Database className="w-3.5 h-3.5 text-brand-yellow" />
-            <span>Offline Backup & Restore</span>
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+              <Database className="w-3.5 h-3.5 text-brand-yellow" />
+              <span>Offline Backup & Restore</span>
+            </h3>
+            {/* .JSON static indicator badge */}
+            <span className="px-2.5 py-0.5 rounded-full border border-hairline bg-surface-card text-[10px] font-mono font-bold text-muted-custom">
+              .JSON
+            </span>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Export JSON File */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Export Button */}
             <button
               onClick={handleExport}
-              className="bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2.5 rounded-xl transition-all cursor-pointer font-bold"
+              className="bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2 rounded-xl transition-all cursor-pointer font-bold text-center"
             >
-              Export JSON Backup
+              Export
             </button>
 
-            {/* Direct File Picker Import Button */}
+            {/* Import Button */}
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer font-bold"
+              className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer font-bold"
             >
               <Upload className="w-3.5 h-3.5" />
-              <span>Import .json Backup File</span>
+              <span>Import</span>
             </button>
             <input
               type="file"
