@@ -92,7 +92,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
               type="button"
               onClick={() => setShowCharts(!showCharts)}
               className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                showCharts
+                !showCharts
                   ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
                   : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
               }`}
