@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CurrencyCode } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { TOP_CURRENCIES } from '../../services/currency';
+import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { X, Check, Plane } from 'lucide-react';
 
 interface TripModalProps {
@@ -41,6 +42,11 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
 
     onClose();
   };
+
+  const currencyOptions: SelectOption[] = TOP_CURRENCIES.map(c => ({
+    value: c.code,
+    label: `${c.flag} ${c.code}`,
+  }));
 
   return (
     <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-md flex items-center justify-center p-4">
@@ -96,7 +102,7 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
               placeholder="e.g. Summer Vacation, Beach Trip"
               required
               autoFocus
-              className="w-full bg-surface-soft border border-hairline rounded-xl px-4 py-2 text-sm text-ink focus:outline-none focus:border-ink font-sans-custom"
+              className="w-full bg-surface-soft border border-hairline rounded-xl px-4 py-2 text-sm text-ink focus:outline-none focus:border-ink font-sans-custom min-h-[38px]"
             />
           </div>
 
@@ -107,7 +113,7 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
               value={destination}
               onChange={e => setDestination(e.target.value)}
               placeholder="e.g. Goa, Paris, Tokyo"
-              className="w-full bg-surface-soft border border-hairline rounded-xl px-4 py-2 text-sm text-ink focus:outline-none focus:border-ink"
+              className="w-full bg-surface-soft border border-hairline rounded-xl px-4 py-2 text-sm text-ink focus:outline-none focus:border-ink min-h-[38px]"
             />
           </div>
 
@@ -115,22 +121,16 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
             {tripType === 'foreign' ? (
               <div className="space-y-1">
                 <label className="text-xs font-mono text-muted-custom uppercase">Foreign Currency</label>
-                <select
+                <CustomSelect
+                  options={currencyOptions}
                   value={currency}
-                  onChange={e => setCurrency(e.target.value as CurrencyCode)}
-                  className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink cursor-pointer"
-                >
-                  {TOP_CURRENCIES.map(c => (
-                    <option key={c.code} value={c.code}>
-                      {c.flag} {c.code}
-                    </option>
-                  ))}
-                </select>
+                  onChange={val => setCurrency(val as CurrencyCode)}
+                />
               </div>
             ) : (
               <div className="space-y-1">
                 <label className="text-xs font-mono text-muted-custom uppercase">Currency</label>
-                <div className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink">
+                <div className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink flex items-center min-h-[38px]">
                   {baseCurrency} (App Default)
                 </div>
               </div>
@@ -144,7 +144,7 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
                 onChange={e => setBudget(e.target.value)}
                 placeholder="15000"
                 required
-                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink"
+                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink min-h-[38px]"
               />
             </div>
           </div>
@@ -156,7 +156,7 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink"
+                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink min-h-[38px]"
               />
             </div>
             <div className="space-y-1">
@@ -165,7 +165,7 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink"
+                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink min-h-[38px]"
               />
             </div>
           </div>

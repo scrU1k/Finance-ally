@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Transaction, Category, Trip, CurrencyCode } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { TOP_CURRENCIES } from '../../services/currency';
+import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { X, Check, Calendar, Clock, CreditCard, Plane } from 'lucide-react';
 
 interface TransactionModalProps {
@@ -80,6 +81,27 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
     onClose();
   };
 
+  const currencyOptions: SelectOption[] = TOP_CURRENCIES.map(c => ({
+    value: c.code,
+    label: `${c.flag} ${c.code} (${c.symbol})`,
+  }));
+
+  const paymentOptions: SelectOption[] = [
+    { value: 'UPI', label: 'UPI (GPay / PhonePe / Paytm)' },
+    { value: 'Credit Card', label: 'Credit Card' },
+    { value: 'Debit Card', label: 'Debit Card' },
+    { value: 'Cash', label: 'Cash' },
+    { value: 'Net Banking', label: 'Net Banking' },
+  ];
+
+  const tripOptions: SelectOption[] = [
+    { value: '', label: 'No Trip Tag (Default)' },
+    ...trips.map(t => ({
+      value: t.id,
+      label: `${t.name} (${t.currency})`,
+    })),
+  ];
+
   return (
     <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
       <div className="max-w-lg w-full dotgui-glass border border-hairline rounded-2xl p-6 shadow-2xl space-y-5">
@@ -103,17 +125,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
           <div className="space-y-1.5">
             <label className="text-xs font-mono text-muted-custom uppercase">Amount Spent</label>
             <div className="flex items-center gap-2">
-              <select
+              <CustomSelect
+                options={currencyOptions}
                 value={currency}
-                onChange={e => setCurrency(e.target.value as CurrencyCode)}
-                className="bg-surface-soft border border-hairline rounded-xl px-3 py-2.5 text-sm font-mono text-ink focus:outline-none focus:border-ink cursor-pointer"
-              >
-                {TOP_CURRENCIES.map(c => (
-                  <option key={c.code} value={c.code}>
-                    {c.flag} {c.code} ({c.symbol})
-                  </option>
-                ))}
-              </select>
+                onChange={val => setCurrency(val as CurrencyCode)}
+                className="w-40 shrink-0"
+              />
 
               <input
                 type="number"
@@ -123,7 +140,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
                 placeholder="0.00"
                 autoFocus
                 required
-                className="w-full bg-surface-soft border border-hairline rounded-xl px-4 py-2.5 text-xl font-display font-bold text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom"
+                className="w-full bg-surface-soft border border-hairline rounded-xl px-4 py-2 text-xl font-display font-bold text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom min-h-[38px]"
               />
             </div>
           </div>
@@ -137,7 +154,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
               onChange={e => setNote(e.target.value)}
               placeholder="e.g. Starbucks Coffee, Uber Ride, ZARA shirt"
               required
-              className="w-full bg-surface-soft border border-hairline rounded-xl px-4 py-2 text-sm text-ink focus:outline-none focus:border-ink font-sans-custom"
+              className="w-full bg-surface-soft border border-hairline rounded-xl px-4 py-2 text-sm text-ink focus:outline-none focus:border-ink font-sans-custom min-h-[38px]"
             />
           </div>
 
@@ -194,7 +211,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
                 value={date}
                 onChange={e => setDate(e.target.value)}
                 required
-                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink"
+                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink min-h-[38px]"
               />
             </div>
             <div className="space-y-1">
@@ -205,7 +222,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
                 type="time"
                 value={time}
                 onChange={e => setTime(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink"
+                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink min-h-[38px]"
               />
             </div>
           </div>
@@ -216,35 +233,22 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
               <label className="text-[11px] font-mono text-muted-custom uppercase flex items-center gap-1">
                 <CreditCard className="w-3 h-3" /> Payment Method
               </label>
-              <select
+              <CustomSelect
+                options={paymentOptions}
                 value={paymentMethod}
-                onChange={e => setPaymentMethod(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink cursor-pointer"
-              >
-                <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
-                <option value="Credit Card">Credit Card</option>
-                <option value="Debit Card">Debit Card</option>
-                <option value="Cash">Cash</option>
-                <option value="Net Banking">Net Banking</option>
-              </select>
+                onChange={val => setPaymentMethod(val)}
+              />
             </div>
 
             <div className="space-y-1">
               <label className="text-[11px] font-mono text-muted-custom uppercase flex items-center gap-1">
                 <Plane className="w-3 h-3" /> Trip Tag (Optional)
               </label>
-              <select
+              <CustomSelect
+                options={tripOptions}
                 value={tripId}
-                onChange={e => setTripId(e.target.value)}
-                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink cursor-pointer"
-              >
-                <option value="">No Trip Tag (Default)</option>
-                {trips.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.currency})
-                  </option>
-                ))}
-              </select>
+                onChange={val => setTripId(val)}
+              />
             </div>
           </div>
 

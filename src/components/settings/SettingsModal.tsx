@@ -4,6 +4,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { useTheme, ThemeMode, FontFamily } from '../../context/ThemeContext';
 import { TOP_CURRENCIES, convertCurrencyAmount, formatCurrency } from '../../services/currency';
 import { exportFullDataBackup, importFullDataBackup } from '../../services/db';
+import { CustomSelect } from '../common/CustomSelect';
 import { CurrencyCode } from '../../types';
 import { X, Settings as SettingsIcon, RefreshCw, Palette, Database, RefreshCcw, ArrowRightLeft, Lock, Eye, EyeOff, Upload } from 'lucide-react';
 
@@ -304,28 +305,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-muted-custom uppercase">From</label>
-              <select
+              <CustomSelect
+                options={TOP_CURRENCIES.map(c => ({ value: c.code, label: `${c.flag} ${c.code}` }))}
                 value={calcFrom}
-                onChange={e => setCalcFrom(e.target.value as CurrencyCode)}
-                className="w-full bg-surface-card border border-hairline rounded-xl px-2 py-1.5 text-xs font-mono text-ink cursor-pointer"
-              >
-                {TOP_CURRENCIES.map(c => (
-                  <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-                ))}
-              </select>
+                onChange={val => setCalcFrom(val as CurrencyCode)}
+              />
             </div>
 
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-muted-custom uppercase">To</label>
-              <select
+              <CustomSelect
+                options={TOP_CURRENCIES.map(c => ({ value: c.code, label: `${c.flag} ${c.code}` }))}
                 value={calcTo}
-                onChange={e => setCalcTo(e.target.value as CurrencyCode)}
-                className="w-full bg-surface-card border border-hairline rounded-xl px-2 py-1.5 text-xs font-mono text-ink cursor-pointer"
-              >
-                {TOP_CURRENCIES.map(c => (
-                  <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-                ))}
-              </select>
+                onChange={val => setCalcTo(val as CurrencyCode)}
+              />
             </div>
           </div>
 
@@ -349,15 +342,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-muted-custom uppercase">Select New Base Currency</label>
-              <select
+              <CustomSelect
+                options={TOP_CURRENCIES.map(c => ({ value: c.code, label: `${c.flag} ${c.code} (${c.symbol})` }))}
                 value={targetCurrency}
-                onChange={e => setTargetCurrency(e.target.value as CurrencyCode)}
-                className="w-full bg-surface-card border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink cursor-pointer"
-              >
-                {TOP_CURRENCIES.map(c => (
-                  <option key={c.code} value={c.code}>{c.flag} {c.code} ({c.symbol})</option>
-                ))}
-              </select>
+                onChange={val => setTargetCurrency(val as CurrencyCode)}
+              />
             </div>
 
             <div className="space-y-1">

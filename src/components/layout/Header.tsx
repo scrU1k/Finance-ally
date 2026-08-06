@@ -33,17 +33,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenScanner, o
 
           {/* Active Trip Vault Badge */}
           {activeTripVault ? (
-            <div className="flex items-center gap-1.5 bg-brand-coral/10 border border-brand-coral/30 px-2.5 py-0.5 rounded-full text-[11px] font-mono text-brand-coral truncate">
-              <Plane className="w-3 h-3 shrink-0" />
+            <button
+              onClick={() => setActiveTripVault(null)}
+              className="flex items-center gap-1.5 bg-brand-coral/10 hover:bg-brand-coral/20 border border-brand-coral/40 px-2.5 py-1 rounded-full text-[11px] font-mono text-brand-coral truncate transition-all cursor-pointer font-bold"
+              title="Click to Exit Trip Vault & Return to Default Wallet"
+            >
+              <Plane className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{activeTripVault.name} ({activeTripVault.currency})</span>
-              <button
-                onClick={() => setActiveTripVault(null)}
-                className="ml-1 text-brand-coral hover:text-white font-bold text-xs shrink-0"
-                title="Exit Trip Vault"
-              >
-                ✕
-              </button>
-            </div>
+              <span className="ml-1 text-xs font-bold shrink-0">✕</span>
+            </button>
           ) : (
             <div className="hidden md:flex items-center gap-1.5 bg-surface-card border border-hairline px-2.5 py-0.5 rounded-full text-[11px] font-mono text-muted-custom">
               <Shield className="w-3 h-3 text-brand-mint" />
