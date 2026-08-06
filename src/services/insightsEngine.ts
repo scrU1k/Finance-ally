@@ -8,7 +8,7 @@ export function generateSmartSpendingSuggestions(
 ): string[] {
   const suggestions: string[] = [];
   if (transactions.length === 0) {
-    return ['Log your daily expenses to unlock AI-powered spending velocity insights and budget alerts!'];
+    return ['Log your daily expenses to unlock spending velocity insights and budget alerts!'];
   }
 
   // Calculate totals

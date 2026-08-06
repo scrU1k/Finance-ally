@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { Transaction } from '../../types';
 import { TransactionCard } from './TransactionCard';
@@ -20,6 +20,25 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
   const [showCharts, setShowCharts] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDetailTx, setSelectedDetailTx] = useState<Transaction | null>(null);
+
+  const datePickerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+        setShowDatePicker(false);
+      }
+    };
+
+    if (showDatePicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showDatePicker]);
 
   const formatDateHeader = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -102,11 +121,11 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2 relative">
+        <div className="flex items-center gap-2 relative" ref={datePickerRef}>
           {/* Hide/Show Charts Button */}
           <button
             onClick={() => setShowCharts(!showCharts)}
-            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
               showCharts
                 ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
@@ -119,7 +138,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
           {/* Date Picker Toggle Button */}
           <button
             onClick={() => setShowDatePicker(!showDatePicker)}
-            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
               showDatePicker
                 ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
@@ -137,7 +156,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
               <input
                 type="date"
                 onChange={handleDateSelect}
-                className="bg-surface-soft border border-hairline rounded-lg px-2 py-1 text-xs font-mono text-ink focus:outline-none"
+                className="bg-surface-soft border border-hairline rounded-lg px-2 py-1 text-xs font-mono text-ink focus:outline-none cursor-pointer"
               />
             </div>
           )}

@@ -170,6 +170,23 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
             </div>
           </div>
 
+          {/* Custom Tag Name for Others */}
+          {categoryId === 'cat-others' && (
+            <div className="space-y-1.5 bg-surface-soft p-3 rounded-xl border border-hairline animate-in fade-in duration-150">
+              <label className="text-[11px] font-mono text-muted-custom uppercase font-bold">Custom Tag Name</label>
+              <input
+                type="text"
+                value={note.startsWith('Custom: ') ? note.split('Custom: ')[1] : ''}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val) setNote(`Custom: ${val}`);
+                }}
+                placeholder="e.g. Pet Care, Hobbies, Subscriptions"
+                className="w-full bg-surface-card border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink focus:outline-none focus:border-ink"
+              />
+            </div>
+          )}
+
           {/* Date & Time */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">

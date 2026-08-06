@@ -7,13 +7,14 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-food', name: 'Food & Drinks', color: '#ee5f1c', icon: 'Utensils', isDefault: true, budgetLimit: 500 },
   { id: 'cat-groceries', name: 'Groceries', color: '#f2b300', icon: 'ShoppingCart', isDefault: true, budgetLimit: 400 },
   { id: 'cat-transport', name: 'Transport', color: '#2b6be4', icon: 'Car', isDefault: true, budgetLimit: 250 },
-  { id: 'cat-electronics', name: 'Electronics', color: '#9d5bea', icon: 'Laptop', isDefault: true, budgetLimit: 300 },
-  { id: 'cat-clothing', name: 'Clothing', color: '#c9b2f5', icon: 'Shirt', isDefault: true, budgetLimit: 200 },
-  { id: 'cat-housing', name: 'Housing & Bills', color: '#3ea45c', icon: 'Home', isDefault: true, budgetLimit: 1200 },
-  { id: 'cat-entertainment', name: 'Entertainment', color: '#ff0055', icon: 'Film', isDefault: true, budgetLimit: 150 },
-  { id: 'cat-health', name: 'Health', color: '#00f0ff', icon: 'Activity', isDefault: true, budgetLimit: 150 },
-  { id: 'cat-travel', name: 'Travel & Trips', color: '#ff6b35', icon: 'Plane', isDefault: true, budgetLimit: 800 },
+  { id: 'cat-electronics', name: 'Electronics', color: '#002688', icon: 'Laptop', isDefault: true, budgetLimit: 300 },
+  { id: 'cat-clothing', name: 'Clothing', color: '#009efd', icon: 'Shirt', isDefault: true, budgetLimit: 200 },
+  { id: 'cat-housing', name: 'Housing & Bills', color: '#717171', icon: 'Home', isDefault: true, budgetLimit: 1200 },
+  { id: 'cat-entertainment', name: 'Entertainment', color: '#ff0073', icon: 'Film', isDefault: true, budgetLimit: 150 },
+  { id: 'cat-health', name: 'Health', color: '#950000', icon: 'Activity', isDefault: true, budgetLimit: 150 },
+  { id: 'cat-travel', name: 'Travel & Trips', color: '#009efd', icon: 'Plane', isDefault: true, budgetLimit: 800 },
   { id: 'cat-investments', name: 'Investments', color: '#34d399', icon: 'TrendingUp', isDefault: true },
+  { id: 'cat-others', name: 'Others', color: '#652d1f', icon: 'Tag', isDefault: true },
 ];
 
 function openDatabase(): Promise<IDBDatabase> {

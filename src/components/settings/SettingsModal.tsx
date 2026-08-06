@@ -143,18 +143,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   return (
     <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      {/* True Fixed FAB Exit Cross Button (stuck to screen layer) */}
-      <button
-        onClick={onClose}
-        className="fixed top-6 right-6 z-[60] p-2.5 rounded-full dotgui-glass border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"
-        title="Close Settings"
-      >
-        <X className="w-4 h-4" />
-      </button>
-
-      {/* Modal Card */}
+      {/* Modal Card Window */}
       <div className="max-w-2xl w-full dotgui-glass border border-hairline rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto relative">
         
+        {/* Inside FAB Exit Button (Fits completely inside Settings Card Boundary) */}
+        <button
+          onClick={onClose}
+          className="absolute top-5 right-5 z-50 p-2 rounded-full bg-surface-soft border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-md active:scale-95 cursor-pointer"
+          title="Close Settings"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-hairline pb-4 pr-12">
           <div className="flex items-center gap-2">
@@ -181,7 +181,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <button
               type="button"
               onClick={() => toggleRequirePassword(user?.requirePassword === false ? true : false)}
-              className={`px-4 py-2 rounded-full text-xs font-mono font-bold transition-all border shrink-0 ${
+              className={`px-4 py-2 rounded-full text-xs font-mono font-bold transition-all border shrink-0 cursor-pointer ${
                 user?.requirePassword === false
                   ? 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
                   : 'border-brand-coral text-brand-coral font-bold shadow-sm bg-surface-soft'
@@ -197,7 +197,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <button
                 type="button"
                 onClick={() => setIsChangingPass(true)}
-                className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all"
+                className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
               >
                 Change Password
               </button>
@@ -205,7 +205,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <form onSubmit={handleChangePassword} className="space-y-3 bg-surface-card p-3 rounded-xl border border-hairline">
                 <div className="text-xs font-mono font-bold text-ink flex items-center justify-between">
                   <span>Change Password</span>
-                  <button type="button" onClick={() => setIsChangingPass(false)} className="text-muted-custom text-xs">Cancel</button>
+                  <button type="button" onClick={() => setIsChangingPass(false)} className="text-muted-custom text-xs cursor-pointer">Cancel</button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -224,7 +224,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       <button
                         type="button"
                         onClick={() => setShowNewPass(!showNewPass)}
-                        className="absolute right-2.5 top-2 text-muted-custom hover:text-ink"
+                        className="absolute right-2.5 top-2 text-muted-custom hover:text-ink cursor-pointer"
                       >
                         {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
@@ -246,7 +246,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       <button
                         type="button"
                         onClick={() => setShowConfirmPass(!showConfirmPass)}
-                        className="absolute right-2.5 top-2 text-muted-custom hover:text-ink"
+                        className="absolute right-2.5 top-2 text-muted-custom hover:text-ink cursor-pointer"
                       >
                         {showConfirmPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
@@ -259,7 +259,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                 <button
                   type="submit"
-                  className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft text-xs font-mono font-bold py-2 rounded-xl shadow-sm transition-all"
+                  className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft text-xs font-mono font-bold py-2 rounded-xl shadow-sm transition-all cursor-pointer"
                 >
                   Update Password
                 </button>
@@ -268,20 +268,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </div>
         </div>
 
-        {/* 2. EMBEDDED LIVE CURRENCY CONVERTER */}
+        {/* 2. CURRENCY CONVERTER */}
         <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
               <ArrowRightLeft className="w-3.5 h-3.5 text-brand-blue" />
-              <span>Embedded Live Currency Converter</span>
+              <span>Currency Converter</span>
             </h3>
             <button
               onClick={handleSyncRates}
               disabled={syncing}
-              className="text-[10px] font-mono border border-brand-blue text-brand-blue px-2.5 py-1 rounded-full flex items-center gap-1 hover:bg-surface-card transition-all"
+              className="text-[10px] font-mono border border-brand-blue text-brand-blue px-3 py-1 rounded-full flex items-center gap-1 hover:bg-surface-card transition-all cursor-pointer font-bold"
             >
               <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
-              <span>Sync Live Rates</span>
+              <span>Live</span>
             </button>
           </div>
 
@@ -301,7 +301,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <select
                 value={calcFrom}
                 onChange={e => setCalcFrom(e.target.value as CurrencyCode)}
-                className="w-full bg-surface-card border border-hairline rounded-xl px-2 py-1.5 text-xs font-mono text-ink"
+                className="w-full bg-surface-card border border-hairline rounded-xl px-2 py-1.5 text-xs font-mono text-ink cursor-pointer"
               >
                 {TOP_CURRENCIES.map(c => (
                   <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
@@ -314,7 +314,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <select
                 value={calcTo}
                 onChange={e => setCalcTo(e.target.value as CurrencyCode)}
-                className="w-full bg-surface-card border border-hairline rounded-xl px-2 py-1.5 text-xs font-mono text-ink"
+                className="w-full bg-surface-card border border-hairline rounded-xl px-2 py-1.5 text-xs font-mono text-ink cursor-pointer"
               >
                 {TOP_CURRENCIES.map(c => (
                   <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
@@ -346,7 +346,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <select
                 value={targetCurrency}
                 onChange={e => setTargetCurrency(e.target.value as CurrencyCode)}
-                className="w-full bg-surface-card border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink"
+                className="w-full bg-surface-card border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink cursor-pointer"
               >
                 {TOP_CURRENCIES.map(c => (
                   <option key={c.code} value={c.code}>{c.flag} {c.code} ({c.symbol})</option>
@@ -360,7 +360,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 <button
                   type="button"
                   onClick={() => setSwitchMode('convert')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
                     switchMode === 'convert'
                       ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
                       : 'bg-surface-card text-body-custom border-hairline'
@@ -371,7 +371,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 <button
                   type="button"
                   onClick={() => setSwitchMode('keep')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
                     switchMode === 'keep'
                       ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
                       : 'bg-surface-card text-body-custom border-hairline'
@@ -386,7 +386,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <button
             onClick={handleExecuteSwitchCurrency}
             disabled={targetCurrency === baseCurrency || switching}
-            className="w-full border border-brand-coral text-brand-coral hover:bg-surface-card disabled:opacity-40 font-mono text-xs py-2 rounded-xl transition-all font-bold"
+            className="w-full border border-brand-coral text-brand-coral hover:bg-surface-card disabled:opacity-40 font-mono text-xs py-2 rounded-xl transition-all font-bold cursor-pointer"
           >
             {switching ? 'Converting...' : `Switch Base Currency to ${targetCurrency}`}
           </button>
@@ -404,7 +404,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <button
                 key={t.id}
                 onClick={() => setTheme(t.id)}
-                className={`p-2.5 rounded-xl border text-xs font-mono flex items-center gap-2 transition-all ${
+                className={`p-2.5 rounded-xl border text-xs font-mono flex items-center gap-2 transition-all cursor-pointer ${
                   theme === t.id
                     ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
                     : 'border-hairline bg-surface-card text-body-custom hover:border-ink'
@@ -422,7 +422,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 key={f.id}
                 onClick={() => setFontFamily(f.id)}
                 style={f.style}
-                className={`px-3.5 py-2 rounded-full text-xs border transition-all ${
+                className={`px-3.5 py-2 rounded-full text-xs border transition-all cursor-pointer ${
                   fontFamily === f.id
                     ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
                     : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
@@ -445,7 +445,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             {/* Export JSON File */}
             <button
               onClick={handleExport}
-              className="bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2.5 rounded-xl transition-all"
+              className="bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2.5 rounded-xl transition-all cursor-pointer font-bold"
             >
               Export JSON Backup
             </button>
@@ -453,7 +453,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             {/* Direct File Picker Import Button */}
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm"
+              className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer font-bold"
             >
               <Upload className="w-3.5 h-3.5" />
               <span>Import .json Backup File</span>
