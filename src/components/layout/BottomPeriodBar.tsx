@@ -49,20 +49,19 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
   if (isMinimized) {
     return (
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 max-w-[92vw]">
-        {/* Glassmorphic Spending Total Pill */}
         <button
           onClick={() => setIsMinimized(false)}
-          className="flex items-center gap-2.5 dotgui-glass border border-hairline px-5 py-3 rounded-full text-ink font-mono text-sm font-semibold shadow-2xl hover:scale-105 active:scale-95 transition-all group cursor-pointer bg-surface-card/90 backdrop-blur-xl"
+          className="flex items-center gap-2.5 dotgui-glass border border-hairline px-4 py-2.5 sm:px-5 sm:py-3 rounded-full text-ink font-mono text-sm font-semibold shadow-2xl hover:scale-105 active:scale-95 transition-all group cursor-pointer bg-surface-card/90 backdrop-blur-xl min-w-0"
           title="Tap to Expand Spending Bar"
         >
-          <ChevronUp className="w-5 h-5 text-brand-mint group-hover:-translate-y-0.5 transition-transform" />
+          <ChevronUp className="w-5 h-5 text-brand-mint group-hover:-translate-y-0.5 transition-transform shrink-0" />
           <span className="truncate">Total ({period}): {formatCurrency(periodTotalSpent, baseCurrency)}</span>
         </button>
 
         {/* Border Highlighted + Button */}
         <button
           onClick={onOpenQuickAdd}
-          className="p-2.5 border border-brand-blue text-brand-blue bg-surface-card/90 backdrop-blur-xl rounded-full shadow-2xl hover:bg-surface-soft active:scale-95 transition-all shrink-0 cursor-pointer"
+          className="p-2.5 sm:p-3 border border-brand-blue text-brand-blue bg-surface-card/90 backdrop-blur-xl rounded-full shadow-2xl hover:bg-surface-soft active:scale-95 transition-all shrink-0 cursor-pointer"
           title="Add Expense"
         >
           <Plus className="w-5 h-5" />

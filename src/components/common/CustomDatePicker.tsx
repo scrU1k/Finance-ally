@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface CustomDatePickerProps {
@@ -95,7 +96,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
       </button>
 
       {/* Centered Glass Screen Modal */}
-      {isOpen && (
+      {isOpen && createPortal(
           <div
             className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
             onClick={() => setIsOpen(false)}
@@ -202,8 +203,9 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
               })}
             </div>
 
-          </div>
-        </div>
+            </div>
+          </div>,
+        document.body
       )}
     </div>
   );
