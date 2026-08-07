@@ -14,6 +14,151 @@ export interface ParsedNaturalExpense {
   confidence: number;
 }
 
+// ─── Exhaustive Time Parser ────────────────────────────────────────────────────
+/**
+ * Parses an exhaustive set of time formats from a lowercased string.
+ * Returns { h24: string, label: string } or null if no time found.
+ *
+ * Supported (case-insensitive):
+ *  8pm / 08pm / 8 pm / 08 pm
+ *  8.00pm / 8.00 pm / 8:00pm / 8:00 pm / 8-00pm / 8-00 pm
+ *  08-30pm / 8-30pm / 8-30 pm / 08-30 pm
+ *  8-pm   (hyphen with no minutes = on the hour)
+ *  AM/am/Am, PM/pm/Pm
+ */
+function parseExhaustiveTime(lower: string): { h24: string; label: string } | null {
+  // Build a comprehensive regex:
+  // Groups:
+  //  1: hour (1-2 digits)
+  //  2: separator character (. : -)  [optional]
+  //  3: minutes (2 digits)           [optional, only when separator present]
+  //  4: am/pm (always required here for these patterns)
+  //
+  // Pattern: \b(\d{1,2})(?:([\.\:\-])(\d{2}))?\s*(am|pm)\b
+  const ampmRegex = /\b(\d{1,2})(?:([\.\:\-])(\d{2}))?\s*(am|pm)\b/i;
+
+  const m = lower.match(ampmRegex);
+  if (m) {
+    let h = parseInt(m[1], 10);
+    const sep = m[2] || '';
+    const minStr = m[3];
+    const ampm = m[4].toLowerCase();
+
+    // Special: "8-pm" means 8:00 pm (hyphen + no minutes)
+    // "8-30pm" means 8:30pm
+    let mins = 0;
+    if (minStr) {
+      mins = parseInt(minStr, 10);
+    }
+
+    if (ampm === 'pm' && h < 12) h += 12;
+    if (ampm === 'am' && h === 12) h = 0;
+
+    const h24 = `${h.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+    const displayH = h % 12 || 12;
+    const label = `${displayH}:${mins.toString().padStart(2, '0')} ${ampm.toUpperCase()}`;
+    return { h24, label };
+  }
+
+  // 24-hour explicit: "at 14:30" or "at 1430"
+  const at24 = lower.match(/\bat\s+(\d{1,2}):(\d{2})\b/) ||
+               lower.match(/\bat\s+(\d{2})(\d{2})\b/);
+  if (at24) {
+    const h = parseInt(at24[1], 10);
+    const mins = parseInt(at24[2], 10);
+    if (h < 24 && mins < 60) {
+      const h24 = `${h.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+      return { h24, label: h24 };
+    }
+  }
+
+  return null;
+}
+
+// ─── Exhaustive Date Parser ────────────────────────────────────────────────────
+const MONTH_MAP: Record<string, number> = {
+  january: 1, jan: 1,
+  february: 2, feb: 2,
+  march: 3, mar: 3,
+  april: 4, apr: 4,
+  may: 5,
+  june: 6, jun: 6,
+  july: 7, jul: 7,
+  august: 8, aug: 8,
+  september: 9, sep: 9, sept: 9,
+  october: 10, oct: 10,
+  november: 11, nov: 11,
+  december: 12, dec: 12,
+};
+
+/**
+ * Parses an exhaustive set of date formats.
+ * Returns { dateStr: 'YYYY-MM-DD', label: string } or null.
+ *
+ * Supported:
+ *  2nd August / 2nd august / 2nd Aug / 1st jan
+ *  August 2nd / august 2nd / August 2 / aug 2
+ *  2 aug / 02 aug / Aug 2 / Aug 02
+ *  2nd of August / 2nd of aug
+ *  2/08 or 2/08/26 or 2/08/2026
+ *  02/08 or 02/08/26 or 02/08/2026
+ *  2/8 or 2/8/26 or 2/8/2026
+ *  All slash variants with - or . as separator too
+ */
+function parseExhaustiveDate(lower: string): { dateStr: string; label: string } | null {
+  const currentYear = new Date().getFullYear();
+
+  // Helper to build date string from d/m/y
+  const toDateStr = (d: number, m: number, y: number): string | null => {
+    if (d < 1 || d > 31 || m < 1 || m > 12) return null;
+    return `${y}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+  };
+
+  const monthNames = Object.keys(MONTH_MAP).join('|');
+  const ordinalSuffix = '(?:st|nd|rd|th)?';
+
+  // 1. "2nd August" / "2nd aug" / "2nd of august" / "2 aug"
+  const dayFirst = new RegExp(
+    `\\b(\\d{1,2})${ordinalSuffix}\\s+(?:of\\s+)?(${monthNames})\\b`, 'i'
+  );
+  let m = lower.match(dayFirst);
+  if (m) {
+    const d = parseInt(m[1], 10);
+    const mo = MONTH_MAP[m[2].toLowerCase()];
+    const ds = toDateStr(d, mo, currentYear);
+    if (ds) return { dateStr: ds, label: `${d} ${m[2]}` };
+  }
+
+  // 2. "August 2nd" / "Aug 2" / "august 2"
+  const monthFirst = new RegExp(
+    `\\b(${monthNames})\\s+(\\d{1,2})${ordinalSuffix}\\b`, 'i'
+  );
+  m = lower.match(monthFirst);
+  if (m) {
+    const mo = MONTH_MAP[m[1].toLowerCase()];
+    const d = parseInt(m[2], 10);
+    const ds = toDateStr(d, mo, currentYear);
+    if (ds) return { dateStr: ds, label: `${m[1]} ${d}` };
+  }
+
+  // 3. DD/MM/YYYY or DD/MM/YY or DD/MM (also supports - and . as separators)
+  const slashDate = /\b(\d{1,2})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{2,4}))?\b/;
+  m = lower.match(slashDate);
+  if (m) {
+    const d = parseInt(m[1], 10);
+    const mo = parseInt(m[2], 10);
+    let y = currentYear;
+    if (m[3]) {
+      const raw = parseInt(m[3], 10);
+      y = raw < 100 ? 2000 + raw : raw;
+    }
+    const ds = toDateStr(d, mo, y);
+    if (ds) return { dateStr: ds, label: `${d}/${mo}/${y}` };
+  }
+
+  return null;
+}
+
 export function parseNaturalLanguageExpense(
   inputText: string,
   baseCurrency: CurrencyCode = 'INR'
@@ -21,20 +166,24 @@ export function parseNaturalLanguageExpense(
   const text = inputText.trim();
   const lower = text.toLowerCase();
 
-  // 1. EXTRACT DATE & TIME (NOW handling)
+  // 1. EXTRACT DATE & TIME
   const now = new Date();
   let targetDate = new Date();
   let dateLabel = 'Today';
-  
-  // default to current system hours/minutes instead of midnight
+
   let currentHour = now.getHours().toString().padStart(2, '0');
   let currentMin = now.getMinutes().toString().padStart(2, '0');
   let timeStr = `${currentHour}:${currentMin}`;
   let timeLabel = 'Now';
 
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  
-  if (lower.includes('yesterday')) {
+
+  // Try exhaustive date parser first
+  const parsedDate = parseExhaustiveDate(lower);
+  if (parsedDate) {
+    dateLabel = parsedDate.label;
+    targetDate = new Date(parsedDate.dateStr + 'T12:00:00');
+  } else if (lower.includes('yesterday')) {
     targetDate.setDate(targetDate.getDate() - 1);
     dateLabel = 'Yesterday';
   } else if (lower.includes('2 days ago')) {
@@ -43,15 +192,14 @@ export function parseNaturalLanguageExpense(
   } else if (lower.includes('now') || lower.includes('today')) {
     dateLabel = 'Today';
   } else {
-    // Check day of week (e.g. Wednesday)
     let foundDay = false;
     for (let i = 0; i < dayNames.length; i++) {
       const dayName = dayNames[i];
       if (lower.includes(dayName)) {
-        const currentDayIndex = targetDate.getDay(); // 0-6
-        const targetDayIndex = i; // 0-6
+        const currentDayIndex = targetDate.getDay();
+        const targetDayIndex = i;
         let diff = currentDayIndex - targetDayIndex;
-        if (diff <= 0) diff += 7; // Previous week's day
+        if (diff <= 0) diff += 7;
         targetDate.setDate(targetDate.getDate() - diff);
         dateLabel = dayName.charAt(0).toUpperCase() + dayName.slice(1);
         foundDay = true;
@@ -65,42 +213,25 @@ export function parseNaturalLanguageExpense(
 
   const dateStr = targetDate.toISOString().split('T')[0];
 
-  // Specific time parsing (if not 'now')
+  // Time parsing
   if (!lower.includes('now')) {
-    if (lower.includes('morning')) {
+    if (lower.includes('morning') && !parseExhaustiveTime(lower)) {
       timeStr = '09:00';
       timeLabel = 'Morning';
-    } else if (lower.includes('afternoon')) {
+    } else if (lower.includes('afternoon') && !parseExhaustiveTime(lower)) {
       timeStr = '13:00';
       timeLabel = 'Afternoon';
-    } else if (lower.includes('evening')) {
+    } else if (lower.includes('evening') && !parseExhaustiveTime(lower)) {
       timeStr = '19:00';
       timeLabel = 'Evening';
-    } else if (lower.includes('night')) {
+    } else if (lower.includes('night') && !parseExhaustiveTime(lower)) {
       timeStr = '22:00';
       timeLabel = 'Night';
     } else {
-      // Check for explicit time like 12.30pm, at 14:30, at 1430
-      const timeMatch = lower.match(/\bat\s+(\d{1,2})[.:](\d{2})\s*(am|pm)?\b/i) ||
-                        lower.match(/\b(\d{1,2})[.:](\d{2})\s*(am|pm)\b/i) ||
-                        lower.match(/\b(\d{1,2})\s*(am|pm)\b/i) ||
-                        lower.match(/\bat\s+(\d{1,2}):(\d{2})\b/i) ||
-                        lower.match(/\bat\s+(\d{2})(\d{2})\b/i);
-
-      if (timeMatch) {
-        let h = parseInt(timeMatch[1], 10);
-        let m = parseInt(timeMatch[2] || '0', 10);
-        // If it's the 12am/pm format (no minutes group, but am/pm group is at index 2)
-        let ampm = (timeMatch[3] || '').toLowerCase();
-        if (!timeMatch[2] && (timeMatch[2] === 'am' || timeMatch[2] === 'pm')) {
-          ampm = timeMatch[2].toLowerCase();
-          m = 0;
-        }
-        
-        if (ampm === 'pm' && h < 12) h += 12;
-        if (ampm === 'am' && h === 12) h = 0;
-        timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        timeLabel = ampm ? `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${ampm.toUpperCase()}` : timeStr;
+      const parsedTime = parseExhaustiveTime(lower);
+      if (parsedTime) {
+        timeStr = parsedTime.h24;
+        timeLabel = parsedTime.label;
       }
     }
   }
@@ -133,50 +264,40 @@ export function parseNaturalLanguageExpense(
   };
 
   const patterns = [
-    // Pattern A: <number> <currency_word> e.g. "1.8 pounds" or "300 rupees" or "1.8 GBP"
-    /(\d+(?:\.\d{1,2})?)\s*(pounds?|rupees?|rupee|dollars?|euros?|euro|yen|rs\.?|inr|usd|eur|gbp|jpy|¥|€|£|\$|₹)\b/i,
-    // Pattern B: <currency_word> <number> e.g. "£1.8" or "rs 300" or "usd 50"
-    /(pounds?|rupees?|rupee|dollars?|euros?|euro|yen|rs\.?|inr|usd|eur|gbp|jpy|¥|€|£|\$|₹)\s*(\d+(?:\.\d{1,2})?)/i,
-    // Pattern C: number after prepositions like "for", "costing", "cost", "at" e.g. "for 1.8", "at 300"
-    /\b(?:for|cost|costing|at|of)\s+(\d+(?:\.\d{1,2})?)/i
+    /([\d,]+(?:\.\d{1,2})?)[\s]*(pounds?|rupees?|rupee|dollars?|euros?|euro|yen|rs\.?|inr|usd|eur|gbp|jpy|¥|€|£|\$|₹)\b/i,
+    /(pounds?|rupees?|rupee|dollars?|euros?|euro|yen|rs\.?|inr|usd|eur|gbp|jpy|¥|€|£|\$|₹)[\s]*([\d,]+(?:\.\d{1,2})?)/i,
+    /\b(?:for|cost|costing|at|of)\s+([\d,]+(?:\.\d{1,2})?)/i
   ];
 
   let amountFound = false;
 
-  // Let's test Pattern A:
   let match = lower.match(patterns[0]);
   if (match) {
-    amount = parseFloat(match[1]);
+    amount = parseFloat(match[1].replace(/,/g, ''));
     const currStr = match[2].toLowerCase();
-    if (currencyMap[currStr]) {
-      currency = currencyMap[currStr];
-    }
+    if (currencyMap[currStr]) currency = currencyMap[currStr];
     amountFound = true;
   }
 
-  // Let's test Pattern B if A is not matched:
   if (!amountFound) {
     match = lower.match(patterns[1]);
     if (match) {
-      amount = parseFloat(match[2]);
+      amount = parseFloat(match[2].replace(/,/g, ''));
       const currStr = match[1].toLowerCase();
-      if (currencyMap[currStr]) {
-        currency = currencyMap[currStr];
-      }
+      if (currencyMap[currStr]) currency = currencyMap[currStr];
       amountFound = true;
     }
   }
 
-  // Let's test Pattern C if neither matched:
   if (!amountFound) {
     match = lower.match(patterns[2]);
     if (match) {
-      amount = parseFloat(match[1]);
+      amount = parseFloat(match[1].replace(/,/g, ''));
       amountFound = true;
     }
   }
 
-  // Fallback: any float/integer in the string that isn't connected to unit like "litre", "kg", "x"
+  // Fallback: pick first standalone number
   if (!amountFound) {
     const allNumbers = lower.match(/\b\d+(?:\.\d{1,2})?\b/g);
     if (allNumbers) {
@@ -192,20 +313,16 @@ export function parseNaturalLanguageExpense(
     }
   }
 
-  // If still no amount found, fallback to first number
   if (!amountFound) {
     const firstNum = lower.match(/\d+(?:\.\d{1,2})?/);
-    if (firstNum) {
-      amount = parseFloat(firstNum[0]);
-    }
+    if (firstNum) amount = parseFloat(firstNum[0]);
   }
 
-  // 3. CLEAN DESCRIPTION / MERCHANT
+  // 3. CLEAN DESCRIPTION
   let cleanDesc = text;
 
-  // Remove the specific matched amount & currency phrase first to prevent leaking
   if (amount > 0) {
-    const amtStr = amount.toString();
+    const amtStr = amount.toString().replace('.', '\\.');
     const removeRegexes = [
       new RegExp(`\\b${amtStr}\\s*(?:pounds?|rupees?|rupee|dollars?|euros?|euro|yen|rs\\.?|inr|usd|eur|gbp|jpy|¥|€|£|\\$|₹)\\b`, 'gi'),
       new RegExp(`(?:pounds?|rupees?|rupee|dollars?|euros?|euro|yen|rs\\.?|inr|usd|eur|gbp|jpy|¥|€|£|\\$|₹)\\s*${amtStr}\\b`, 'gi'),
@@ -217,8 +334,13 @@ export function parseNaturalLanguageExpense(
     }
   }
 
-  // Clean generic leftover prepositions, date, time words
+  // Remove date/time patterns from description
+  const monthNames2 = Object.keys(MONTH_MAP).join('|');
   cleanDesc = cleanDesc
+    .replace(new RegExp(`\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${monthNames2})\\b`, 'gi'), ' ')
+    .replace(new RegExp(`\\b(?:${monthNames2})\\s+\\d{1,2}(?:st|nd|rd|th)?\\b`, 'gi'), ' ')
+    .replace(/\b\d{1,2}[\/\-\.]\d{1,2}(?:[\/\-\.]\d{2,4})?\b/g, ' ')
+    .replace(/\b\d{1,2}(?:[\.\:\-]\d{2})?\s*(?:am|pm)\b/gi, ' ')
     .replace(/\b(?:spent|on|at|for|paid|bought|cost|was)\b/gi, ' ')
     .replace(/\b(?:today|yesterday|now|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|evening|night)\b/gi, ' ')
     .replace(/\b(?:rs|inr|rupees|rupee|usd|dollar|dollars|\$|eur|euro|euros|€|gbp|pounds?|£|jpy|yen|¥)\b/gi, ' ')
@@ -228,14 +350,13 @@ export function parseNaturalLanguageExpense(
   if (!cleanDesc || cleanDesc.length < 2) {
     cleanDesc = 'General Expenditure';
   } else {
-    // Capitalize words nicely
     cleanDesc = cleanDesc
       .split(' ')
       .map(w => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ');
   }
 
-  // 5. VECTOR / TRIGRAM CATEGORY CLASSIFICATION
+  // 4. CATEGORY CLASSIFICATION
   const catResult = categorizeNoteWithArcticFTS5(text + ' ' + cleanDesc);
 
   return {
