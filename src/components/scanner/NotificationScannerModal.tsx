@@ -1,18 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { parseNotificationText } from '../../services/notificationParser';
+import { parseSmsWithDynamicTemplates } from '../../services/smsTemplateEngine';
+import { loadSmsTemplates, saveSmsTemplate, deleteSmsTemplate, SmsTemplate } from '../../services/db';
 import { ParsedNotification } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency } from '../../services/currency';
-import { Sparkles, Shield, CheckCircle2, Clipboard, Plus, Edit2, Check, Bell, BellOff, MessageSquare } from 'lucide-react';
+import { Sparkles, Shield, CheckCircle2, Clipboard, Plus, Edit2, Check, Bell, BellOff, MessageSquare, Code, Trash2 } from 'lucide-react';
 
 export const NotificationScannerModal: React.FC = () => {
   const { addTransaction, categories, baseCurrency } = useFinance();
   const [inputText, setInputText] = useState('');
+  const [userTemplates, setUserTemplates] = useState<SmsTemplate[]>([]);
   const [parsed, setParsed] = useState<ParsedNotification>(() =>
     parseNotificationText('', baseCurrency)
   );
   const [logged, setLogged] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showTplManager, setShowTplManager] = useState(false);
+
+  // New Template Form State
+  const [newTplName, setNewTplName] = useState('');
+  const [newTplPattern, setNewTplPattern] = useState('');
+
+  // Load custom templates on mount
+  useEffect(() => {
+    loadSmsTemplates().then(setUserTemplates);
+  }, []);
 
   // Background SMS Listener Simulator State
   const [permissionGranted, setPermissionGranted] = useState(false);
@@ -28,8 +41,32 @@ export const NotificationScannerModal: React.FC = () => {
     setInputText(text);
     setLogged(false);
     setIsEditing(false);
-    const result = parseNotificationText(text, baseCurrency);
+    const result = parseSmsWithDynamicTemplates(text, userTemplates, baseCurrency);
     setParsed(result);
+  };
+
+  const handleAddTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTplName || !newTplPattern) return;
+    const tpl: SmsTemplate = {
+      id: 'tpl-custom-' + Date.now(),
+      name: newTplName,
+      pattern: newTplPattern,
+      createdAt: Date.now(),
+    };
+    await saveSmsTemplate(tpl);
+    const updated = [...userTemplates, tpl];
+    setUserTemplates(updated);
+    setNewTplName('');
+    setNewTplPattern('');
+    if (inputText) handleTextChange(inputText);
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    await deleteSmsTemplate(id);
+    const updated = userTemplates.filter(t => t.id !== id);
+    setUserTemplates(updated);
+    if (inputText) handleTextChange(inputText);
   };
 
   const handleStartEditing = () => {
@@ -136,6 +173,87 @@ export const NotificationScannerModal: React.FC = () => {
         <p className="text-[10px] font-mono text-muted-custom border-t border-hairline pt-2.5">
           ℹ️ <strong>Native OS Integration:</strong> Direct SMS inbox reading is restricted inside browser sandboxes. Once installed as a native Android APK, the background listener intercepts banking alerts automatically, bypassing manual pasting.
         </p>
+      </div>
+
+      {/* 1.5 DYNAMIC SMS TEMPLATE BUILDER PANEL */}
+      <div className="dotgui-card p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Code className="w-4 h-4 text-brand-blue" />
+            <div>
+              <h3 className="text-xs font-mono font-bold text-ink uppercase">Custom SMS Bank Rules</h3>
+              <p className="text-[10px] font-mono text-muted-custom">
+                Create custom patterns ({'{AMOUNT}'}, {'{MERCHANT}'}) for unrecognized bank SMS formats.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowTplManager(!showTplManager)}
+            className="px-3 py-1 rounded-full text-xs font-mono font-bold border border-hairline bg-surface-card text-ink hover:border-ink cursor-pointer shrink-0"
+          >
+            {showTplManager ? 'Hide Rules' : `Rules (${userTemplates.length + 4})`}
+          </button>
+        </div>
+
+        {showTplManager && (
+          <div className="space-y-4 pt-3 border-t border-hairline animate-in fade-in duration-150">
+            {/* Add New Template Form */}
+            <form onSubmit={handleAddTemplate} className="space-y-3 bg-surface-soft p-3 rounded-xl border border-hairline">
+              <span className="text-[11px] font-mono font-bold text-ink block">Add Custom Pattern Rule</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Bank/Alert Name (e.g. Axis Card)"
+                  value={newTplName}
+                  onChange={e => setNewTplName(e.target.value)}
+                  className="bg-surface-card border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Pattern string (e.g. Paid {CURRENCY} {AMOUNT} to {MERCHANT})"
+                  value={newTplPattern}
+                  onChange={e => setNewTplPattern(e.target.value)}
+                  className="bg-surface-card border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full border border-brand-blue text-brand-blue hover:bg-surface-card text-xs font-mono font-bold py-1.5 rounded-xl cursor-pointer shadow-sm"
+              >
+                Save Pattern Template
+              </button>
+            </form>
+
+            {/* List Custom User Templates */}
+            {userTemplates.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono uppercase text-muted-custom font-bold">Your Saved Patterns</span>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                  {userTemplates.map(t => (
+                    <div key={t.id} className="flex items-center justify-between bg-surface-card p-2 rounded-lg border border-hairline text-xs font-mono">
+                      <div>
+                        <span className="font-bold text-ink">{t.name}</span>
+                        <p className="text-[10px] text-muted-custom truncate max-w-xs">{t.pattern}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTemplate(t.id)}
+                        className="text-brand-coral hover:opacity-80 p-1 cursor-pointer"
+                        title="Delete template"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Simulated Incoming SMS Alert Banner */}

@@ -53,7 +53,8 @@ export interface Trip {
 
 export interface UserProfile {
   username: string;
-  passwordHash: string; // Salted local SHA-256 hash
+  passwordHash: string; // PBKDF2 derived hash (Base64)
+  passwordSalt?: string; // Unique random salt for PBKDF2 (Base64)
   baseCurrency: CurrencyCode;
   theme: 'dotgui-dark' | 'dotgui-light' | 'cyberpunk' | 'emerald' | 'sunset' | 'system';
   fontFamily: 'geist' | 'inter' | 'mono' | 'outfit' | 'space';

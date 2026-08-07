@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useTheme, ThemeMode, FontFamily } from '../../context/ThemeContext';
@@ -117,23 +117,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   const handleExport = async (e?: React.MouseEvent) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
-    const backupStr = exportFullDataBackup();
+    const backupStr = await exportFullDataBackup();
     if (pinEnabled && hasExportPin()) {
-      // We need the PIN to encrypt — prompt for it via the set/change modal
-      // Instead, we encrypt using the stored hash directly when exporting.
-      // Actually we can't reconstruct the key without the raw PIN so we
-      // ask the user to enter their current export PIN once to encrypt.
-      setPendingImportContent(null); // not an import
+      setPendingImportContent(null);
       setExportModalData(backupStr);
     } else {
       setExportModalData(backupStr);
     }
   };
 
-  // Called when user confirms their export PIN during the export flow
   const handleEncryptAndExport = async (pin: string): Promise<string | null> => {
     try {
-      const plain = exportFullDataBackup();
+      const plain = await exportFullDataBackup();
       return await encryptJSON(plain, pin);
     } catch {
       return null;
@@ -155,7 +150,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setShowVerifyPinModal(true);
       } else {
         // Plain JSON — import directly
-        const ok = importFullDataBackup(content);
+        const ok = await importFullDataBackup(content);
         if (ok) {
           setImportStatus('Backup restored successfully! Reloading...');
           setTimeout(() => window.location.reload(), 1200);
@@ -173,7 +168,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setVerifyPinError('');
     try {
       const decrypted = await decryptJSON(pendingImportContent, pin);
-      const ok = importFullDataBackup(decrypted);
+      const ok = await importFullDataBackup(decrypted);
       setVerifyPinLoading(false);
       if (ok) {
         setShowVerifyPinModal(false);
@@ -748,7 +743,6 @@ const ExportWithPinFlow: React.FC<{
     if (!pin) { setErr('Enter your export PIN.'); return; }
     setLoading(true);
     try {
-      const { verifyExportPin, encryptJSON } = await import('../../services/cryptoService');
       const ok = await verifyExportPin(pin);
       if (!ok) { setErr('Incorrect PIN. Please try again.'); setLoading(false); return; }
       const encrypted = await encryptJSON(plainData, pin);

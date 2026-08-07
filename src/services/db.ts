@@ -1,7 +1,14 @@
 import { Category, Transaction, Trip, UserProfile, CurrencyCode } from '../types';
 
 const DB_NAME = 'FinanceAllyDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for smsTemplates store & IndexedDB-first migration
+
+export interface SmsTemplate {
+  id: string;
+  name: string; // e.g. "HDFC Custom Alert"
+  pattern: string; // e.g. "Debited INR {AMOUNT} at {MERCHANT} on {DATE}"
+  createdAt: number;
+}
 
 export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-food', name: 'Food & Drinks', color: '#ee5f1c', icon: 'Utensils', isDefault: true, budgetLimit: 500 },
@@ -38,6 +45,9 @@ function openDatabase(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('userProfile')) {
         db.createObjectStore('userProfile', { keyPath: 'username' });
       }
+      if (!db.objectStoreNames.contains('smsTemplates')) {
+        db.createObjectStore('smsTemplates', { keyPath: 'id' });
+      }
     };
 
     request.onsuccess = () => resolve(request.result);
@@ -45,13 +55,7 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-// LocalStorage fallback for high performance or browser restrictions
-const STORAGE_KEYS = {
-  TRANSACTIONS: 'fa_transactions',
-  CATEGORIES: 'fa_categories',
-  TRIPS: 'fa_trips',
-  PROFILE: 'fa_profile',
-};
+// ─── TRANSACTIONS (IndexedDB Primary, Async Operations) ─────────────────────────
 
 export async function loadTransactions(): Promise<Transaction[]> {
   try {
@@ -62,112 +66,207 @@ export async function loadTransactions(): Promise<Transaction[]> {
       const req = store.getAll();
       req.onsuccess = () => {
         if (req.result && req.result.length > 0) {
-          resolve(req.result);
+          resolve(req.result.sort((a, b) => b.createdAt - a.createdAt));
         } else {
-          // fallback to localStorage
-          const local = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-          resolve(local ? JSON.parse(local) : seedInitialTransactions());
+          // Check for legacy localStorage data or seed initial
+          const legacy = localStorage.getItem('fa_transactions');
+          const seeds = legacy ? JSON.parse(legacy) : seedInitialTransactions();
+          // Populate IndexedDB asynchronously
+          seedIndexedDBTransactions(db, seeds);
+          resolve(seeds);
         }
       };
-      req.onerror = () => {
-        const local = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-        resolve(local ? JSON.parse(local) : seedInitialTransactions());
-      };
+      req.onerror = () => resolve(seedInitialTransactions());
     });
   } catch {
-    const local = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+    const local = localStorage.getItem('fa_transactions');
     return local ? JSON.parse(local) : seedInitialTransactions();
   }
 }
 
-export async function saveTransaction(transaction: Transaction): Promise<void> {
-  const all = await loadTransactions();
-  const index = all.findIndex(t => t.id === transaction.id);
-  if (index >= 0) {
-    all[index] = transaction;
-  } else {
-    all.unshift(transaction);
+async function seedIndexedDBTransactions(db: IDBDatabase, txs: Transaction[]): Promise<void> {
+  try {
+    const tx = db.transaction('transactions', 'readwrite');
+    const store = tx.objectStore('transactions');
+    txs.forEach(t => store.put(t));
+  } catch {
+    // Non-blocking fallback
   }
-  localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(all));
+}
 
+export async function saveTransaction(transaction: Transaction): Promise<void> {
   try {
     const db = await openDatabase();
     const tx = db.transaction('transactions', 'readwrite');
     const store = tx.objectStore('transactions');
-    store.put(transaction);
-  } catch {
-    // LocalStorage saved
+    await new Promise<void>((resolve, reject) => {
+      const req = store.put(transaction);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    console.error('IndexedDB saveTransaction failed:', e);
   }
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
-  const all = await loadTransactions();
-  const filtered = all.filter(t => t.id !== id);
-  localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(filtered));
-
   try {
     const db = await openDatabase();
     const tx = db.transaction('transactions', 'readwrite');
     const store = tx.objectStore('transactions');
-    store.delete(id);
-  } catch {
-    // LocalStorage deleted
+    await new Promise<void>((resolve, reject) => {
+      const req = store.delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    console.error('IndexedDB deleteTransaction failed:', e);
   }
 }
 
-export async function loadCategories(): Promise<Category[]> {
-  const local = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
-  let categories: Category[] = local ? JSON.parse(local) : [];
+// ─── CATEGORIES ────────────────────────────────────────────────────────────────
 
-  // Always merge DEFAULT_CATEGORIES to ensure updated hex colors & new categories (e.g. cat-others) are synced
+export async function loadCategories(): Promise<Category[]> {
+  let categories: Category[] = [];
+  try {
+    const db = await openDatabase();
+    categories = await new Promise<Category[]>((resolve) => {
+      const tx = db.transaction('categories', 'readonly');
+      const store = tx.objectStore('categories');
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    const local = localStorage.getItem('fa_categories');
+    categories = local ? JSON.parse(local) : [];
+  }
+
+  // Merge default categories
+  let modified = false;
   DEFAULT_CATEGORIES.forEach(def => {
     const existingIdx = categories.findIndex(c => c.id === def.id);
     if (existingIdx >= 0) {
       categories[existingIdx] = { ...categories[existingIdx], color: def.color, name: def.name };
     } else {
       categories.push(def);
+      modified = true;
     }
   });
 
-  localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+  if (modified) {
+    try {
+      const db = await openDatabase();
+      const tx = db.transaction('categories', 'readwrite');
+      const store = tx.objectStore('categories');
+      categories.forEach(c => store.put(c));
+    } catch {
+      // Fallback
+    }
+  }
+
   return categories;
 }
 
 export async function saveCategory(category: Category): Promise<void> {
-  const categories = await loadCategories();
-  const idx = categories.findIndex(c => c.id === category.id);
-  if (idx >= 0) categories[idx] = category;
-  else categories.push(category);
-  localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction('categories', 'readwrite');
+    const store = tx.objectStore('categories');
+    store.put(category);
+  } catch (e) {
+    console.error('IndexedDB saveCategory failed:', e);
+  }
 }
 
+// ─── TRIPS ─────────────────────────────────────────────────────────────────────
+
 export async function loadTrips(): Promise<Trip[]> {
-  const local = localStorage.getItem(STORAGE_KEYS.TRIPS);
-  return local ? JSON.parse(local) : [];
+  try {
+    const db = await openDatabase();
+    return new Promise((resolve) => {
+      const tx = db.transaction('trips', 'readonly');
+      const store = tx.objectStore('trips');
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    const local = localStorage.getItem('fa_trips');
+    return local ? JSON.parse(local) : [];
+  }
 }
 
 export async function saveTrip(trip: Trip): Promise<void> {
-  const trips = await loadTrips();
-  const idx = trips.findIndex(t => t.id === trip.id);
-  if (idx >= 0) trips[idx] = trip;
-  else trips.unshift(trip);
-  localStorage.setItem(STORAGE_KEYS.TRIPS, JSON.stringify(trips));
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction('trips', 'readwrite');
+    const store = tx.objectStore('trips');
+    store.put(trip);
+  } catch (e) {
+    console.error('IndexedDB saveTrip failed:', e);
+  }
 }
 
 export async function deleteTrip(id: string): Promise<void> {
-  const trips = await loadTrips();
-  const filtered = trips.filter(t => t.id !== id);
-  localStorage.setItem(STORAGE_KEYS.TRIPS, JSON.stringify(filtered));
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction('trips', 'readwrite');
+    const store = tx.objectStore('trips');
+    store.delete(id);
+  } catch (e) {
+    console.error('IndexedDB deleteTrip failed:', e);
+  }
 }
 
-// Seed realistic initial transactions for seamless onboarding & testing
+// ─── SMS TEMPLATES (Dynamic Pattern Rules) ──────────────────────────────────────
+
+export async function loadSmsTemplates(): Promise<SmsTemplate[]> {
+  try {
+    const db = await openDatabase();
+    return new Promise((resolve) => {
+      const tx = db.transaction('smsTemplates', 'readonly');
+      const store = tx.objectStore('smsTemplates');
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function saveSmsTemplate(template: SmsTemplate): Promise<void> {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction('smsTemplates', 'readwrite');
+    const store = tx.objectStore('smsTemplates');
+    store.put(template);
+  } catch (e) {
+    console.error('IndexedDB saveSmsTemplate failed:', e);
+  }
+}
+
+export async function deleteSmsTemplate(id: string): Promise<void> {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction('smsTemplates', 'readwrite');
+    const store = tx.objectStore('smsTemplates');
+    store.delete(id);
+  } catch (e) {
+    console.error('IndexedDB deleteSmsTemplate failed:', e);
+  }
+}
+
+// ─── SEED INITIAL DATA ─────────────────────────────────────────────────────────
+
 function seedInitialTransactions(): Transaction[] {
   const today = new Date().toISOString().split('T')[0];
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
   const threeDaysAgo = new Date(Date.now() - 86400000 * 3).toISOString().split('T')[0];
   const lastWeek = new Date(Date.now() - 86400000 * 7).toISOString().split('T')[0];
 
-  const seeds: Transaction[] = [
+  return [
     {
       id: 'tx-seed-1',
       amount: 450,
@@ -228,40 +327,64 @@ function seedInitialTransactions(): Transaction[] {
       createdAt: Date.now() - 86400000 * 7
     }
   ];
-
-  localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(seeds));
-  return seeds;
 }
 
-export function exportFullDataBackup(): string {
+// ─── FULL BACKUP EXPORT & IMPORT (Async IndexedDB Read/Write) ──────────────────
+
+export async function exportFullDataBackup(): Promise<string> {
+  const transactions = await loadTransactions();
+  const categories = await loadCategories();
+  const trips = await loadTrips();
+  const smsTemplates = await loadSmsTemplates();
+  const profile = JSON.parse(localStorage.getItem('fa_user_profile') || '{}');
+
   const data = {
-    transactions: JSON.parse(localStorage.getItem(STORAGE_KEYS.TRANSACTIONS) || '[]'),
-    categories: JSON.parse(localStorage.getItem(STORAGE_KEYS.CATEGORIES) || '[]'),
-    trips: JSON.parse(localStorage.getItem(STORAGE_KEYS.TRIPS) || '[]'),
-    profile: JSON.parse(localStorage.getItem('fa_user_profile') || '{}'),
+    transactions,
+    categories,
+    trips,
+    smsTemplates,
+    profile,
     exportTimestamp: Date.now(),
-    appVersion: '1.0.0'
+    appVersion: '1.1.0'
   };
   return JSON.stringify(data, null, 2);
 }
 
-export function importFullDataBackup(jsonString: string): boolean {
+export async function importFullDataBackup(jsonString: string): Promise<boolean> {
   try {
     const data = JSON.parse(jsonString);
+    const db = await openDatabase();
+
     if (data.transactions && Array.isArray(data.transactions)) {
-      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(data.transactions));
+      const tx = db.transaction('transactions', 'readwrite');
+      const store = tx.objectStore('transactions');
+      store.clear();
+      data.transactions.forEach((t: Transaction) => store.put(t));
     }
     if (data.categories && Array.isArray(data.categories)) {
-      localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(data.categories));
+      const tx = db.transaction('categories', 'readwrite');
+      const store = tx.objectStore('categories');
+      store.clear();
+      data.categories.forEach((c: Category) => store.put(c));
     }
     if (data.trips && Array.isArray(data.trips)) {
-      localStorage.setItem(STORAGE_KEYS.TRIPS, JSON.stringify(data.trips));
+      const tx = db.transaction('trips', 'readwrite');
+      const store = tx.objectStore('trips');
+      store.clear();
+      data.trips.forEach((t: Trip) => store.put(t));
+    }
+    if (data.smsTemplates && Array.isArray(data.smsTemplates)) {
+      const tx = db.transaction('smsTemplates', 'readwrite');
+      const store = tx.objectStore('smsTemplates');
+      store.clear();
+      data.smsTemplates.forEach((st: SmsTemplate) => store.put(st));
     }
     if (data.profile && typeof data.profile === 'object') {
       localStorage.setItem('fa_user_profile', JSON.stringify(data.profile));
     }
     return true;
-  } catch {
+  } catch (err) {
+    console.error('Failed to import backup:', err);
     return false;
   }
 }
