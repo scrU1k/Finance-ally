@@ -87,7 +87,7 @@ export function isEncryptedBackup(jsonString: string): boolean {
   }
 }
 
-// ── PIN management (stored in localStorage, hashed with PBKDF2) ──────────────
+// ── PIN management (stored in localStorage, hashed with SHA-256) ──────────────
 
 const PIN_KEY = 'fa_export_pin';
 
@@ -97,11 +97,12 @@ interface StoredPin {
 }
 
 async function hashPinForStorage(pin: string): Promise<StoredPin> {
+  const enc = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
-  const key  = await deriveKey(pin, salt);
-  // Use the derived key bytes as the "hash" (export it)
-  const raw  = await crypto.subtle.exportKey('raw', key);
-  return { hash: bufToBase64(raw), salt: bufToBase64(salt.buffer as ArrayBuffer) };
+  const saltB64 = bufToBase64(salt.buffer as ArrayBuffer);
+  const data = enc.encode(pin + saltB64 + 'FA_BACKUP_SALT_2026');
+  const hashBuf = await crypto.subtle.digest('SHA-256', data);
+  return { hash: bufToBase64(hashBuf), salt: saltB64 };
 }
 
 export async function saveExportPin(pin: string): Promise<void> {
@@ -114,10 +115,10 @@ export async function verifyExportPin(pin: string): Promise<boolean> {
   if (!raw) return false;
   try {
     const stored: StoredPin = JSON.parse(raw);
-    const salt = base64ToBuf(stored.salt);
-    const key  = await deriveKey(pin, salt);
-    const raw2 = await crypto.subtle.exportKey('raw', key);
-    return bufToBase64(raw2) === stored.hash;
+    const enc = new TextEncoder();
+    const data = enc.encode(pin + stored.salt + 'FA_BACKUP_SALT_2026');
+    const hashBuf = await crypto.subtle.digest('SHA-256', data);
+    return bufToBase64(hashBuf) === stored.hash;
   } catch {
     return false;
   }

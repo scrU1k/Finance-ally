@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { UserProfile, CurrencyCode } from '../types';
 import { getStoredUserProfile, createInitialUser, verifyUserPassword, saveUserProfile, changeUserPassword } from '../services/auth';
 
@@ -21,19 +21,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean>(() => !getStoredUserProfile());
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
     const existing = getStoredUserProfile();
-    return existing ? (existing.requirePassword === false) : false;
+    if (!existing) return false;
+    // If requirePassword is true, require unlock. If false or undefined, default to unlocked.
+    return existing.requirePassword !== true;
   });
-
-  // Keep a small effect to listen for any external changes if needed, but synchronous setup prevents flashing.
-  useEffect(() => {
-    const existing = getStoredUserProfile();
-    if (!existing) {
-      setNeedsOnboarding(true);
-    } else {
-      setUser(existing);
-      setNeedsOnboarding(false);
-    }
-  }, []);
 
   const login = async (password: string): Promise<boolean> => {
     const success = await verifyUserPassword(password);
@@ -67,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updated = { ...user, requirePassword: enabled };
       setUser(updated);
       saveUserProfile(updated);
-      if (!enabled) setIsUnlocked(true);
+      setIsUnlocked(!enabled);
     }
   };
 

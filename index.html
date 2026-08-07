@@ -9,6 +9,26 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Geist:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        try {
+          var t = localStorage.getItem('fa_theme') || 'system';
+          var resolved = t;
+          if (t === 'system') {
+            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dotgui-dark' : 'dotgui-light';
+          }
+          if (resolved !== 'dotgui-light') {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.backgroundColor = '#0e0e0c';
+            document.body && (document.body.style.backgroundColor = '#0e0e0c');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.backgroundColor = '#fafaf7';
+            document.body && (document.body.style.backgroundColor = '#fafaf7');
+          }
+        } catch(e) {}
+      })();
+    </script>
   </head>
   <body class="bg-canvas text-ink antialiased selection:bg-brand-blue selection:text-white">
     <div id="root"></div>
