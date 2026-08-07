@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useTheme, ThemeMode, FontFamily } from '../../context/ThemeContext';
@@ -7,6 +7,7 @@ import { exportFullDataBackup, importFullDataBackup } from '../../services/db';
 import { exportTransactionsToCSV, importTransactionsFromCSV } from '../../services/csvParser';
 import { encryptJSON, decryptJSON, isEncryptedBackup, saveExportPin, verifyExportPin, hasExportPin, clearExportPin } from '../../services/cryptoService';
 import { getStoredCloudConfig, saveCloudConfig, uploadToCloudBackup, CloudAuthConfig, CloudProviderType } from '../../services/cloudSyncService';
+import { triggerGoogleOAuthSignIn } from '../../services/googleAuthService';
 import { PinModal } from '../common/PinModal';
 import { CustomSelect } from '../common/CustomSelect';
 import { CurrencyCode } from '../../types';
@@ -49,6 +50,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   // Active Sub-Page Navigation State
   const [activeSubPage, setActiveSubPage] = useState<SettingsSubPage>('main');
+
+  // Always reset to main settings view whenever the modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setActiveSubPage('main');
+    }
+  }, [isOpen]);
 
   // Embedded Converter State
   const [calcAmount, setCalcAmount] = useState('100');
@@ -765,7 +773,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <div className="space-y-6 animate-in fade-in duration-150">
             <div className="space-y-4 bg-surface-soft p-5 rounded-xl border border-hairline">
               <div className="flex items-center gap-2 border-b border-hairline/60 pb-3">
-                <FileSpreadsheet className="w-4 h-4 text-brand-mint" />
+                <FileSpreadsheet className="w-4 h-4 text-brand-mint shrink-0" />
                 <h3 className="text-xs font-mono font-bold text-ink uppercase">CSV Import & Export Engine</h3>
               </div>
               <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
@@ -777,20 +785,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="border border-brand-mint text-brand-mint hover:bg-surface-card font-mono text-xs py-3 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-2 shadow-sm"
+                  className="border border-brand-mint text-brand-mint hover:bg-surface-card font-mono text-xs py-3 px-4 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-2.5 shadow-sm"
                 >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  <span>Export Transactions to CSV</span>
+                  <FileSpreadsheet className="w-4 h-4 shrink-0" />
+                  <span>Export to CSV</span>
                 </button>
 
                 {/* CSV Import */}
                 <button
                   type="button"
                   onClick={() => csvFileInputRef.current?.click()}
-                  className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer font-bold"
+                  className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2.5 shadow-sm cursor-pointer font-bold"
                 >
-                  <Upload className="w-4 h-4" />
-                  <span>Import Bank Statement CSV</span>
+                  <Upload className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Import Bank Statement CSV</span>
                 </button>
                 <input
                   type="file"
@@ -818,7 +826,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
               <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
                 <div className="flex items-center gap-2">
-                  <Database className="w-4 h-4 text-brand-yellow" />
+                  <Database className="w-4 h-4 text-brand-yellow shrink-0" />
                   <h3 className="text-xs font-mono font-bold text-ink uppercase">Manual Database Backup (.JSON)</h3>
                 </div>
                 <span className="px-2.5 py-0.5 rounded-full border border-hairline bg-surface-card text-[10px] font-mono font-bold text-muted-custom">
@@ -830,18 +838,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 <button
                   type="button"
                   onClick={handleExport}
-                  className="bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2.5 rounded-xl transition-all cursor-pointer font-bold text-center active:scale-95 shadow-sm"
+                  className="bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2.5 px-3 rounded-xl transition-all cursor-pointer font-bold text-center active:scale-95 shadow-sm"
                 >
-                  Export JSON Backup
+                  Export Backup
                 </button>
 
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer font-bold active:scale-95"
+                  className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer font-bold active:scale-95"
                 >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>Restore JSON Backup</span>
+                  <Upload className="w-3.5 h-3.5 shrink-0" />
+                  <span>Restore Backup</span>
                 </button>
                 <input
                   type="file"
@@ -859,10 +867,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <div className="space-y-4 bg-surface-soft p-4 rounded-xl border border-hairline">
               <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
                 <div className="flex items-center gap-2">
-                  <Cloud className="w-4 h-4 text-brand-blue" />
+                  <Cloud className="w-4 h-4 text-brand-blue shrink-0" />
                   <h3 className="text-xs font-mono font-bold text-ink uppercase">Encrypted Cloud Auto-Sync</h3>
                 </div>
-                <span className="text-[10px] font-mono font-bold text-brand-blue border border-brand-blue/30 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-mono font-bold text-brand-blue border border-brand-blue/30 px-3 py-1 rounded-full whitespace-nowrap flex items-center justify-center shrink-0 min-w-[70px] text-center">
                   AES-256
                 </span>
               </div>
@@ -881,7 +889,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       type="button"
                       onClick={() => {
                         setSelectedCloudProvider(p.id as any);
-                        setCloudMsg(`Selected ${p.label}. Enter credentials below.`);
+                        setCloudMsg(`Selected ${p.label}.`);
                       }}
                       className={`p-2.5 rounded-xl border text-xs font-mono font-bold transition-all text-center truncate cursor-pointer ${
                         selectedCloudProvider === p.id
@@ -895,45 +903,70 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </div>
               </div>
 
-              {/* GOOGLE DRIVE CREDENTIALS & GOOGLE DATA ACCESS REQUEST NOTICE */}
+              {/* GOOGLE DRIVE 1-CLICK CONNECTION SETUP & GOOGLE DATA ACCESS REQUEST NOTICE */}
               {selectedCloudProvider === 'gdrive' && (
                 <div className="space-y-3 bg-surface-card p-3.5 rounded-xl border border-hairline animate-in fade-in duration-150">
                   <span className="text-xs font-mono font-bold text-ink uppercase block">Google Drive Connection Setup</span>
 
-                  <div className="space-y-2">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Google Account Email</label>
-                      <input
-                        type="email"
-                        value={googleEmail}
-                        onChange={e => setGoogleEmail(e.target.value)}
-                        placeholder="your.account@gmail.com"
-                        className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
-                      />
+                  {googleToken ? (
+                    <div className="flex items-center justify-between bg-surface-soft p-3 rounded-xl border border-hairline">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-brand-mint shrink-0" />
+                        <div>
+                          <span className="text-xs font-mono font-bold text-ink block">Connected to Google Drive</span>
+                          <p className="text-[10px] font-mono text-muted-custom truncate">{googleEmail || 'Google Account Active'}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGoogleToken('');
+                          setGoogleEmail('');
+                          setCloudMsg('Disconnected from Google Drive.');
+                        }}
+                        className="text-[10px] font-mono font-bold text-brand-coral border border-brand-coral/30 px-2.5 py-1 rounded-lg hover:bg-surface-card cursor-pointer"
+                      >
+                        Disconnect
+                      </button>
                     </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Google OAuth Access Token</label>
-                      <input
-                        type="password"
-                        value={googleToken}
-                        onChange={e => setGoogleToken(e.target.value)}
-                        placeholder="ya29.a0AR..."
-                        className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
-                      />
-                    </div>
-                  </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setCloudSyncLoading(true);
+                        setCloudMsg('Opening Google Sign-In authorization window...');
+                        const res = await triggerGoogleOAuthSignIn();
+                        setCloudSyncLoading(false);
+                        if (res.success && res.token) {
+                          setGoogleToken(res.token);
+                          setGoogleEmail(res.email || 'user@gmail.com');
+                          saveCloudConfig({
+                            provider: 'gdrive',
+                            googleAccessToken: res.token,
+                            googleEmail: res.email || 'user@gmail.com'
+                          });
+                          setCloudMsg('Successfully authenticated with Google Drive!');
+                        } else {
+                          setCloudMsg(`Sign-in status: ${res.error || 'Connection cancelled.'}`);
+                        }
+                      }}
+                      className="w-full bg-surface-soft hover:bg-surface-card border border-brand-blue text-brand-blue font-mono text-xs font-bold py-3 px-4 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <Cloud className="w-4 h-4 shrink-0" />
+                      <span>Sign in with Google Drive</span>
+                    </button>
+                  )}
 
                   {/* Google Data Permission Request Disclosure Card */}
-                  <div className="bg-surface-soft p-3 rounded-xl border border-brand-blue/30 space-y-1.5 text-xs font-mono">
+                  <div className="bg-surface-soft p-3 rounded-xl border border-brand-blue/30 space-y-1.5 text-xs font-mono overflow-hidden">
                     <span className="font-bold text-brand-blue uppercase flex items-center gap-1.5 text-[11px]">
-                      <Info className="w-3.5 h-3.5" /> Google Drive Permission Request Notice
+                      <Info className="w-3.5 h-3.5 shrink-0" /> Google Drive Permission Request Notice
                     </span>
-                    <ul className="text-[10px] text-muted-custom space-y-1 list-disc pl-4 leading-relaxed">
-                      <li><strong>Requested Scope:</strong> <code className="text-ink">https://www.googleapis.com/auth/drive.file</code></li>
-                      <li><strong>Access Boundary:</strong> Finance-Ally requests permission <em>strictly</em> for files it creates (<code className="text-ink">finance_ally_backup.json.enc</code>).</li>
-                      <li><strong>Zero Data Exposure:</strong> Finance-Ally cannot read, modify, or view any of your personal Google Drive documents, photos, or emails.</li>
-                      <li><strong>AES-256 Encrypted:</strong> All financial data is encrypted on your local device before transmission.</li>
+                    <ul className="text-[10px] text-muted-custom space-y-1.5 list-disc pl-4 leading-relaxed break-words overflow-hidden">
+                      <li className="break-all"><strong>Requested Scope:</strong> <code className="text-ink break-all font-mono text-[9.5px]">https://www.googleapis.com/auth/drive.file</code></li>
+                      <li className="break-words"><strong>Access Boundary:</strong> Finance-Ally requests permission <em>strictly</em> for files it creates (<code className="text-ink break-all font-mono text-[9.5px]">finance_ally_backup.json.enc</code>).</li>
+                      <li className="break-words"><strong>Zero Data Exposure:</strong> Finance-Ally cannot read, modify, or view any of your personal Google Drive documents, photos, or emails.</li>
+                      <li className="break-words"><strong>AES-256 Encrypted:</strong> All financial data is encrypted on your local device before transmission.</li>
                     </ul>
                   </div>
                 </div>
@@ -997,10 +1030,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     type="button"
                     onClick={handleExecuteCloudBackup}
                     disabled={cloudSyncLoading}
-                    className="w-full border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2.5 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                    className="w-full border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-3 px-4 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-2.5 shadow-sm disabled:opacity-50"
                   >
-                    <Cloud className="w-3.5 h-3.5" />
-                    <span>{cloudSyncLoading ? 'Uploading Payload to Cloud...' : `Perform Cloud Backup Now to ${selectedCloudProvider.toUpperCase()}`}</span>
+                    <Cloud className="w-4 h-4 shrink-0" />
+                    <span>
+                      {cloudSyncLoading
+                        ? 'Uploading Payload to Cloud...'
+                        : `Backup to ${selectedCloudProvider === 'gdrive' ? 'Drive' : selectedCloudProvider === 'onedrive' ? 'OneDrive' : 'WebDAV'}`}
+                    </span>
                   </button>
                 </div>
               )}
