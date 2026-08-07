@@ -33,25 +33,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
-        <receiver
-            android:name=".SmsReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter android:priority="999">
-                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
-            </intent-filter>
-        </receiver>
-
-        <service
-            android:name=".BankNotificationListenerService"
-            android:label="Finance-Ally Bank Notification Service"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
-        </service>
-
     </application>
 
     <!-- Permissions for Persistent Notification & Foreground Background Service (Play Store Compliant) -->
