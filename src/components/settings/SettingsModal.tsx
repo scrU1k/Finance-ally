@@ -6,6 +6,7 @@ import { TOP_CURRENCIES, convertCurrencyAmount, formatCurrency } from '../../ser
 import { exportFullDataBackup, importFullDataBackup } from '../../services/db';
 import { exportTransactionsToCSV, importTransactionsFromCSV } from '../../services/csvParser';
 import { encryptJSON, decryptJSON, isEncryptedBackup, saveExportPin, verifyExportPin, hasExportPin, clearExportPin } from '../../services/cryptoService';
+import { getStoredCloudConfig, saveCloudConfig, uploadToCloudBackup, CloudAuthConfig, CloudProviderType } from '../../services/cloudSyncService';
 import { PinModal } from '../common/PinModal';
 import { CustomSelect } from '../common/CustomSelect';
 import { CurrencyCode } from '../../types';
@@ -30,7 +31,8 @@ import {
   FileSpreadsheet,
   Cloud,
   CheckCircle2,
-  Calendar
+  Calendar,
+  Info
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -76,12 +78,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const csvFileInputRef = useRef<HTMLInputElement | null>(null);
   const [csvStatus, setCsvStatus] = useState('');
 
-  // Cloud Sync & Schedule State
-  const [selectedCloudProvider, setSelectedCloudProvider] = useState<'gdrive' | 'onedrive' | 'webdav' | 'none'>('none');
+  // Cloud Sync & Credentials State
+  const initialCloudConfig = getStoredCloudConfig();
+  const [selectedCloudProvider, setSelectedCloudProvider] = useState<CloudProviderType>(initialCloudConfig.provider || 'none');
+  const [googleEmail, setGoogleEmail] = useState(initialCloudConfig.googleEmail || '');
+  const [googleToken, setGoogleToken] = useState(initialCloudConfig.googleAccessToken || '');
+  const [oneDriveEmail, setOneDriveEmail] = useState(initialCloudConfig.oneDriveEmail || '');
+  const [oneDriveToken, setOneDriveToken] = useState(initialCloudConfig.oneDriveAccessToken || '');
+  const [webdavUrl, setWebdavUrl] = useState(initialCloudConfig.webdavUrl || '');
+  const [webdavUser, setWebdavUser] = useState(initialCloudConfig.webdavUsername || '');
+  const [webdavPass, setWebdavPass] = useState(initialCloudConfig.webdavPassword || '');
   const [syncSchedule, setSyncSchedule] = useState<'daily' | 'weekly' | 'monthly' | 'manual'>('daily');
   const [monthlySyncDate, setMonthlySyncDate] = useState<number>(1);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [cloudMsg, setCloudMsg] = useState('');
+  const [cloudSyncLoading, setCloudSyncLoading] = useState(false);
 
   // Export PIN / Encryption state
   const [pinEnabled, setPinEnabled] = useState<boolean>(hasExportPin);
@@ -278,6 +289,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       setPinActionError('Error saving PIN. Please try again.');
     }
     setPinActionLoading(false);
+  };
+
+  const handleSaveCloudProviderConfig = () => {
+    const cfg: CloudAuthConfig = {
+      provider: selectedCloudProvider,
+      googleEmail: googleEmail.trim(),
+      googleAccessToken: googleToken.trim(),
+      oneDriveEmail: oneDriveEmail.trim(),
+      oneDriveAccessToken: oneDriveToken.trim(),
+      webdavUrl: webdavUrl.trim(),
+      webdavUsername: webdavUser.trim(),
+      webdavPassword: webdavPass.trim(),
+    };
+    saveCloudConfig(cfg);
+    setCloudMsg('Cloud configuration saved!');
+  };
+
+  const handleExecuteCloudBackup = async () => {
+    setCloudSyncLoading(true);
+    setCloudMsg('');
+    const cfg: CloudAuthConfig = {
+      provider: selectedCloudProvider,
+      googleEmail: googleEmail.trim(),
+      googleAccessToken: googleToken.trim(),
+      oneDriveEmail: oneDriveEmail.trim(),
+      oneDriveAccessToken: oneDriveToken.trim(),
+      webdavUrl: webdavUrl.trim(),
+      webdavUsername: webdavUser.trim(),
+      webdavPassword: webdavPass.trim(),
+    };
+    saveCloudConfig(cfg);
+
+    const pin = pinEnabled ? localStorage.getItem('fa_export_pin') || undefined : undefined;
+    const res = await uploadToCloudBackup(cfg, pin);
+    setCloudSyncLoading(false);
+    setCloudMsg(res.message);
   };
 
   const handleDisablePin = () => {
@@ -834,7 +881,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       type="button"
                       onClick={() => {
                         setSelectedCloudProvider(p.id as any);
-                        setCloudMsg(`Selected ${p.label}. OAuth connection ready!`);
+                        setCloudMsg(`Selected ${p.label}. Enter credentials below.`);
                       }}
                       className={`p-2.5 rounded-xl border text-xs font-mono font-bold transition-all text-center truncate cursor-pointer ${
                         selectedCloudProvider === p.id
@@ -847,6 +894,116 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   ))}
                 </div>
               </div>
+
+              {/* GOOGLE DRIVE CREDENTIALS & GOOGLE DATA ACCESS REQUEST NOTICE */}
+              {selectedCloudProvider === 'gdrive' && (
+                <div className="space-y-3 bg-surface-card p-3.5 rounded-xl border border-hairline animate-in fade-in duration-150">
+                  <span className="text-xs font-mono font-bold text-ink uppercase block">Google Drive Connection Setup</span>
+
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Google Account Email</label>
+                      <input
+                        type="email"
+                        value={googleEmail}
+                        onChange={e => setGoogleEmail(e.target.value)}
+                        placeholder="your.account@gmail.com"
+                        className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Google OAuth Access Token</label>
+                      <input
+                        type="password"
+                        value={googleToken}
+                        onChange={e => setGoogleToken(e.target.value)}
+                        placeholder="ya29.a0AR..."
+                        className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Google Data Permission Request Disclosure Card */}
+                  <div className="bg-surface-soft p-3 rounded-xl border border-brand-blue/30 space-y-1.5 text-xs font-mono">
+                    <span className="font-bold text-brand-blue uppercase flex items-center gap-1.5 text-[11px]">
+                      <Info className="w-3.5 h-3.5" /> Google Drive Permission Request Notice
+                    </span>
+                    <ul className="text-[10px] text-muted-custom space-y-1 list-disc pl-4 leading-relaxed">
+                      <li><strong>Requested Scope:</strong> <code className="text-ink">https://www.googleapis.com/auth/drive.file</code></li>
+                      <li><strong>Access Boundary:</strong> Finance-Ally requests permission <em>strictly</em> for files it creates (<code className="text-ink">finance_ally_backup.json.enc</code>).</li>
+                      <li><strong>Zero Data Exposure:</strong> Finance-Ally cannot read, modify, or view any of your personal Google Drive documents, photos, or emails.</li>
+                      <li><strong>AES-256 Encrypted:</strong> All financial data is encrypted on your local device before transmission.</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* ONEDRIVE CREDENTIALS */}
+              {selectedCloudProvider === 'onedrive' && (
+                <div className="space-y-2 bg-surface-card p-3.5 rounded-xl border border-hairline animate-in fade-in duration-150">
+                  <span className="text-xs font-mono font-bold text-ink uppercase block">Microsoft OneDrive Setup</span>
+                  <input
+                    type="email"
+                    value={oneDriveEmail}
+                    onChange={e => setOneDriveEmail(e.target.value)}
+                    placeholder="user@outlook.com"
+                    className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                  />
+                  <input
+                    type="password"
+                    value={oneDriveToken}
+                    onChange={e => setOneDriveToken(e.target.value)}
+                    placeholder="Microsoft Graph Access Token"
+                    className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                  />
+                </div>
+              )}
+
+              {/* WEBDAV CREDENTIALS */}
+              {selectedCloudProvider === 'webdav' && (
+                <div className="space-y-2 bg-surface-card p-3.5 rounded-xl border border-hairline animate-in fade-in duration-150">
+                  <span className="text-xs font-mono font-bold text-ink uppercase block">WebDAV / Nextcloud Server Credentials</span>
+                  <input
+                    type="url"
+                    value={webdavUrl}
+                    onChange={e => setWebdavUrl(e.target.value)}
+                    placeholder="https://nextcloud.example.com/remote.php/dav/files/user/"
+                    className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={webdavUser}
+                      onChange={e => setWebdavUser(e.target.value)}
+                      placeholder="Username"
+                      className="bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                    />
+                    <input
+                      type="password"
+                      value={webdavPass}
+                      onChange={e => setWebdavPass(e.target.value)}
+                      placeholder="App Password"
+                      className="bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Perform Backup Now Button */}
+              {selectedCloudProvider !== 'none' && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleExecuteCloudBackup}
+                    disabled={cloudSyncLoading}
+                    className="w-full border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2.5 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                  >
+                    <Cloud className="w-3.5 h-3.5" />
+                    <span>{cloudSyncLoading ? 'Uploading Payload to Cloud...' : `Perform Cloud Backup Now to ${selectedCloudProvider.toUpperCase()}`}</span>
+                  </button>
+                </div>
+              )}
 
               {/* Schedule Select */}
               <div className="space-y-1.5 pt-2">
@@ -903,6 +1060,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       setCloudMsg('Please select a cloud provider first.');
                       return;
                     }
+                    handleSaveCloudProviderConfig();
                     setAutoSyncEnabled(!autoSyncEnabled);
                     setCloudMsg(!autoSyncEnabled ? 'Auto-sync activated!' : 'Auto-sync paused.');
                   }}
