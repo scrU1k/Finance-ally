@@ -6,8 +6,16 @@ import { TOP_CURRENCIES, convertCurrencyAmount, formatCurrency } from '../../ser
 import { exportFullDataBackup, importFullDataBackup } from '../../services/db';
 import { exportTransactionsToCSV, importTransactionsFromCSV } from '../../services/csvParser';
 import { encryptJSON, decryptJSON, isEncryptedBackup, saveExportPin, verifyExportPin, hasExportPin, clearExportPin } from '../../services/cryptoService';
-import { getStoredCloudConfig, saveCloudConfig, uploadToCloudBackup, CloudAuthConfig, CloudProviderType } from '../../services/cloudSyncService';
-import { triggerGoogleOAuthSignIn } from '../../services/googleAuthService';
+import {
+  getLocalAutoBackupConfig,
+  saveLocalAutoBackupConfig,
+  getLocalSnapshots,
+  createLocalAutoBackup,
+  getSnapshotPayload,
+  deleteLocalSnapshot,
+  LocalAutoBackupConfig,
+  LocalSnapshotMetadata
+} from '../../services/localAutoBackupService';
 import { PinModal } from '../common/PinModal';
 import { CustomSelect } from '../common/CustomSelect';
 import { CurrencyCode } from '../../types';
@@ -86,23 +94,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const csvFileInputRef = useRef<HTMLInputElement | null>(null);
   const [csvStatus, setCsvStatus] = useState('');
 
-  // Cloud Sync & Credentials State
-  const initialCloudConfig = getStoredCloudConfig();
-  const [selectedCloudProvider, setSelectedCloudProvider] = useState<CloudProviderType>(initialCloudConfig.provider || 'none');
-  const [googleEmail, setGoogleEmail] = useState(initialCloudConfig.googleEmail || '');
-  const [googleToken, setGoogleToken] = useState(initialCloudConfig.googleAccessToken || '');
-  const [googleClientId, setGoogleClientId] = useState(localStorage.getItem('fa_google_client_id') || '');
-  const [showManualToken, setShowManualToken] = useState(false);
-  const [oneDriveEmail, setOneDriveEmail] = useState(initialCloudConfig.oneDriveEmail || '');
-  const [oneDriveToken, setOneDriveToken] = useState(initialCloudConfig.oneDriveAccessToken || '');
-  const [webdavUrl, setWebdavUrl] = useState(initialCloudConfig.webdavUrl || '');
-  const [webdavUser, setWebdavUser] = useState(initialCloudConfig.webdavUsername || '');
-  const [webdavPass, setWebdavPass] = useState(initialCloudConfig.webdavPassword || '');
-  const [syncSchedule, setSyncSchedule] = useState<'daily' | 'weekly' | 'monthly' | 'manual'>('daily');
-  const [monthlySyncDate, setMonthlySyncDate] = useState<number>(1);
-  const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
-  const [cloudMsg, setCloudMsg] = useState('');
-  const [cloudSyncLoading, setCloudSyncLoading] = useState(false);
+  // Local Auto-Backup State
+  const initialLocalConfig = getLocalAutoBackupConfig();
+  const [localAutoConfig, setLocalAutoConfig] = useState<LocalAutoBackupConfig>(initialLocalConfig);
+  const [localSnapshots, setLocalSnapshotsState] = useState<LocalSnapshotMetadata[]>(getLocalSnapshots());
+  const [localBackupMsg, setLocalBackupMsg] = useState('');
+  const [localBackupLoading, setLocalBackupLoading] = useState(false);
 
   // Export PIN / Encryption state
   const [pinEnabled, setPinEnabled] = useState<boolean>(hasExportPin);
@@ -301,40 +298,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setPinActionLoading(false);
   };
 
-  const handleSaveCloudProviderConfig = () => {
-    const cfg: CloudAuthConfig = {
-      provider: selectedCloudProvider,
-      googleEmail: googleEmail.trim(),
-      googleAccessToken: googleToken.trim(),
-      oneDriveEmail: oneDriveEmail.trim(),
-      oneDriveAccessToken: oneDriveToken.trim(),
-      webdavUrl: webdavUrl.trim(),
-      webdavUsername: webdavUser.trim(),
-      webdavPassword: webdavPass.trim(),
-    };
-    saveCloudConfig(cfg);
-    setCloudMsg('Cloud configuration saved!');
+  const handleManualLocalAutoBackup = async () => {
+    setLocalBackupLoading(true);
+    setLocalBackupMsg('');
+    const res = await createLocalAutoBackup(true);
+    setLocalBackupLoading(false);
+    setLocalBackupMsg(res.message);
+    setLocalSnapshotsState(getLocalSnapshots());
   };
 
-  const handleExecuteCloudBackup = async () => {
-    setCloudSyncLoading(true);
-    setCloudMsg('');
-    const cfg: CloudAuthConfig = {
-      provider: selectedCloudProvider,
-      googleEmail: googleEmail.trim(),
-      googleAccessToken: googleToken.trim(),
-      oneDriveEmail: oneDriveEmail.trim(),
-      oneDriveAccessToken: oneDriveToken.trim(),
-      webdavUrl: webdavUrl.trim(),
-      webdavUsername: webdavUser.trim(),
-      webdavPassword: webdavPass.trim(),
-    };
-    saveCloudConfig(cfg);
+  const handleRestoreSnapshot = async (snap: LocalSnapshotMetadata) => {
+    const payload = getSnapshotPayload(snap.id);
+    if (!payload) {
+      setImportStatus('Snapshot data not found in local cache.');
+      return;
+    }
 
-    const pin = pinEnabled ? localStorage.getItem('fa_export_pin') || undefined : undefined;
-    const res = await uploadToCloudBackup(cfg, pin);
-    setCloudSyncLoading(false);
-    setCloudMsg(res.message);
+    if (snap.isEncrypted) {
+      setPendingImportContent(payload);
+      setShowVerifyPinModal(true);
+    } else {
+      const ok = await importFullDataBackup(payload);
+      if (ok) {
+        setImportStatus(`Restored from snapshot ${snap.filename}! Reloading...`);
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        setImportStatus('Failed to restore snapshot data.');
+      }
+    }
+  };
+
+  const handleDeleteSnapshotItem = (snapId: string) => {
+    const updated = deleteLocalSnapshot(snapId);
+    setLocalSnapshotsState(updated);
+    setLocalBackupMsg('Snapshot removed.');
   };
 
   const handleDisablePin = () => {
@@ -863,6 +860,123 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
 
               {importStatus && <p className="text-[10px] font-mono text-brand-mint text-center font-bold">{importStatus}</p>}
+            </div>
+
+            {/* AUTOMATED OFFLINE LOCAL BACKUP */}
+            <div className="space-y-4 bg-surface-soft p-4 rounded-xl border border-hairline">
+              <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 text-brand-mint shrink-0" />
+                  <h3 className="text-xs font-mono font-bold text-ink uppercase">Automated Offline Local Backup</h3>
+                </div>
+                <span className="text-[10px] font-mono font-bold text-brand-mint border border-brand-mint/30 px-3 py-0.5 rounded-full">
+                  OFFLINE
+                </span>
+              </div>
+
+              {/* Schedule Select */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Auto-Backup Frequency</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'daily', label: 'Daily' },
+                    { id: 'weekly', label: 'Weekly' },
+                    { id: 'monthly', label: 'Monthly' },
+                    { id: 'off', label: 'Off (Manual)' }
+                  ].map(s => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        const updated = saveLocalAutoBackupConfig({ schedule: s.id as any, enabled: s.id !== 'off' });
+                        setLocalAutoConfig(updated);
+                        setLocalBackupMsg(`Schedule updated to ${s.label}.`);
+                      }}
+                      className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold transition-all text-center cursor-pointer ${
+                        localAutoConfig.schedule === s.id
+                          ? 'border-brand-mint text-brand-mint bg-surface-card shadow-sm'
+                          : 'bg-surface-card border-hairline text-muted-custom hover:text-ink'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Repeat Day for Monthly */}
+              {localAutoConfig.schedule === 'monthly' && (
+                <div className="flex items-center gap-3 pt-1">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Repeat Day of Month:</label>
+                  <select
+                    value={localAutoConfig.monthlyDay}
+                    onChange={e => {
+                      const updated = saveLocalAutoBackupConfig({ monthlyDay: parseInt(e.target.value) });
+                      setLocalAutoConfig(updated);
+                    }}
+                    className="bg-surface-card border border-hairline rounded-lg px-3 py-1 text-xs font-mono text-ink cursor-pointer"
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                      <option key={day} value={day}>Day {day}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Perform Manual Snapshot Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleManualLocalAutoBackup}
+                  disabled={localBackupLoading}
+                  className="w-full border border-brand-mint text-brand-mint hover:bg-surface-card font-mono text-xs py-2.5 px-4 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${localBackupLoading ? 'animate-spin' : ''}`} />
+                  <span>{localBackupLoading ? 'Creating Snapshot...' : 'Create Local Snapshot Now'}</span>
+                </button>
+              </div>
+
+              {localBackupMsg && <p className="text-[10px] font-mono text-brand-mint text-center font-bold">{localBackupMsg}</p>}
+
+              {/* Local Snapshots List */}
+              {localSnapshots.length > 0 && (
+                <div className="pt-3 border-t border-hairline/60 space-y-2">
+                  <span className="text-[10px] font-mono font-bold text-muted-custom uppercase block">
+                    Saved Offline Local Snapshots ({localSnapshots.length})
+                  </span>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {localSnapshots.map(snap => (
+                      <div key={snap.id} className="bg-surface-card p-2.5 rounded-xl border border-hairline flex items-center justify-between text-xs font-mono">
+                        <div className="truncate mr-2">
+                          <span className="font-bold text-ink block truncate">{snap.filename}</span>
+                          <span className="text-[9.5px] text-muted-custom">{snap.timestamp} • {(snap.sizeBytes / 1024).toFixed(1)} KB</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {snap.isEncrypted && (
+                            <span className="text-[9px] font-bold text-brand-blue border border-brand-blue/30 px-1.5 py-0.5 rounded">
+                              AES-256
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRestoreSnapshot(snap)}
+                            className="text-[10px] font-bold text-brand-mint border border-brand-mint/30 px-2 py-1 rounded hover:bg-surface-soft cursor-pointer"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSnapshotItem(snap.id)}
+                            className="text-[10px] text-muted-custom hover:text-brand-coral p-1 cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

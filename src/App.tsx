@@ -18,6 +18,7 @@ import { SettingsModal } from './components/settings/SettingsModal';
 import { CategoryManagerModal } from './components/categories/CategoryManagerModal';
 import { SubscriptionPage } from './components/subscriptions/SubscriptionPage';
 import { Transaction } from './types';
+import { checkAndPerformLocalAutoBackup } from './services/localAutoBackupService';
 
 const MainAppContent: React.FC = () => {
   const { needsOnboarding, isUnlocked } = useAuth();
@@ -27,6 +28,10 @@ const MainAppContent: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  React.useEffect(() => {
+    checkAndPerformLocalAutoBackup();
+  }, []);
 
   if (needsOnboarding) {
     return <OnboardingCurrency />;
