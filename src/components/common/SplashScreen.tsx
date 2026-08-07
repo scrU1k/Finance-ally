@@ -31,14 +31,14 @@ export const SplashScreen: React.FC = () => {
       {/* Central Glowing Squircle Logo */}
       <div className="relative w-28 h-28 flex items-center justify-center animate-in zoom-in-95 duration-700 ease-out">
         {/* Glow backdrop */}
-        <div className="absolute inset-0 bg-brand-blue/30 rounded-[35%] blur-2xl animate-pulse duration-[3000ms]"></div>
+        <div className="absolute inset-0 bg-brand-blue/30 rounded-[22%] blur-2xl animate-pulse duration-[3000ms]"></div>
         
         {/* Squircle logo */}
-        <div className="relative w-24 h-24 bg-surface-card rounded-[35%] overflow-hidden border border-white/10 shadow-2xl p-0.5 z-10">
+        <div className="relative w-24 h-24 bg-surface-card rounded-[22%] overflow-hidden border border-white/10 shadow-2xl p-0.5 z-10">
           <img
             src="/logo.png"
             alt="Finance-Ally Logo"
-            className="w-full h-full object-cover rounded-[33%]"
+            className="w-full h-full object-cover rounded-[20%]"
           />
         </div>
       </div>

@@ -22,8 +22,8 @@ function Create-SquircleIcon {
     # Clear transparent
     $g.Clear([System.Drawing.Color]::Transparent)
     
-    # Define rounded rect path for squircle (radius is 33% of size)
-    $r = $size * 0.33
+    # Define rounded rect path for squircle (radius is 22% of size for Samsung squircle dimensions)
+    $r = $size * 0.22
     $path = New-Object System.Drawing.Drawing2D.GraphicsPath
     $path.AddArc(0, 0, $r, $r, 180, 90)
     $path.AddArc(($size - $r - 1), 0, $r, $r, 270, 90)

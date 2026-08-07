@@ -29,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories
             className="flex items-center gap-2 font-display font-bold text-sm sm:text-base tracking-tight text-ink hover:opacity-80 transition-opacity shrink-0 text-left cursor-pointer"
             title="Go to Expense Log"
           >
-            <div className="w-6 h-6 rounded-[33%] overflow-hidden border border-hairline shrink-0 shadow-sm">
+            <div className="w-6 h-6 rounded-[22%] overflow-hidden border border-hairline shrink-0 shadow-sm">
               <img src="/logo.png" className="w-full h-full object-cover" alt="Logo" />
             </div>
             <span>Finance-Ally</span>
