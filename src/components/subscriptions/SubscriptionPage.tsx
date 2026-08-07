@@ -74,7 +74,7 @@ export const SubscriptionPage: React.FC = () => {
     const updatedSubs = [...subscriptions];
     for (let i = 0; i < updatedSubs.length; i++) {
       const sub = updatedSubs[i];
-      if (sub.nextDueDate <= today) {
+      if (sub.nextDueDate <= today && sub.lastProcessedDate !== today) {
         // Auto log expense transaction
         await addTransaction({
           amount: sub.amount,
@@ -95,7 +95,7 @@ export const SubscriptionPage: React.FC = () => {
         else if (sub.billingCycle === 'annually') d.setFullYear(d.getFullYear() + 1);
 
         const newDateStr = d.toISOString().split('T')[0];
-        const updatedSub = { ...sub, nextDueDate: newDateStr };
+        const updatedSub = { ...sub, nextDueDate: newDateStr, lastProcessedDate: today };
         await saveSubscription(updatedSub);
         updatedSubs[i] = updatedSub;
         loggedCount++;

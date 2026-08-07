@@ -91,6 +91,7 @@ export interface Subscription {
   currency: CurrencyCode;
   billingCycle: 'monthly' | 'bi-monthly' | 'tri-monthly' | 'annually';
   nextDueDate: string; // YYYY-MM-DD
+  lastProcessedDate?: string; // YYYY-MM-DD
   categoryId: string;
   paymentMethod: string;
   autoLog: boolean;

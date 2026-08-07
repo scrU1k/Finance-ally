@@ -1,8 +1,19 @@
 import React from 'react';
 import { Transaction, Category, Trip } from '../../types';
 import { formatCurrency } from '../../services/currency';
-import { Sparkles, Trash2, Edit2, Plane, CreditCard } from 'lucide-react';
-import * as Icons from 'lucide-react';
+import {
+  Sparkles, Trash2, Edit2, Plane, CreditCard,
+  // Category icons — explicit import so bundler can tree-shake unused Lucide icons
+  Tag, Utensils, ShoppingCart, Car, Laptop, Shirt, Home, Film,
+  Activity, TrendingUp, type LucideProps,
+} from 'lucide-react';
+
+// Explicit map of every icon used by DEFAULT_CATEGORIES + common extras.
+// Never import `* as Icons` — that bundles all 1400+ Lucide SVGs.
+const CATEGORY_ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
+  Tag, Utensils, ShoppingCart, Car, Laptop, Shirt, Home, Film,
+  Activity, Plane, TrendingUp,
+};
 
 interface TransactionCardProps {
   transaction: Transaction;
@@ -30,8 +41,8 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 
   const trip = trips.find(t => t.id === transaction.tripId);
 
-  // Dynamic Lucide icon lookup
-  const IconComponent = (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[category.icon] || Icons.Tag;
+  // Dynamic icon lookup — falls back to Tag for any unknown icon names
+  const IconComponent = CATEGORY_ICON_MAP[category.icon] ?? Tag;
 
   return (
     <div

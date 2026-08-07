@@ -17,6 +17,16 @@ import { SmartSuggestions } from './components/insights/SmartSuggestions';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { CategoryManagerModal } from './components/categories/CategoryManagerModal';
 import { SubscriptionPage } from './components/subscriptions/SubscriptionPage';
+
+// Lazy load secondary views for bundle optimization
+const LazySubscriptionPage = React.lazy(() => import('./components/subscriptions/SubscriptionPage').then(module => ({ default: module.SubscriptionPage })));
+const LazyTripList = React.lazy(() => import('./components/trips/TripList').then(module => ({ default: module.TripList })));
+const LazyNotificationScannerModal = React.lazy(() => import('./components/scanner/NotificationScannerModal').then(module => ({ default: module.NotificationScannerModal })));
+const LazyEndOfMonthAudit = React.lazy(() => import('./components/audit/EndOfMonthAudit').then(module => ({ default: module.EndOfMonthAudit })));
+const LazySplitBillModal = React.lazy(() => import('./components/tools/SplitBillModal').then(module => ({ default: module.SplitBillModal })));
+const LazySmartSuggestions = React.lazy(() => import('./components/insights/SmartSuggestions').then(module => ({ default: module.SmartSuggestions })));
+const LazySettingsModal = React.lazy(() => import('./components/settings/SettingsModal').then(module => ({ default: module.SettingsModal })));
+const LazyCategoryManagerModal = React.lazy(() => import('./components/categories/CategoryManagerModal').then(module => ({ default: module.CategoryManagerModal })));
 import { AutoSmsDetectorBanner } from './components/common/AutoSmsDetectorBanner';
 import { Transaction } from './types';
 import { checkAndPerformLocalAutoBackup } from './services/localAutoBackupService';
@@ -72,27 +82,31 @@ const MainAppContent: React.FC = () => {
         <SidebarNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {/* Dynamic View Rendering */}
-        {activeTab === 'dashboard' && (
-          <DailyTimeline
-            onOpenQuickAdd={() => {
-              setEditingTransaction(null);
-              setIsQuickAddOpen(true);
-            }}
-            onEditTransaction={tx => {
-              setEditingTransaction(tx);
-              setIsQuickAddOpen(true);
-            }}
-          />
-        )}
+        <React.Suspense fallback={
+          <div className="flex items-center justify-center p-12 text-sm font-mono text-muted-custom">
+            Loading view...
+          </div>
+        }>
+          {activeTab === 'dashboard' && (
+            <DailyTimeline
+              onOpenQuickAdd={() => {
+                setEditingTransaction(null);
+                setIsQuickAddOpen(true);
+              }}
+              onEditTransaction={tx => {
+                setEditingTransaction(tx);
+                setIsQuickAddOpen(true);
+              }}
+            />
+          )}
 
-        {activeTab === 'subscriptions' && <SubscriptionPage />}
-
-        {activeTab === 'trips' && <TripList />}
-        {activeTab === 'scanner' && <NotificationScannerModal />}
-        {activeTab === 'audit' && <EndOfMonthAudit />}
-        {activeTab === 'split' && <SplitBillModal />}
-        {activeTab === 'insights' && <SmartSuggestions />}
-
+          {activeTab === 'subscriptions' && <LazySubscriptionPage />}
+          {activeTab === 'trips' && <LazyTripList />}
+          {activeTab === 'scanner' && <LazyNotificationScannerModal />}
+          {activeTab === 'audit' && <LazyEndOfMonthAudit />}
+          {activeTab === 'split' && <LazySplitBillModal />}
+          {activeTab === 'insights' && <LazySmartSuggestions />}
+        </React.Suspense>
       </main>
 
       {/* Sticky Bottom Total & Period Selector Toggle Bar */}
@@ -113,17 +127,23 @@ const MainAppContent: React.FC = () => {
         initialData={editingTransaction}
       />
 
-      {/* Category Budget Caps & Tag Palette Modal */}
-      <CategoryManagerModal
-        isOpen={isCategoryManagerOpen}
-        onClose={() => setIsCategoryManagerOpen(false)}
-      />
+      <React.Suspense fallback={null}>
+        {/* Category Budget Caps & Tag Palette Modal */}
+        {isCategoryManagerOpen && (
+          <LazyCategoryManagerModal
+            isOpen={isCategoryManagerOpen}
+            onClose={() => setIsCategoryManagerOpen(false)}
+          />
+        )}
 
-      {/* Settings & Currency Converter Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+        {/* Settings & Currency Converter Modal */}
+        {isSettingsOpen && (
+          <LazySettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+          />
+        )}
+      </React.Suspense>
 
     </div>
   );

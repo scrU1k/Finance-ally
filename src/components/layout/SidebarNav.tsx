@@ -27,8 +27,11 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
     { id: 'insights', label: 'Spend Insights', icon: <Lightbulb className="w-4 h-4 text-brand-coral shrink-0" /> },
   ];
 
-  const activeSecondary = secondaryTabs.find(t => t.id === activeTab);
-  const isSecondaryActive = Boolean(activeSecondary);
+  const isSecondaryActive = secondaryTabs.some(t => t.id === activeTab);
+
+  const visibleTabs = isSecondaryActive ? secondaryTabs : primaryTabs;
+  const dropdownTabs = isSecondaryActive ? primaryTabs : secondaryTabs;
+  const dropdownTitle = isSecondaryActive ? "Core Features" : "Financial Management Tools";
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
@@ -50,9 +53,9 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
     <nav className="relative mb-3" ref={containerRef}>
       <div className="flex items-center justify-between gap-2">
         
-        {/* Primary Tabs (Scrollable container without any bottom wall border) */}
+        {/* Scrollable container for visible tabs */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
-          {primaryTabs.map(tab => {
+          {visibleTabs.map(tab => {
             const isActive = activeTab === tab.id;
             return (
               <button
@@ -79,19 +82,9 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className={`flex items-center justify-center transition-all border cursor-pointer shadow-lg shrink-0 ${
-              isSecondaryActive
-                ? 'px-3.5 py-2 rounded-full border-brand-blue text-brand-blue font-bold bg-surface-card/95 backdrop-blur-xl ring-1 ring-white/10 shadow-black/20 text-xs font-mono gap-1.5'
-                : 'w-9 h-9 rounded-full bg-surface-card/85 text-body-custom border-hairline hover:border-ink hover:text-ink backdrop-blur-xl ring-1 ring-white/10'
-            }`}
-            title="More Financial Tools"
+            className="w-9 h-9 rounded-full bg-surface-card/85 text-body-custom border border-hairline hover:border-ink hover:text-ink backdrop-blur-xl ring-1 ring-white/10 flex items-center justify-center transition-all cursor-pointer shadow-lg shrink-0"
+            title={isSecondaryActive ? "Show Core Tabs" : "More Financial Tools"}
           >
-            {isSecondaryActive && activeSecondary ? (
-              <span className="flex items-center gap-1.5 font-bold">
-                {activeSecondary.icon}
-                <span>{activeSecondary.label}</span>
-              </span>
-            ) : null}
             <ChevronDown className={`w-4 h-4 text-muted-custom transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-brand-blue' : ''}`} />
           </button>
 
@@ -99,9 +92,9 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
           {isOpen && (
             <div className="absolute right-0 top-full mt-2.5 z-50 w-64 bg-surface-card/90 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl shadow-2xl shadow-black/40 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-white/10">
               <span className="px-3 py-1 text-[9.5px] font-mono font-bold text-muted-custom uppercase block border-b border-hairline/60 pb-1 mb-1">
-                Financial Management Tools
+                {dropdownTitle}
               </span>
-              {secondaryTabs.map(item => {
+              {dropdownTabs.map(item => {
                 const isSelected = activeTab === item.id;
                 return (
                   <button

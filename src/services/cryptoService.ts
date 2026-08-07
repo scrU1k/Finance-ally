@@ -87,22 +87,37 @@ export function isEncryptedBackup(jsonString: string): boolean {
   }
 }
 
-// ── PIN management (stored in localStorage, hashed with SHA-256) ──────────────
+// ── PIN management (stored in localStorage, hashed with PBKDF2) ───────────────
 
 const PIN_KEY = 'fa_export_pin';
 
+// Version flag distinguishes legacy SHA-256 from upgraded PBKDF2 entries
 interface StoredPin {
   hash: string;
   salt: string;
+  v?: 2; // v=2 means PBKDF2; absent means legacy SHA-256
+}
+
+async function pbkdf2HashPin(pin: string, salt: Uint8Array<ArrayBuffer>): Promise<string> {
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(pin),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  );
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' },
+    keyMaterial,
+    256
+  );
+  return bufToBase64(derivedBits);
 }
 
 async function hashPinForStorage(pin: string): Promise<StoredPin> {
-  const enc = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
-  const saltB64 = bufToBase64(salt.buffer as ArrayBuffer);
-  const data = enc.encode(pin + saltB64 + 'FA_BACKUP_SALT_2026');
-  const hashBuf = await crypto.subtle.digest('SHA-256', data);
-  return { hash: bufToBase64(hashBuf), salt: saltB64 };
+  const hash = await pbkdf2HashPin(pin, salt);
+  return { hash, salt: bufToBase64(salt.buffer as ArrayBuffer), v: 2 };
 }
 
 export async function saveExportPin(pin: string): Promise<void> {
@@ -115,10 +130,25 @@ export async function verifyExportPin(pin: string): Promise<boolean> {
   if (!raw) return false;
   try {
     const stored: StoredPin = JSON.parse(raw);
-    const enc = new TextEncoder();
-    const data = enc.encode(pin + stored.salt + 'FA_BACKUP_SALT_2026');
-    const hashBuf = await crypto.subtle.digest('SHA-256', data);
-    return bufToBase64(hashBuf) === stored.hash;
+
+    if (stored.v === 2) {
+      // Modern PBKDF2 path
+      const salt = base64ToBuf(stored.salt) as Uint8Array<ArrayBuffer>;
+      const hash = await pbkdf2HashPin(pin, salt);
+      return hash === stored.hash;
+    } else {
+      // Legacy SHA-256 path — verify, then silently migrate to PBKDF2
+      const enc = new TextEncoder();
+      const legacyData = enc.encode(pin + stored.salt + 'FA_BACKUP_SALT_2026');
+      const legacyHashBuf = await crypto.subtle.digest('SHA-256', legacyData);
+      const isMatch = bufToBase64(legacyHashBuf) === stored.hash;
+      if (isMatch) {
+        // Migrate: re-hash with PBKDF2 and save
+        const upgraded = await hashPinForStorage(pin);
+        localStorage.setItem(PIN_KEY, JSON.stringify(upgraded));
+      }
+      return isMatch;
+    }
   } catch {
     return false;
   }

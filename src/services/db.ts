@@ -182,6 +182,17 @@ export async function saveCategory(category: Category): Promise<void> {
   }
 }
 
+export async function deleteCategory(id: string): Promise<void> {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction('categories', 'readwrite');
+    const store = tx.objectStore('categories');
+    store.delete(id);
+  } catch (e) {
+    console.error('IndexedDB deleteCategory failed:', e);
+  }
+}
+
 // ─── TRIPS ─────────────────────────────────────────────────────────────────────
 
 export async function loadTrips(): Promise<Trip[]> {
@@ -379,7 +390,20 @@ export async function exportFullDataBackup(): Promise<string> {
   const trips = await loadTrips();
   const smsTemplates = await loadSmsTemplates();
   const subscriptions = await loadSubscriptions();
-  const profile = JSON.parse(localStorage.getItem('fa_user_profile') || '{}');
+  
+  let profile = {};
+  try {
+    const db = await openDatabase();
+    profile = await new Promise((resolve) => {
+      const tx = db.transaction('userProfile', 'readonly');
+      const store = tx.objectStore('userProfile');
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result?.[0] || {});
+      req.onerror = () => resolve({});
+    });
+  } catch {
+    profile = JSON.parse(localStorage.getItem('fa_user_profile') || '{}');
+  }
 
   const data = {
     transactions,
@@ -397,20 +421,31 @@ export async function exportFullDataBackup(): Promise<string> {
 export async function importFullDataBackup(jsonString: string): Promise<boolean> {
   try {
     const data = JSON.parse(jsonString);
+    if (!data || typeof data !== 'object') return false;
+
     const db = await openDatabase();
 
     if (data.transactions && Array.isArray(data.transactions)) {
       const tx = db.transaction('transactions', 'readwrite');
       const store = tx.objectStore('transactions');
       store.clear();
-      data.transactions.forEach((t: Transaction) => store.put(t));
+      data.transactions.forEach((t: Transaction) => {
+        if (t.id && typeof t.amount === 'number' && t.date) {
+          store.put({
+            ...t,
+            note: String(t.note || '').substring(0, 500),
+          });
+        }
+      });
       localStorage.setItem('fa_transactions', JSON.stringify(data.transactions));
     }
     if (data.categories && Array.isArray(data.categories)) {
       const tx = db.transaction('categories', 'readwrite');
       const store = tx.objectStore('categories');
       store.clear();
-      data.categories.forEach((c: Category) => store.put(c));
+      data.categories.forEach((c: Category) => {
+        if (c.id && c.name) store.put(c);
+      });
       localStorage.setItem('fa_categories', JSON.stringify(data.categories));
     }
     if (data.trips && Array.isArray(data.trips)) {
@@ -432,7 +467,10 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
       store.clear();
       data.subscriptions.forEach((sub: Subscription) => store.put(sub));
     }
-    if (data.profile && typeof data.profile === 'object') {
+    if (data.profile && typeof data.profile === 'object' && data.profile.username) {
+      const tx = db.transaction('userProfile', 'readwrite');
+      const store = tx.objectStore('userProfile');
+      store.put(data.profile);
       localStorage.setItem('fa_user_profile', JSON.stringify(data.profile));
     }
     return true;

@@ -1,16 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Lock, Shield, KeyRound, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Lock, Shield, KeyRound, AlertCircle, Eye, EyeOff, Timer } from 'lucide-react';
 
 export const AuthModal: React.FC = () => {
-  const { user, login } = useAuth();
+  const { user, login, lockoutUntil, failedAttempts } = useAuth();
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+
+  // Live countdown timer when locked
+  useEffect(() => {
+    if (lockoutUntil <= Date.now()) {
+      setSecondsLeft(0);
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((lockoutUntil - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutUntil]);
+
+  const isLocked = secondsLeft > 0;
+
+  const formatCountdown = (s: number) => {
+    if (s >= 60) return `${Math.floor(s / 60)}m ${s % 60}s`;
+    return `${s}s`;
+  };
 
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLocked) return;
     setLoading(true);
     setError(false);
     const success = await login(password);
@@ -38,6 +62,29 @@ export const AuthModal: React.FC = () => {
           </p>
         </div>
 
+        {/* Lockout Warning Banner */}
+        {isLocked && (
+          <div className="bg-brand-coral/10 border border-brand-coral/30 rounded-xl p-3 space-y-1">
+            <div className="flex items-center justify-center gap-1.5 text-brand-coral text-xs font-mono font-bold">
+              <Timer className="w-3.5 h-3.5" />
+              <span>Account Locked</span>
+            </div>
+            <p className="text-[10px] font-mono text-brand-coral/80">
+              Too many failed attempts. Try again in{' '}
+              <span className="font-bold">{formatCountdown(secondsLeft)}</span>
+            </p>
+          </div>
+        )}
+
+        {/* Attempt counter warning (3–4 failures, not yet locked) */}
+        {!isLocked && failedAttempts >= 3 && failedAttempts < 5 && (
+          <div className="bg-brand-yellow/10 border border-brand-yellow/30 rounded-xl p-2.5">
+            <p className="text-[10px] font-mono text-brand-yellow font-bold">
+              ⚠ {5 - failedAttempts} attempt{5 - failedAttempts === 1 ? '' : 's'} remaining before lockout
+            </p>
+          </div>
+        )}
+
         <form onSubmit={handleUnlock} className="space-y-4">
           <div className="relative">
             <input
@@ -46,7 +93,8 @@ export const AuthModal: React.FC = () => {
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
               autoFocus
-              className="w-full bg-surface-soft border border-hairline rounded-xl pl-10 pr-10 py-3 text-center text-base font-mono text-ink focus:outline-none focus:border-ink tracking-widest"
+              disabled={isLocked}
+              className="w-full bg-surface-soft border border-hairline rounded-xl pl-10 pr-10 py-3 text-center text-base font-mono text-ink focus:outline-none focus:border-ink tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <KeyRound className="w-4 h-4 text-muted-custom absolute left-3.5 top-3.5" />
             <button
@@ -59,7 +107,7 @@ export const AuthModal: React.FC = () => {
             </button>
           </div>
 
-          {error && (
+          {error && !isLocked && (
             <div className="flex items-center justify-center gap-1.5 text-brand-coral text-xs font-mono">
               <AlertCircle className="w-3.5 h-3.5" />
               <span>Incorrect password. Please try again.</span>
@@ -68,10 +116,10 @@ export const AuthModal: React.FC = () => {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-brand-blue hover:bg-blue-600 text-white font-medium text-sm py-3 rounded-xl shadow-md transition-all active:scale-98"
+            disabled={loading || isLocked}
+            className="w-full bg-brand-blue hover:bg-blue-600 text-white font-medium text-sm py-3 rounded-xl shadow-md transition-all active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Decrypting...' : 'Unlock Vault'}
+            {loading ? 'Verifying...' : isLocked ? `Locked (${formatCountdown(secondsLeft)})` : 'Unlock Vault'}
           </button>
         </form>
 

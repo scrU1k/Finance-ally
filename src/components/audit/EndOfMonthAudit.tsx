@@ -38,8 +38,8 @@ export const EndOfMonthAudit: React.FC = () => {
   const [saveMsg, setSaveMsg] = useState('');
 
   const auditReport = useMemo(() => {
-    return generateEndOfMonthAudit(transactions, categories, selectedMonth, baseCurrency);
-  }, [transactions, categories, selectedMonth, baseCurrency]);
+    return generateEndOfMonthAudit(transactions, categories, selectedMonth, baseCurrency, user?.monthlyBudget);
+  }, [transactions, categories, selectedMonth, baseCurrency, user?.monthlyBudget]);
 
   const handleSaveEmailConfig = () => {
     if (user) {

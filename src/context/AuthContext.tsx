@@ -2,10 +2,43 @@ import React, { createContext, useContext, useState } from 'react';
 import { UserProfile, CurrencyCode } from '../types';
 import { getStoredUserProfile, createInitialUser, verifyUserPassword, saveUserProfile, changeUserPassword } from '../services/auth';
 
+const LOCKOUT_KEY = 'fa_login_lockout';
+const LOCKOUT_TIERS_MS = [30_000, 120_000, 600_000, 1_800_000]; // 30s, 2m, 10m, 30m
+
+interface LockoutState {
+  attempts: number;
+  lockedUntil: number; // epoch ms, 0 = not locked
+}
+
+function getLockout(): LockoutState {
+  try {
+    const raw = localStorage.getItem(LOCKOUT_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* */ }
+  return { attempts: 0, lockedUntil: 0 };
+}
+
+function saveLockout(state: LockoutState) {
+  localStorage.setItem(LOCKOUT_KEY, JSON.stringify(state));
+}
+
+function clearLockout() {
+  localStorage.removeItem(LOCKOUT_KEY);
+}
+
+function computeLockedUntil(attempts: number): number {
+  // Lock kicks in after 5 failed attempts
+  if (attempts < 5) return 0;
+  const tierIndex = Math.min(Math.floor((attempts - 5) / 1), LOCKOUT_TIERS_MS.length - 1);
+  return Date.now() + LOCKOUT_TIERS_MS[tierIndex];
+}
+
 interface AuthContextType {
   user: UserProfile | null;
   isUnlocked: boolean;
   needsOnboarding: boolean;
+  lockoutUntil: number; // epoch ms — 0 means not locked
+  failedAttempts: number;
   login: (p: string) => Promise<boolean>;
   logout: () => void;
   onboard: (username: string, password: string, baseCurrency: CurrencyCode) => Promise<void>;
@@ -22,15 +55,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
     const existing = getStoredUserProfile();
     if (!existing) return false;
-    // If requirePassword is true, require unlock. If false or undefined, default to unlocked.
     return existing.requirePassword !== true;
   });
 
+  // Lockout state — initialize from persisted storage
+  const [lockoutState, setLockoutState] = useState<LockoutState>(() => getLockout());
+
   const login = async (password: string): Promise<boolean> => {
+    // Check if currently locked out
+    const now = Date.now();
+    if (lockoutState.lockedUntil > now) {
+      return false; // Still locked
+    }
+
     const success = await verifyUserPassword(password);
+
     if (success) {
       setIsUnlocked(true);
+      // Clear lockout on success
+      clearLockout();
+      setLockoutState({ attempts: 0, lockedUntil: 0 });
+    } else {
+      const newAttempts = lockoutState.attempts + 1;
+      const lockedUntil = computeLockedUntil(newAttempts);
+      const newState = { attempts: newAttempts, lockedUntil };
+      saveLockout(newState);
+      setLockoutState(newState);
     }
+
     return success;
   };
 
@@ -72,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, isUnlocked, needsOnboarding, login, logout, onboard, updateUserCurrency, toggleRequirePassword, changePassword }}>
+    <AuthContext.Provider value={{ user, isUnlocked, needsOnboarding, lockoutUntil: lockoutState.lockedUntil, failedAttempts: lockoutState.attempts, login, logout, onboard, updateUserCurrency, toggleRequirePassword, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Transaction, Category, Trip, CurrencyCode, PeriodType } from '../types';
-import { loadTransactions, saveTransaction, deleteTransaction, loadCategories, saveCategory, loadTrips, saveTrip, deleteTrip } from '../services/db';
+import { loadTransactions, saveTransaction, deleteTransaction, loadCategories, saveCategory, deleteCategory, loadTrips, saveTrip, deleteTrip } from '../services/db';
 import { getStoredForexRates, fetchLiveExchangeRates, switchAppBaseCurrency, convertCurrencyAmount } from '../services/currency';
 import { useAuth } from './AuthContext';
 
@@ -55,6 +55,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     reloadAllData();
   }, []);
 
+  // Fix 10: Auto-refresh forex rates if they are too old on startup
+  useEffect(() => {
+    const lastSyncStr = localStorage.getItem('fa_rates_last_sync');
+    if (lastSyncStr) {
+      const lastSync = parseInt(lastSyncStr, 10);
+      if (Date.now() - lastSync > 24 * 60 * 60 * 1000) {
+        syncForexRates();
+      }
+    } else {
+      syncForexRates(); // Initial sync
+    }
+  }, []);
+
   const syncForexRates = async (): Promise<boolean> => {
     const result = await fetchLiveExchangeRates();
     if (result.success) {
@@ -66,7 +79,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt'>) => {
     const newTx: Transaction = {
       ...txData,
-      id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: `tx-${Date.now()}-${crypto.randomUUID().split('-')[0]}`,
       createdAt: Date.now(),
     };
     await saveTransaction(newTx);
@@ -98,6 +111,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const deleteCategoryItem = async (id: string) => {
+    await deleteCategory(id);
     setCategories(prev => prev.filter(c => c.id !== id));
   };
 
@@ -139,18 +153,20 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
+    const oneWeekAgo = new Date(now.getTime() - 7 * 86400000);
+    const oneWeekAgoStr = oneWeekAgo.toISOString().split('T')[0];
 
     return transactions.filter(t => {
       if (period === 'all') return true;
 
-      const txDate = new Date(t.date);
       if (period === 'day') {
         return t.date === todayStr;
       }
       if (period === 'week') {
-        const oneWeekAgo = new Date(now.getTime() - 7 * 86400000);
-        return txDate >= oneWeekAgo && txDate <= now;
+        return t.date >= oneWeekAgoStr && t.date <= todayStr;
       }
+      
+      const txDate = new Date(t.date);
       if (period === 'month') {
         return txDate.getFullYear() === now.getFullYear() && txDate.getMonth() === now.getMonth();
       }

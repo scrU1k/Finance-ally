@@ -81,7 +81,8 @@ export function generateEndOfMonthAudit(
   transactions: Transaction[],
   categories: Category[],
   monthKey: string, // YYYY-MM
-  currency: CurrencyCode
+  currency: CurrencyCode,
+  userBudget?: number
 ): EndOfMonthAuditReport {
   const monthTxs = transactions.filter(t => t.date.startsWith(monthKey));
   const totalSpent = monthTxs.reduce((acc, t) => acc + t.amount, 0);
@@ -122,9 +123,19 @@ export function generateEndOfMonthAudit(
 
   // Health Score calculation
   let grade: 'A+' | 'A' | 'B' | 'C' | 'D' | 'F' = 'A+';
-  if (totalSpent > 50000 && currency === 'INR') grade = 'B';
-  else if (totalSpent > 100000 && currency === 'INR') grade = 'C';
-  else if (totalSpent > 5000 && currency === 'USD') grade = 'B';
+  
+  if (userBudget && userBudget > 0) {
+    const ratio = totalSpent / userBudget;
+    if (ratio <= 0.5) grade = 'A+';
+    else if (ratio <= 0.8) grade = 'A';
+    else if (ratio <= 1.0) grade = 'B';
+    else if (ratio <= 1.2) grade = 'C';
+    else if (ratio <= 1.5) grade = 'D';
+    else grade = 'F';
+  } else {
+    // Fallback if no budget set
+    if (totalSpent > 0) grade = 'A';
+  }
 
   const insights = [
     `Peak expenditure recorded on ${highestDate} with ${formatCurrency(highestAmount, currency)}.`,
