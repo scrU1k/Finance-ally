@@ -311,16 +311,9 @@ export const SubscriptionPage: React.FC = () => {
       {/* Subscriptions Grid View */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {subscriptions.length === 0 ? (
-          <div className="col-span-full p-12 text-center bg-surface-card/60 rounded-3xl border border-hairline space-y-3">
+          <div className="col-span-full p-12 text-center bg-surface-card/60 rounded-3xl border border-hairline space-y-2">
             <CalendarCheck className="w-10 h-10 text-muted-custom mx-auto" />
             <p className="text-sm font-mono text-muted-custom font-bold">No active recurring subscriptions logged yet.</p>
-            <button
-              type="button"
-              onClick={() => setShowAddForm(true)}
-              className="text-xs font-mono border border-brand-blue text-brand-blue px-4 py-2 rounded-xl font-bold hover:bg-surface-soft cursor-pointer"
-            >
-              ➕ Add Your First Subscription
-            </button>
           </div>
         ) : (
           subscriptions.map(sub => {
