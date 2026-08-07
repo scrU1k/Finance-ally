@@ -136,19 +136,9 @@ export async function verifyExportPin(pin: string): Promise<boolean> {
       const salt = base64ToBuf(stored.salt) as Uint8Array<ArrayBuffer>;
       const hash = await pbkdf2HashPin(pin, salt);
       return hash === stored.hash;
-    } else {
-      // Legacy SHA-256 path — verify, then silently migrate to PBKDF2
-      const enc = new TextEncoder();
-      const legacyData = enc.encode(pin + stored.salt + 'FA_BACKUP_SALT_2026');
-      const legacyHashBuf = await crypto.subtle.digest('SHA-256', legacyData);
-      const isMatch = bufToBase64(legacyHashBuf) === stored.hash;
-      if (isMatch) {
-        // Migrate: re-hash with PBKDF2 and save
-        const upgraded = await hashPinForStorage(pin);
-        localStorage.setItem(PIN_KEY, JSON.stringify(upgraded));
-      }
-      return isMatch;
     }
+    
+    return false;
   } catch {
     return false;
   }

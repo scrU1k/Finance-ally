@@ -108,7 +108,7 @@ export function importTransactionsFromCSV(
       const time = timeIdx !== -1 && columns[timeIdx] ? columns[timeIdx].trim() : '12:00';
 
       parsedTxs.push({
-        id: `tx-csv-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
+        id: crypto.randomUUID(),
         amount,
         currency,
         categoryId,

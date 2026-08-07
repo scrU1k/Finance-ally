@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinanceProvider } from './context/FinanceContext';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { OnboardingCurrency } from './components/auth/OnboardingCurrency';
 import { AuthModal } from './components/auth/AuthModal';
 import { Header } from './components/layout/Header';
@@ -149,14 +150,19 @@ const MainAppContent: React.FC = () => {
   );
 };
 
+import { SplashScreen } from './components/common/SplashScreen';
+
 export function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <FinanceProvider>
-          <MainAppContent />
-        </FinanceProvider>
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <FinanceProvider>
+            <SplashScreen />
+            <MainAppContent />
+          </FinanceProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }

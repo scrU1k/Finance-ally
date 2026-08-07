@@ -26,10 +26,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={onTitleClick}
-            className="font-display font-bold text-sm sm:text-base tracking-tight text-ink hover:opacity-80 transition-opacity shrink-0 text-left cursor-pointer"
+            className="flex items-center gap-2 font-display font-bold text-sm sm:text-base tracking-tight text-ink hover:opacity-80 transition-opacity shrink-0 text-left cursor-pointer"
             title="Go to Expense Log"
           >
-            Finance-Ally
+            <div className="w-6 h-6 rounded-[33%] overflow-hidden border border-hairline shrink-0 shadow-sm">
+              <img src="/logo.png" className="w-full h-full object-cover" alt="Logo" />
+            </div>
+            <span>Finance-Ally</span>
           </button>
 
           {/* Active Trip Vault Badge */}

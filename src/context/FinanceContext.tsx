@@ -69,11 +69,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const syncForexRates = async (): Promise<boolean> => {
-    const result = await fetchLiveExchangeRates();
-    if (result.success) {
-      setForexRates(result.rates);
+    try {
+      const result = await fetchLiveExchangeRates();
+      if (result.success) {
+        setForexRates(result.rates);
+      }
+      return result.success;
+    } catch {
+      // Gracefully degrade and do not block the app
+      return false;
     }
-    return result.success;
   };
 
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt'>) => {

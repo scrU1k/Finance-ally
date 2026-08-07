@@ -30,8 +30,9 @@ Forget tedious multi-step form fields. Type or paste your expenses naturally int
 ---
 
 ### 2. 🛡️ Complete Privacy & Security
-- **Startup App Lock**: Optional PIN/Password protection screen when launching the app. Disable it anytime if you prefer instant vault access.
-- **AES-256 Encrypted Backups**: Export your complete financial backup as a `.json` file. Enable optional PIN encryption to lock your backup file with bank-grade encryption before saving to your device or sharing.
+- **Startup App Lock**: Optional Password/Startup Lock card to guard your database from local access.
+- **AES-256 Encrypted Backups**: Export your complete financial backup as an encrypted `.json` file. Toggle backup PIN protection on or off to secure exports with bank-grade encryption before saving to your device.
+- **Separated Settings Cards**: Password locking and backup PIN encryption are split into separate cards to enhance focus and security customization.
 - **Zero Third-Party Tracking**: No analytics trackers, no advertising SDKs, no external user accounts.
 
 ---
@@ -41,11 +42,12 @@ Keep travel expenses organized and separate from your home budget:
 - **Custom Currency Budgets**: Set trip budgets in foreign currencies (e.g., JPY for Japan, EUR for Europe, USD for America).
 - **Active Trip Isolation**: Toggle a trip vault active to view and log expenses exclusively within that trip's dedicated timeline.
 - **Live & Cached Exchange Conversion**: Automatically converts foreign trip spending into your home currency for overall net-worth tracking.
+- **Data Integrity Safeguards**: Full local data restore cleanly recovers Trip Vault records, active tags, and travel logs synchronously.
 
 ---
 
 ### 4. 🍕 Split Bills Engine
-Managing shared expenses with roomates or friends made simple:
+Managing shared expenses with roommates or friends made simple:
 - **Tip & Tax Calculation**: Add custom tip or tax percentages to calculate exact per-person shares.
 - **Paid / Pending Status Toggles**: Tap status badges (`PAID` / `PENDING`) for each friend to keep track of who settled up.
 - **Formatted Share Summaries**: One-tap copy generates a formatted markdown summary listing total cost, individual shares, and payment statuses.
@@ -60,13 +62,21 @@ Managing shared expenses with roomates or friends made simple:
 
 ---
 
-### 6. 📱 Bank SMS & Notification Scanner
-- **Automated SMS Text Parser**: Paste notification texts from UPI (PhonePe, GPay, Paytm) or bank SMS alerts (HDFC, ICICI, SBI, Cred).
-- **Merchant & Amount Extraction**: Automatically pulls merchant names, paid amounts, payment methods, and transaction reference numbers.
+### 6. 📱 Clipboard Auto-Detection Banner & Multi-Currency Detection
+- **Sleek Auto-Detection Toast**: Copy a bank transaction notification or SMS to your clipboard, and a floating action banner will pop up below the header.
+- **1-Tap Log & Edit Option**: Quick log instantly, or tap **Edit** to open the Transaction Editor pre-filled with the auto-parsed amount, merchant, currency, and category.
+- **Universal Currency Dictionary**: Supports automatic parsing for Rupees (`₹`, `Rs`, `INR`), Dollars (`$`, `USD`, `CA$`, `A$`, `S$`), Euros (`€`, `EUR`), Pounds (`£`, `GBP`), Yen/Yuan (`¥`, `JPY`, `CNY`), Swiss Francs (`CHF`), and Dirhams (`AED`).
+- **Play Store Compliant**: Processes all clipboard scans locally without requiring sensitive background SMS reading permissions that trigger device warnings.
 
 ---
 
-### 7. 📈 Monthly Financial Audits & Smart Insights
+### 7. 🔄 Dynamic Tab Swapping Navigation
+- **Dynamic Scroll Row**: The top navigation bar dynamically swaps between Core Tabs (`Expenditure`, `Subscriptions`, `Trip Manager`) and More Tools (`Notification Scanner`, `Financial Audit`, `Split Bills`, `Spend Insights`) based on your current selection.
+- **Clutter-Free Dropdown**: When viewing Core Tabs, the circular chevron button displays a popover containing More Tools. When viewing a tool, the row displays the tools, and the dropdown contains the Core Tabs for rapid, one-tap reversion.
+
+---
+
+### 8. 📈 Monthly Financial Audits & Smart Insights
 - **Financial Health Grade**: Receive a monthly financial health grade from `A+` to `F` based on budget adherence and spending consistency.
 - **Top Spending Day**: Highlights your highest expenditure day of the month.
 - **Anomaly Detection**: Warns you about unusual spending spikes in specific categories.
@@ -74,18 +84,13 @@ Managing shared expenses with roomates or friends made simple:
 
 ---
 
-### 8. 🎨 Personalized Themes & Typography
-Choose the theme and font style that matches your aesthetic:
-- **Obsidian Dark**: Ultra-sleek dark mode designed for OLED screens.
-- **Warm Light**: Paper-warm light theme for comfortable daytime use.
-- **Cyberpunk Neon**: High-contrast neon blue and pink glowing theme.
-- **Emerald Mint**: Deep forest green and mint accent theme.
-- **Sunset Copper**: Warm copper and burgundy night theme.
-- **System Default**: Automatically syncs with your device's day/night schedule.
-- **Custom Fonts**: Choose from *Geist Sans*, *Inter*, *JetBrains Mono*, *Outfit*, or *Space Grotesk*.
+### 9. 🎨 Premium UI Aesthetics & Details
+- **Settings Sub-Card Close Buttons**: Close buttons for Backup, Security, and CSV Export are perfectly positioned inside the top-right rounded corner boundary of their respective cards.
+- **Subscription Form Auto-Scroll**: Opening the subscription entry form automatically scrolls the viewport down to center the input card, providing a smooth, hands-free experience.
+- **Obsidian Dark & Systems**: Choose between Obsidian Dark (`#0e0e0c`), Warm Light, Cyberpunk Neon, Emerald Mint, Sunset Copper, or System preference. Custom typography options include *Geist Sans*, *Inter*, *JetBrains Mono*, *Outfit*, and *Space Grotesk*.
 
 ---
 
 ## 📱 Supported Devices & Formats
 - **Web App**: Runs in any modern desktop or mobile browser.
-- **Android App**: Available as a native Android APK with native device share integration and local file storage access.
+- **Android App**: Available as a native Android APK with native device share integration, local file storage access, and zero high-risk background permissions for a clean Play Protect installation.

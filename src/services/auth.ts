@@ -1,16 +1,6 @@
 import { UserProfile, CurrencyCode } from '../types';
 
 const USER_KEY = 'fa_user_profile';
-const LEGACY_SALT = 'FinanceAllyLocalSalt2026';
-
-// Legacy fast SHA-256 fallback for existing users without a salt
-async function legacyHashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + LEGACY_SALT);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 // Generate new PBKDF2 hash and random salt
 async function createPasswordHashAndSalt(password: string): Promise<{ hash: string, salt: string }> {
@@ -100,23 +90,10 @@ export async function verifyUserPassword(password: string): Promise<boolean> {
   if (!profile) return false;
   
   if (profile.passwordSalt) {
-    // New PBKDF2 method
     return await verifyPasswordWithSalt(password, profile.passwordHash, profile.passwordSalt);
-  } else {
-    // Legacy SHA-256 fallback
-    const legacyHash = await legacyHashPassword(password);
-    const isMatch = legacyHash === profile.passwordHash;
-    
-    // Auto-migrate to PBKDF2 on successful login
-    if (isMatch) {
-      const { hash: newHash, salt: newSalt } = await createPasswordHashAndSalt(password);
-      profile.passwordHash = newHash;
-      profile.passwordSalt = newSalt;
-      saveUserProfile(profile);
-    }
-    
-    return isMatch;
   }
+  
+  return false;
 }
 
 export async function changeUserPassword(newPassword: string): Promise<boolean> {

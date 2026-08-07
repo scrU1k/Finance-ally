@@ -254,8 +254,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         const ok = await importFullDataBackup(content);
         if (ok) {
           await reloadAllData();
-          setImportStatus('Backup restored successfully! Reloading...');
-          setTimeout(() => window.location.reload(), 1200);
+          setImportStatus('Backup restored successfully!');
         } else {
           setImportStatus('Error: Invalid JSON backup file.');
         }
@@ -275,8 +274,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       if (ok) {
         await reloadAllData();
         setShowVerifyPinModal(false);
-        setImportStatus('Encrypted backup decrypted and restored! Reloading...');
-        setTimeout(() => window.location.reload(), 1200);
+        setImportStatus('Encrypted backup decrypted and restored!');
       } else {
         setVerifyPinError('Data decrypted but appears invalid. Wrong PIN?');
       }
@@ -323,8 +321,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       const ok = await importFullDataBackup(payload);
       if (ok) {
         await reloadAllData();
-        setImportStatus(`Restored from snapshot ${snap.filename}! Reloading...`);
-        setTimeout(() => window.location.reload(), 1200);
+        setImportStatus(`Restored from snapshot ${snap.filename}!`);
       } else {
         setImportStatus('Failed to restore snapshot data.');
       }

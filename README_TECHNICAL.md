@@ -132,29 +132,73 @@ Extracted via `parseExhaustiveDate()`:
 | Relative Keywords | `today`, `yesterday`, `2 days ago` | Calculate relative offset from `new Date()` |
 | Day of Week | `wednesday`, `friday` | Compute distance to previous weekday |
 
-### 4.3 Amount & Currency Extraction
-Multi-stage regex precedence:
-1. `Number + Currency Code/Symbol` (`300 rupees`, `1.8 GBP`, `450 rs`, `₹500`, `$20`)
-2. `Currency Symbol + Number` (`$150`, `€40`, `£12.50`)
-3. `Preposition + Number` (`for 250`, `costing 1200`)
-4. Fallback number extraction ignoring measurement units (`kg`, `litre`, `pcs`).
+## 🧠 5. Dynamic Navigation Swapping Engine (`src/components/layout/SidebarNav.tsx`)
 
-### 4.4 Semantic Category Classifier (`src/services/semanticClassifier.ts`)
-Uses trigram word-boundary token matching (`categorizeNoteWithArcticFTS5`) mapped against financial dictionaries:
-- `cat-food`: dining out, coffee, zomato, swiggy, starbucks, burger, lunch, dinner
-- `cat-groceries`: supermarket, milk, eggs, vegetables, fruits, zepto, blinkit, mart
-- `cat-transport`: uber, ola, cab, fuel, petrol, metro, auto, parking, toll
-- `cat-electronics`: apple, laptop, mobile, charger, amazon, headphones
-- `cat-housing`: rent, wifi, electricity, maintenance, water, broadband
+Finance-Ally implements a space-optimized, dual-state responsive navigation system. Rather than rendering all core tabs and financial tools simultaneously (which would cause horizontal overflows and layout wrap breakage on narrow viewports), it dynamically swaps tabs between the active scroll row and the chevron popover.
+
+### 5.1 Tab Swapping Logic
+Tabs are grouped into two categories:
+* **`primaryTabs` (Core Features)**: Expenditure, Subscriptions, Trip Manager
+* **`secondaryTabs` (More Tools)**: Notification Scanner, Financial Audit, Split Bills, Spend Insights
+
+When a user selects a tab, the components decide tab placement based on `activeTab` membership:
+```typescript
+const isSecondaryActive = secondaryTabs.some(t => t.id === activeTab);
+
+const visibleTabs = isSecondaryActive ? secondaryTabs : primaryTabs;
+const dropdownTabs = isSecondaryActive ? primaryTabs : secondaryTabs;
+```
+
+* **Standard State** (`activeTab` $\in$ `primaryTabs`): The scroll row contains core tabs; the chevron dropdown holds additional financial tools.
+* **Tools State** (`activeTab` $\in$ `secondaryTabs`): The scroll row dynamically swaps to display the additional tools (with the selected tool highlighted); the chevron dropdown updates to hold the core tabs, allowing one-tap return to the default state.
 
 ---
 
-## 🎨 5. UI Architecture & Design System (`.dotgui`)
+## 📱 6. Clipboard Auto-Detection & Multi-Currency Engine
 
-### 5.1 Glassmorphic Stacking Context & Portals
+To comply with Google Play Store policies and prevent installation blocks caused by sensitive Android permission access, Finance-Ally uses a permission-free local clipboard/text transaction parser.
+
+### 6.1 Data Flow Pipeline
+1. Text containing payment confirmations (e.g. from SMS notifications, copying bank alerts) is processed locally.
+2. The `autoSmsScanner.ts` service reads from the queue stored in `fa_pending_sms_queue`.
+3. `notificationParser.ts` executes a regex-based parser to extract:
+   - **Amount**: Extracts numbers following or preceding currency indicators.
+   - **Currency**: Dynamically resolves currency tokens into standard `CurrencyCode` formats.
+   - **Merchant**: Resolves transaction context using Arctic-FTS5 semantic dictionaries.
+4. If a valid transaction amount is extracted, the App displays the `AutoSmsDetectorBanner` offering:
+   - **1-Tap Log**: Invokes `addTransaction` with pre-parsed settings.
+   - **✏️ Edit**: Pre-fills the `TransactionModal` state fields, letting the user modify metadata before logging.
+
+### 6.2 Regex Multi-Currency Dictionary
+The amount and currency matcher handles international notations:
+```typescript
+const amountRegexes = [
+  /(?:paid|spent|debited|sent|purchase|vpa|amt|amount|cost|charged)\s*(?:of|for)?\s*(?:[₹$€£¥]|INR|USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|SGD|Rs\.?|Rs)?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
+  /(?:[₹$€£¥]|INR|USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|SGD|Rs\.?)\s*([0-9,]+(?:\.[0-9]{1,2})?)\s*(?:debited|spent|paid|used|sent|charged)/i
+];
+```
+
+---
+
+## 🔄 7. Backup Restoration & Context State Sync (`src/context/FinanceContext.tsx`)
+
+To prevent state desynchronization when importing local backup files or snapshots, Finance-Ally coordinates database writes with context refreshes.
+
+### 7.1 Synchronous Reload Lifecycle
+1. Backup file selection triggers `importFullDataBackup(backupJson)`.
+2. The database service writes settings, trips, and transactions directly to IndexedDB, and simultaneously updates `localStorage` fallback caches (`fa_trips`, `fa_transactions`, `fa_categories`) to guarantee consistency.
+3. The database layer signals completion to `FinanceContext`.
+4. `FinanceContext` runs `reloadAllData()`, re-fetching records from persistent storage into React's reactive state tree.
+5. The UI updates instantly—re-rendering tags, budget summaries, and trip vaults without requiring an app reload.
+
+---
+
+## 🎨 8. UI Architecture & Design System (`.dotgui`)
+
+### 8.1 Glassmorphic Stacking Context & Portals
 To prevent CSS `backdrop-blur-2xl` clipping when modals are nested inside scrollable or absolute components, all global popups (`CustomDatePicker`, `CustomTimePicker`, `PinModal`, `SettingsModal`) utilize **React Portals** (`createPortal(..., document.body)`).
 
-### 5.2 CSS Variable Design Tokens (`src/index.css`)
+### 8.2 CSS Variable Design Tokens (`src/index.css`)
 Tailwind CSS v4 `@theme` bindings map to CSS variables configured per theme:
 ```css
 @theme {
@@ -169,27 +213,19 @@ Tailwind CSS v4 `@theme` bindings map to CSS variables configured per theme:
 }
 ```
 
-#### Breathing Tab Keyframes
-```css
-@keyframes breathe {
-  0%, 100% { opacity: 1; box-shadow: 0 0 12px var(--hairline); }
-  50% { opacity: 0.7; box-shadow: 0 0 2px transparent; }
-}
-```
-
-### 5.3 Themes Matrix
-- `dotgui-dark`: Obsidian Dark (`#0e0e0c`)
-- `dotgui-light`: Warm Light (`#fafaf7`)
-- `cyberpunk`: Cyberpunk Neon (`#05050c`)
-- `emerald`: Emerald Mint (`#04140d`)
-- `sunset`: Sunset Copper (`#120b09`)
-- `system`: System preference media query auto-switch (`prefers-color-scheme`)
+### 8.3 Sub-Card Interface Layout
+- **Separated Cards**: App Lock (password credentials) and backup encryption settings (AES PIN) are separated into two distinct cards inside the settings UI.
+- **Sub-page Close Targets**: Settings sub-panels place Close buttons within their upper-right rounded border boundary, keeping layouts unified.
+- **Scroll Alignment**: Opening the subscription creation form triggers a ref-based scroll:
+  ```typescript
+  formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  ```
 
 ---
 
-## 🛠️ 6. Capacitor Android Build Pipeline
+## 🛠️ 9. Capacitor Android Build Pipeline
 
-### 6.1 Native Build Execution Flow
+### 9.1 Native Build Execution Flow
 ```bash
 # 1. Compile TypeScript and Vite production bundle
 npm run build
@@ -201,13 +237,13 @@ npx cap sync android
 cd android && .\gradlew assembleRelease
 ```
 
-### 6.2 Output APK Artifact
+### 9.2 Output APK Artifact
 - **Gradle Release Output**: `android/app/build/outputs/apk/release/app-release.apk`
 - **Root Release Copy**: `Finance-Ally-Signed-Release.apk`
 
 ---
 
-## 📂 7. Project Directory Tree
+## 📂 10. Project Directory Tree
 
 ```
 Finance-ally/
@@ -218,7 +254,7 @@ Finance-ally/
 │   ├── components/
 │   │   ├── audit/             # End of Month Audit components
 │   │   ├── auth/              # Lockscreen & Onboarding modals
-│   │   ├── common/            # CustomSelect, CustomDatePicker, CustomTimePicker, PinModal
+│   │   ├── common/            # CustomSelect, CustomDatePicker, CustomTimePicker, PinModal, AutoSmsDetectorBanner
 │   │   ├── dashboard/         # DailyTimeline, QuickLogBar, TransactionModal
 │   │   ├── insights/          # Smart Suggestions & Insights
 │   │   ├── layout/            # Header, SidebarNav, BottomPeriodBar

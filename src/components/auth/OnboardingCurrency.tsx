@@ -27,8 +27,12 @@ export const OnboardingCurrency: React.FC = () => {
         
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-brand-blue/10 border border-brand-blue/20 flex items-center justify-center text-brand-blue mx-auto">
-            <Shield className="w-6 h-6" />
+          <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+            {/* Subtle logo glow */}
+            <div className="absolute inset-0 bg-brand-blue/20 rounded-[33%] blur-lg animate-pulse"></div>
+            <div className="relative w-14 h-14 bg-surface-card rounded-[33%] overflow-hidden border border-hairline shadow-md p-0.5 z-10">
+              <img src="/logo.png" className="w-full h-full object-cover rounded-[30%]" alt="Logo" />
+            </div>
           </div>
           <h2 className="text-2xl font-display font-bold text-ink tracking-tight">
             Welcome to Finance-Ally
