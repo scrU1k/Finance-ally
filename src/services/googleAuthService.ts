@@ -15,13 +15,15 @@ export interface GoogleUserInfo {
  * Triggers 1-Click Google OAuth flow using Google Identity Services (GIS)
  * or OAuth 2.0 Web Popup.
  */
-export async function triggerGoogleOAuthSignIn(): Promise<{ success: boolean; email?: string; token?: string; error?: string }> {
+export async function triggerGoogleOAuthSignIn(customClientId?: string): Promise<{ success: boolean; email?: string; token?: string; error?: string }> {
+  const clientId = customClientId?.trim() || localStorage.getItem('fa_google_client_id')?.trim() || '847192837492-example.apps.googleusercontent.com';
+
   return new Promise((resolve) => {
     try {
       // Check if GIS script is loaded, or load dynamically
       if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
         const client = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: GOOGLE_CLIENT_ID,
+          client_id: clientId,
           scope: DRIVE_SCOPE,
           callback: (response: any) => {
             if (response.access_token) {
@@ -48,7 +50,7 @@ export async function triggerGoogleOAuthSignIn(): Promise<{ success: boolean; em
 
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
           `response_type=token` +
-          `&client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
+          `&client_id=${encodeURIComponent(clientId)}` +
           `&redirect_uri=${encodeURIComponent(window.location.origin)}` +
           `&scope=${encodeURIComponent(DRIVE_SCOPE)}` +
           `&prompt=consent`;

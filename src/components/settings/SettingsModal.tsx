@@ -91,6 +91,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [selectedCloudProvider, setSelectedCloudProvider] = useState<CloudProviderType>(initialCloudConfig.provider || 'none');
   const [googleEmail, setGoogleEmail] = useState(initialCloudConfig.googleEmail || '');
   const [googleToken, setGoogleToken] = useState(initialCloudConfig.googleAccessToken || '');
+  const [googleClientId, setGoogleClientId] = useState(localStorage.getItem('fa_google_client_id') || '');
+  const [showManualToken, setShowManualToken] = useState(false);
   const [oneDriveEmail, setOneDriveEmail] = useState(initialCloudConfig.oneDriveEmail || '');
   const [oneDriveToken, setOneDriveToken] = useState(initialCloudConfig.oneDriveAccessToken || '');
   const [webdavUrl, setWebdavUrl] = useState(initialCloudConfig.webdavUrl || '');
@@ -903,7 +905,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </div>
               </div>
 
-              {/* GOOGLE DRIVE 1-CLICK CONNECTION SETUP & GOOGLE DATA ACCESS REQUEST NOTICE */}
+              {/* GOOGLE DRIVE CONNECTION SETUP */}
               {selectedCloudProvider === 'gdrive' && (
                 <div className="space-y-3 bg-surface-card p-3.5 rounded-xl border border-hairline animate-in fade-in duration-150">
                   <span className="text-xs font-mono font-bold text-ink uppercase block">Google Drive Connection Setup</span>
@@ -930,31 +932,86 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setCloudSyncLoading(true);
-                        setCloudMsg('Opening Google Sign-In authorization window...');
-                        const res = await triggerGoogleOAuthSignIn();
-                        setCloudSyncLoading(false);
-                        if (res.success && res.token) {
-                          setGoogleToken(res.token);
-                          setGoogleEmail(res.email || 'user@gmail.com');
-                          saveCloudConfig({
-                            provider: 'gdrive',
-                            googleAccessToken: res.token,
-                            googleEmail: res.email || 'user@gmail.com'
-                          });
-                          setCloudMsg('Successfully authenticated with Google Drive!');
-                        } else {
-                          setCloudMsg(`Sign-in status: ${res.error || 'Connection cancelled.'}`);
-                        }
-                      }}
-                      className="w-full bg-surface-soft hover:bg-surface-card border border-brand-blue text-brand-blue font-mono text-xs font-bold py-3 px-4 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      <Cloud className="w-4 h-4 shrink-0" />
-                      <span>Sign in with Google Drive</span>
-                    </button>
+                    <div className="space-y-2.5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Google Cloud Client ID (Free)</label>
+                        <input
+                          type="text"
+                          value={googleClientId}
+                          onChange={e => {
+                            setGoogleClientId(e.target.value);
+                            localStorage.setItem('fa_google_client_id', e.target.value.trim());
+                          }}
+                          placeholder="your-app-id.apps.googleusercontent.com"
+                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                        />
+                        <p className="text-[9.5px] font-mono text-muted-custom">
+                          Registered in your free <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" className="text-brand-blue underline">Google Cloud Console</a>.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setCloudSyncLoading(true);
+                          setCloudMsg('Opening Google Sign-In authorization window...');
+                          const res = await triggerGoogleOAuthSignIn(googleClientId);
+                          setCloudSyncLoading(false);
+                          if (res.success && res.token) {
+                            setGoogleToken(res.token);
+                            setGoogleEmail(res.email || 'user@gmail.com');
+                            saveCloudConfig({
+                              provider: 'gdrive',
+                              googleAccessToken: res.token,
+                              googleEmail: res.email || 'user@gmail.com'
+                            });
+                            setCloudMsg('Successfully authenticated with Google Drive!');
+                          } else {
+                            setCloudMsg(`Sign-in status: ${res.error || 'Connection cancelled. Try manual access token below.'}`);
+                          }
+                        }}
+                        className="w-full bg-surface-soft hover:bg-surface-card border border-brand-blue text-brand-blue font-mono text-xs font-bold py-3 px-4 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <Cloud className="w-4 h-4 shrink-0" />
+                        <span>Sign in with Google Drive</span>
+                      </button>
+
+                      {/* Manual OAuth Token Fallback */}
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowManualToken(!showManualToken)}
+                          className="text-[10px] font-mono text-muted-custom hover:text-ink underline cursor-pointer"
+                        >
+                          {showManualToken ? 'Hide Direct Token Input' : 'Or Paste Google Access Token (ya29...) Manually'}
+                        </button>
+                      </div>
+
+                      {showManualToken && (
+                        <div className="space-y-2 pt-1 animate-in fade-in duration-150">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Google Account Email</label>
+                            <input
+                              type="email"
+                              value={googleEmail}
+                              onChange={e => setGoogleEmail(e.target.value)}
+                              placeholder="your.account@gmail.com"
+                              className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Google OAuth Access Token</label>
+                            <input
+                              type="password"
+                              value={googleToken}
+                              onChange={e => setGoogleToken(e.target.value)}
+                              placeholder="ya29.a0AR..."
+                              className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {/* Google Data Permission Request Disclosure Card */}
