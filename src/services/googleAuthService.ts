@@ -1,7 +1,7 @@
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { Capacitor } from '@capacitor/core';
 
-const GOOGLE_CLIENT_ID = '802326072216-9ndqodcgd81jeinffg5o2a2o0ju3c1tu.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
 let initialized = false;
