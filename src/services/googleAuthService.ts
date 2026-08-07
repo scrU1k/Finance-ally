@@ -1,26 +1,47 @@
-/**
- * Google Drive 1-Click OAuth Helper Service
- */
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+import { Capacitor } from '@capacitor/core';
 
 const GOOGLE_CLIENT_ID = '802326072216-9ndqodcgd81jeinffg5o2a2o0ju3c1tu.apps.googleusercontent.com';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
-export interface GoogleUserInfo {
-  email: string;
-  accessToken: string;
-  expiresAt: number;
+let initialized = false;
+
+export async function initGoogleAuth() {
+  if (initialized) return;
+  try {
+    GoogleAuth.initialize({
+      clientId: GOOGLE_CLIENT_ID,
+      scopes: [DRIVE_SCOPE, 'email', 'profile'],
+      grantOfflineAccess: true,
+    });
+    initialized = true;
+  } catch (e) {
+    console.warn('GoogleAuth init warning:', e);
+  }
 }
 
-/**
- * Triggers 1-Click Google OAuth flow using Google Identity Services (GIS)
- * or OAuth 2.0 Web Popup.
- */
 export async function triggerGoogleOAuthSignIn(customClientId?: string): Promise<{ success: boolean; email?: string; token?: string; error?: string }> {
-  const clientId = customClientId?.trim() || localStorage.getItem('fa_google_client_id')?.trim() || GOOGLE_CLIENT_ID;
+  const clientId = customClientId?.trim() || GOOGLE_CLIENT_ID;
 
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await initGoogleAuth();
+      const googleUser = await GoogleAuth.signIn();
+      const token = googleUser.authentication?.accessToken || googleUser.authentication?.idToken;
+      const email = googleUser.email || 'connected.user@gmail.com';
+      if (token) {
+        return { success: true, token, email };
+      }
+      return { success: false, error: 'No access token returned from Google Auth.' };
+    } catch (err: any) {
+      console.error('Native Google Sign-In error:', err);
+      return { success: false, error: err?.message || 'Native Google Sign-In failed.' };
+    }
+  }
+
+  // Web Browser Flow
   return new Promise((resolve) => {
     try {
-      // Check if GIS script is loaded, or load dynamically
       if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
         const client = (window as any).google.accounts.oauth2.initTokenClient({
           client_id: clientId,
@@ -42,7 +63,6 @@ export async function triggerGoogleOAuthSignIn(customClientId?: string): Promise
         });
         client.requestAccessToken();
       } else {
-        // Fallback popup for Web / Hybrid environments
         const width = 500;
         const height = 600;
         const left = (window.innerWidth - width) / 2;
@@ -55,19 +75,9 @@ export async function triggerGoogleOAuthSignIn(customClientId?: string): Promise
           `&scope=${encodeURIComponent(DRIVE_SCOPE)}` +
           `&prompt=consent`;
 
-        const popup = window.open(
-          authUrl,
-          'GoogleDriveSignIn',
-          `width=${width},height=${height},top=${top},left=${left}`
-        );
-
+        const popup = window.open(authUrl, 'GoogleDriveSignIn', `width=${width},height=${height},top=${top},left=${left}`);
         if (!popup) {
-          // If popup blocked or unavailable in native webview, provide smooth token fallback connection
-          resolve({
-            success: true,
-            token: 'ya29.a0AR_sample_oauth_token',
-            email: 'connected.user@gmail.com'
-          });
+          resolve({ success: false, error: 'Popup blocked by browser.' });
           return;
         }
 
@@ -87,7 +97,7 @@ export async function triggerGoogleOAuthSignIn(customClientId?: string): Promise
               }
             }
           } catch {
-            // Cross-origin check while loading Google OAuth page
+            // Cross-origin check
           }
         }, 500);
       }

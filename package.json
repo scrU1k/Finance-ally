@@ -13,6 +13,7 @@
     "@capacitor/core": "^8.5.0",
     "@capacitor/filesystem": "^8.1.2",
     "@capacitor/share": "^8.0.1",
+    "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "canvas-confetti": "^1.9.4",
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
