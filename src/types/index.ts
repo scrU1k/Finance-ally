@@ -89,7 +89,7 @@ export interface Subscription {
   name: string;
   amount: number;
   currency: CurrencyCode;
-  billingCycle: 'monthly' | 'weekly' | 'yearly';
+  billingCycle: 'monthly' | 'bi-monthly' | 'tri-monthly' | 'annually';
   nextDueDate: string; // YYYY-MM-DD
   categoryId: string;
   paymentMethod: string;

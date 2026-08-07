@@ -20,7 +20,7 @@ export const SubscriptionManagerModal: React.FC<SubscriptionManagerModalProps> =
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState<CurrencyCode>(baseCurrency);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'weekly' | 'yearly'>('monthly');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'bi-monthly' | 'tri-monthly' | 'annually'>('monthly');
   const [nextDueDate, setNextDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [categoryId, setCategoryId] = useState(categories[0]?.id || 'cat-housing');
   const [paymentMethod, setPaymentMethod] = useState('Bank Auto-Debit');
@@ -87,8 +87,9 @@ export const SubscriptionManagerModal: React.FC<SubscriptionManagerModalProps> =
         // Advance next due date
         const d = new Date(sub.nextDueDate);
         if (sub.billingCycle === 'monthly') d.setMonth(d.getMonth() + 1);
-        else if (sub.billingCycle === 'weekly') d.setDate(d.getDate() + 7);
-        else if (sub.billingCycle === 'yearly') d.setFullYear(d.getFullYear() + 1);
+        else if (sub.billingCycle === 'bi-monthly') d.setMonth(d.getMonth() + 2);
+        else if (sub.billingCycle === 'tri-monthly') d.setMonth(d.getMonth() + 3);
+        else if (sub.billingCycle === 'annually') d.setFullYear(d.getFullYear() + 1);
 
         const newDateStr = d.toISOString().split('T')[0];
         const updatedSub = { ...sub, nextDueDate: newDateStr };

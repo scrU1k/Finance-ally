@@ -16,7 +16,7 @@ import { SplitBillModal } from './components/tools/SplitBillModal';
 import { SmartSuggestions } from './components/insights/SmartSuggestions';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { CategoryManagerModal } from './components/categories/CategoryManagerModal';
-import { SubscriptionManagerModal } from './components/subscriptions/SubscriptionManagerModal';
+import { SubscriptionPage } from './components/subscriptions/SubscriptionPage';
 import { Transaction } from './types';
 
 const MainAppContent: React.FC = () => {
@@ -26,7 +26,6 @@ const MainAppContent: React.FC = () => {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
-  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   if (needsOnboarding) {
@@ -72,27 +71,7 @@ const MainAppContent: React.FC = () => {
           />
         )}
 
-        {activeTab === 'subscriptions' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between bg-surface-soft p-4 rounded-2xl border border-hairline">
-              <div>
-                <h2 className="text-base font-display font-bold text-ink">Recurring Subscriptions</h2>
-                <p className="text-xs font-mono text-muted-custom">Manage Netflix, Rent, Spotify, Broadband, and fixed monthly expenses.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsSubscriptionModalOpen(true)}
-                className="px-4 py-2 rounded-xl border border-brand-mint text-brand-mint font-mono text-xs font-bold hover:bg-surface-card transition-all cursor-pointer shadow-sm"
-              >
-                Open Manager
-              </button>
-            </div>
-            <SubscriptionManagerModal
-              isOpen={true}
-              onClose={() => setActiveTab('dashboard')}
-            />
-          </div>
-        )}
+        {activeTab === 'subscriptions' && <SubscriptionPage />}
 
         {activeTab === 'trips' && <TripList />}
         {activeTab === 'scanner' && <NotificationScannerModal />}
@@ -124,12 +103,6 @@ const MainAppContent: React.FC = () => {
       <CategoryManagerModal
         isOpen={isCategoryManagerOpen}
         onClose={() => setIsCategoryManagerOpen(false)}
-      />
-
-      {/* Subscription Manager Standalone Modal */}
-      <SubscriptionManagerModal
-        isOpen={isSubscriptionModalOpen}
-        onClose={() => setIsSubscriptionModalOpen(false)}
       />
 
       {/* Settings & Currency Converter Modal */}
