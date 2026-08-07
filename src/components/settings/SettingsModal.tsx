@@ -374,8 +374,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       {/* Modal Container */}
       <div
         onClick={e => e.stopPropagation()}
-        className="max-w-2xl w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/20 space-y-6 max-h-[90vh] overflow-y-auto relative cursor-default ring-1 ring-white/10"
+        className="max-w-2xl w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-3xl shadow-2xl shadow-black/20 relative cursor-default ring-1 ring-white/10 overflow-hidden max-h-[90vh] flex flex-col"
       >
+        <div className="p-6 sm:p-8 space-y-6 overflow-y-auto max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-hairline pb-4 pr-12">
           <div className="flex items-center gap-2">
@@ -905,7 +906,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
               {/* Repeat Day for Monthly */}
               {localAutoConfig.schedule === 'monthly' && (
-                <div className="flex items-center justify-between gap-3 pt-1">
+                <div className="flex items-center justify-between gap-2 pt-1">
                   <label className="text-[10px] font-mono text-muted-custom uppercase font-bold shrink-0">Repeat Day of Month:</label>
                   <CustomSelect
                     direction="down"
@@ -915,7 +916,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       const updated = saveLocalAutoBackupConfig({ monthlyDay: parseInt(val) });
                       setLocalAutoConfig(updated);
                     }}
-                    className="w-32 shrink-0"
+                    className="w-28 shrink-0"
                   />
                 </div>
               )}
@@ -1107,6 +1108,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           />
         )}
 
+        </div>
       </div>
     </div>
   );
