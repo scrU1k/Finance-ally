@@ -404,18 +404,21 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
       const store = tx.objectStore('transactions');
       store.clear();
       data.transactions.forEach((t: Transaction) => store.put(t));
+      localStorage.setItem('fa_transactions', JSON.stringify(data.transactions));
     }
     if (data.categories && Array.isArray(data.categories)) {
       const tx = db.transaction('categories', 'readwrite');
       const store = tx.objectStore('categories');
       store.clear();
       data.categories.forEach((c: Category) => store.put(c));
+      localStorage.setItem('fa_categories', JSON.stringify(data.categories));
     }
     if (data.trips && Array.isArray(data.trips)) {
       const tx = db.transaction('trips', 'readwrite');
       const store = tx.objectStore('trips');
       store.clear();
       data.trips.forEach((t: Trip) => store.put(t));
+      localStorage.setItem('fa_trips', JSON.stringify(data.trips));
     }
     if (data.smsTemplates && Array.isArray(data.smsTemplates)) {
       const tx = db.transaction('smsTemplates', 'readwrite');

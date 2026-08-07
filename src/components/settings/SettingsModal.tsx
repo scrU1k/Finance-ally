@@ -53,7 +53,7 @@ type SettingsSubPage = 'main' | 'security' | 'csv' | 'backup';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { user, toggleRequirePassword, changePassword } = useAuth();
-  const { baseCurrency, switchBaseCurrency, syncForexRates, forexRates, transactions, categories, addTransaction } = useFinance();
+  const { baseCurrency, switchBaseCurrency, syncForexRates, forexRates, transactions, categories, addTransaction, reloadAllData } = useFinance();
   const { theme, setTheme, fontFamily, setFontFamily } = useTheme();
 
   // Active Sub-Page Navigation State
@@ -253,6 +253,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       } else {
         const ok = await importFullDataBackup(content);
         if (ok) {
+          await reloadAllData();
           setImportStatus('Backup restored successfully! Reloading...');
           setTimeout(() => window.location.reload(), 1200);
         } else {
@@ -272,6 +273,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       const ok = await importFullDataBackup(decrypted);
       setVerifyPinLoading(false);
       if (ok) {
+        await reloadAllData();
         setShowVerifyPinModal(false);
         setImportStatus('Encrypted backup decrypted and restored! Reloading...');
         setTimeout(() => window.location.reload(), 1200);
@@ -320,6 +322,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     } else {
       const ok = await importFullDataBackup(payload);
       if (ok) {
+        await reloadAllData();
         setImportStatus(`Restored from snapshot ${snap.filename}! Reloading...`);
         setTimeout(() => window.location.reload(), 1200);
       } else {

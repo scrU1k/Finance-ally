@@ -24,6 +24,7 @@ interface FinanceContextType {
   removeTripItem: (id: string) => Promise<void>;
   switchBaseCurrency: (newCurrency: CurrencyCode, mode: 'convert' | 'keep') => Promise<void>;
   syncForexRates: () => Promise<boolean>;
+  reloadAllData: () => Promise<void>;
   filteredTransactions: Transaction[];
   periodTotalSpent: number;
 }
@@ -41,16 +42,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const baseCurrency: CurrencyCode = activeTripVault ? activeTripVault.currency : (user?.baseCurrency || 'INR');
 
+  const reloadAllData = async () => {
+    const txs = await loadTransactions();
+    const cats = await loadCategories();
+    const trps = await loadTrips();
+    setTransactions(txs);
+    setCategories(cats);
+    setTrips(trps);
+  };
+
   useEffect(() => {
-    async function initData() {
-      const txs = await loadTransactions();
-      const cats = await loadCategories();
-      const trps = await loadTrips();
-      setTransactions(txs);
-      setCategories(cats);
-      setTrips(trps);
-    }
-    initData();
+    reloadAllData();
   }, []);
 
   const syncForexRates = async (): Promise<boolean> => {
@@ -189,6 +191,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         removeTripItem,
         switchBaseCurrency,
         syncForexRates,
+        reloadAllData,
         filteredTransactions,
         periodTotalSpent,
       }}
