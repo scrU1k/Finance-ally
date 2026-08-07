@@ -47,10 +47,10 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
   }, [isOpen]);
 
   return (
-    <nav className="relative mb-4 border-b border-hairline/60 pb-3" ref={containerRef}>
+    <nav className="relative mb-3" ref={containerRef}>
       <div className="flex items-center justify-between gap-2">
         
-        {/* Primary Tabs (Scrollable container) */}
+        {/* Primary Tabs (Scrollable container without any bottom wall border) */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
           {primaryTabs.map(tab => {
             const isActive = activeTab === tab.id;
@@ -74,15 +74,15 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
           })}
         </div>
 
-        {/* Circular Glassmorphic Chevron Dropdown Button for Secondary Tools */}
+        {/* Circular Glassmorphic Chevron FAB Dropdown Button */}
         <div className="relative shrink-0 z-30">
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className={`flex items-center justify-center transition-all border cursor-pointer shadow-md shrink-0 ${
+            className={`flex items-center justify-center transition-all border cursor-pointer shadow-lg shrink-0 ${
               isSecondaryActive
                 ? 'px-3.5 py-2 rounded-full border-brand-blue text-brand-blue font-bold bg-surface-card/95 backdrop-blur-xl ring-1 ring-white/10 shadow-black/20 text-xs font-mono gap-1.5'
-                : 'w-9 h-9 rounded-full bg-surface-card/80 text-body-custom border-hairline hover:border-ink hover:text-ink backdrop-blur-xl ring-1 ring-white/10'
+                : 'w-9 h-9 rounded-full bg-surface-card/85 text-body-custom border-hairline hover:border-ink hover:text-ink backdrop-blur-xl ring-1 ring-white/10'
             }`}
             title="More Financial Tools"
           >

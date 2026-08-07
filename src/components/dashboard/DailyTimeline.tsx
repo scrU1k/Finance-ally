@@ -6,7 +6,7 @@ import { TransactionDetailModal } from './TransactionDetailModal';
 import { LiveSpendChart } from './LiveSpendChart';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { QuickLogBar } from './QuickLogBar';
-import { Search, Sparkles, Calendar } from 'lucide-react';
+import { Search, Sparkles, Calendar, Tag, X } from 'lucide-react';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 
 interface DailyTimelineProps {
@@ -37,6 +37,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
   const [selectedCatFilter, setSelectedCatFilter] = useState<string>('all');
   const [showCharts, setShowCharts] = useState(true);
   const [showSearchInput, setShowSearchInput] = useState(false);
+  const [showTagFilterRow, setShowTagFilterRow] = useState(false);
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
 
   const processedTransactions = useMemo(() => {
@@ -77,18 +78,20 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
     });
   }, [processedTransactions, baseCurrency, forexRates]);
 
+  const activeCategoryObj = categories.find(c => c.id === selectedCatFilter);
+
   return (
     <div className="space-y-6 pb-24">
       
-      {/* 1. Smart Natural Language Quick-Log Input Bar (Replaces top search bar) */}
+      {/* 1. Smart Natural Language Quick-Log Input Bar */}
       <QuickLogBar />
 
-      {/* 2. Controls Toolbar with Search Chip, Hide Charts Chip, and Date Chip */}
+      {/* 2. Controls Toolbar with Search, Tags Toggle, Hide Charts, and Date Chips */}
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar py-0.5">
           
           <div className="flex items-center gap-2">
-            {/* Search Chip Button (To the left of Hide Charts) */}
+            {/* Search Chip Button */}
             <button
               type="button"
               onClick={() => setShowSearchInput(!showSearchInput)}
@@ -101,6 +104,38 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             >
               <Search className="w-3.5 h-3.5 text-brand-blue shrink-0" />
               <span>Search</span>
+            </button>
+
+            {/* Tags Filter Toggle Chip Button */}
+            <button
+              type="button"
+              onClick={() => setShowTagFilterRow(!showTagFilterRow)}
+              className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                showTagFilterRow || selectedCatFilter !== 'all'
+                  ? 'border-brand-mint text-brand-mint font-bold shadow-sm bg-surface-soft'
+                  : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+              }`}
+              title="Filter by category tags"
+            >
+              <Tag className="w-3.5 h-3.5 text-brand-mint shrink-0" />
+              <span>
+                {selectedCatFilter !== 'all' && activeCategoryObj
+                  ? `Tag: ${activeCategoryObj.name}`
+                  : 'Tags'}
+              </span>
+              {(showTagFilterRow || selectedCatFilter !== 'all') && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedCatFilter('all');
+                    setShowTagFilterRow(false);
+                  }}
+                  className="ml-0.5 hover:text-brand-coral cursor-pointer p-0.5 text-xs font-bold"
+                  title="Clear tag filter & close"
+                >
+                  ✕
+                </span>
+              )}
             </button>
 
             {/* Hide/Show Charts Chip Button */}
@@ -152,43 +187,43 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
         )}
       </div>
 
-      {/* Category Tag Filter Pill Rail */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-        <button
-          type="button"
-          onClick={() => setSelectedCatFilter('all')}
-          className={`px-3 py-1 rounded-full text-xs font-mono whitespace-nowrap transition-all border shrink-0 cursor-pointer ${
-            selectedCatFilter === 'all'
-              ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
-              : 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
-          }`}
-        >
-          All Tags ({filteredTransactions.length})
-        </button>
-        {categories.map(cat => {
-          const count = filteredTransactions.filter(t => t.categoryId === cat.id).length;
-          if (count === 0 && selectedCatFilter !== cat.id) return null;
-          const isSelected = selectedCatFilter === cat.id;
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => setSelectedCatFilter(isSelected ? 'all' : cat.id)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono whitespace-nowrap transition-all border shrink-0 cursor-pointer ${
-                isSelected
-                  ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
-                  : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-              <span className="truncate whitespace-nowrap max-w-[120px]">{cat.name}</span>
-              <span className="text-[10px] opacity-70">({count})</span>
-            </button>
-          );
-        })}
-      </div>
-
-
+      {/* Category Tag Filter Pill Rail (Collapsible) */}
+      {(showTagFilterRow || selectedCatFilter !== 'all') && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar animate-in fade-in duration-150">
+          <button
+            type="button"
+            onClick={() => setSelectedCatFilter('all')}
+            className={`px-3 py-1 rounded-full text-xs font-mono whitespace-nowrap transition-all border shrink-0 cursor-pointer ${
+              selectedCatFilter === 'all'
+                ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
+                : 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
+            }`}
+          >
+            All Tags ({filteredTransactions.length})
+          </button>
+          {categories.map(cat => {
+            const count = filteredTransactions.filter(t => t.categoryId === cat.id).length;
+            if (count === 0 && selectedCatFilter !== cat.id) return null;
+            const isSelected = selectedCatFilter === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCatFilter(isSelected ? 'all' : cat.id)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono whitespace-nowrap transition-all border shrink-0 cursor-pointer ${
+                  isSelected
+                    ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
+                    : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                <span className="truncate whitespace-nowrap max-w-[120px]">{cat.name}</span>
+                <span className="text-[10px] opacity-70">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Grouped Daily Transactions Feed */}
       {groupedByDate.length === 0 ? (
