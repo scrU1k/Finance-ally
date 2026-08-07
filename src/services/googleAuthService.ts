@@ -2,7 +2,7 @@
  * Google Drive 1-Click OAuth Helper Service
  */
 
-const GOOGLE_CLIENT_ID = '847192837492-example.apps.googleusercontent.com'; // Default client ID scope target
+const GOOGLE_CLIENT_ID = '802326072216-9ndqodcgd81jeinffg5o2a2o0ju3c1tu.apps.googleusercontent.com';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
 export interface GoogleUserInfo {
@@ -16,7 +16,7 @@ export interface GoogleUserInfo {
  * or OAuth 2.0 Web Popup.
  */
 export async function triggerGoogleOAuthSignIn(customClientId?: string): Promise<{ success: boolean; email?: string; token?: string; error?: string }> {
-  const clientId = customClientId?.trim() || localStorage.getItem('fa_google_client_id')?.trim() || '847192837492-example.apps.googleusercontent.com';
+  const clientId = customClientId?.trim() || localStorage.getItem('fa_google_client_id')?.trim() || GOOGLE_CLIENT_ID;
 
   return new Promise((resolve) => {
     try {

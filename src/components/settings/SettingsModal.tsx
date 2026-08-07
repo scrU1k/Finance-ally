@@ -932,50 +932,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       </button>
                     </div>
                   ) : (
-                    <div className="space-y-2.5">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Google Cloud Client ID (Free)</label>
-                        <input
-                          type="text"
-                          value={googleClientId}
-                          onChange={e => {
-                            setGoogleClientId(e.target.value);
-                            localStorage.setItem('fa_google_client_id', e.target.value.trim());
-                          }}
-                          placeholder="your-app-id.apps.googleusercontent.com"
-                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
-                        />
-                        <p className="text-[9.5px] font-mono text-muted-custom">
-                          Registered in your free <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" className="text-brand-blue underline">Google Cloud Console</a>.
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setCloudSyncLoading(true);
-                          setCloudMsg('Opening Google Sign-In authorization window...');
-                          const res = await triggerGoogleOAuthSignIn(googleClientId);
-                          setCloudSyncLoading(false);
-                          if (res.success && res.token) {
-                            setGoogleToken(res.token);
-                            setGoogleEmail(res.email || 'user@gmail.com');
-                            saveCloudConfig({
-                              provider: 'gdrive',
-                              googleAccessToken: res.token,
-                              googleEmail: res.email || 'user@gmail.com'
-                            });
-                            setCloudMsg('Successfully authenticated with Google Drive!');
-                          } else {
-                            setCloudMsg(`Sign-in status: ${res.error || 'Connection cancelled.'}`);
-                          }
-                        }}
-                        className="w-full bg-surface-soft hover:bg-surface-card border border-brand-blue text-brand-blue font-mono text-xs font-bold py-3 px-4 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
-                      >
-                        <Cloud className="w-4 h-4 shrink-0" />
-                        <span>Sign in with Google Drive</span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setCloudSyncLoading(true);
+                        setCloudMsg('Opening Google Sign-In authorization window...');
+                        const res = await triggerGoogleOAuthSignIn();
+                        setCloudSyncLoading(false);
+                        if (res.success && res.token) {
+                          setGoogleToken(res.token);
+                          setGoogleEmail(res.email || 'user@gmail.com');
+                          saveCloudConfig({
+                            provider: 'gdrive',
+                            googleAccessToken: res.token,
+                            googleEmail: res.email || 'user@gmail.com'
+                          });
+                          setCloudMsg('Successfully authenticated with Google Drive!');
+                        } else {
+                          setCloudMsg(`Sign-in status: ${res.error || 'Connection cancelled.'}`);
+                        }
+                      }}
+                      className="w-full bg-surface-soft hover:bg-surface-card border border-brand-blue text-brand-blue font-mono text-xs font-bold py-3 px-4 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <Cloud className="w-4 h-4 shrink-0" />
+                      <span>Sign in with Google Drive</span>
+                    </button>
                   )}
 
                   {/* Google Data Permission Request Disclosure Card */}
