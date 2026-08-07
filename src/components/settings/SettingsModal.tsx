@@ -967,7 +967,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             });
                             setCloudMsg('Successfully authenticated with Google Drive!');
                           } else {
-                            setCloudMsg(`Sign-in status: ${res.error || 'Connection cancelled. Try manual access token below.'}`);
+                            setCloudMsg(`Sign-in status: ${res.error || 'Connection cancelled.'}`);
                           }
                         }}
                         className="w-full bg-surface-soft hover:bg-surface-card border border-brand-blue text-brand-blue font-mono text-xs font-bold py-3 px-4 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
@@ -975,42 +975,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         <Cloud className="w-4 h-4 shrink-0" />
                         <span>Sign in with Google Drive</span>
                       </button>
-
-                      {/* Manual OAuth Token Fallback */}
-                      <div className="pt-1">
-                        <button
-                          type="button"
-                          onClick={() => setShowManualToken(!showManualToken)}
-                          className="text-[10px] font-mono text-muted-custom hover:text-ink underline cursor-pointer"
-                        >
-                          {showManualToken ? 'Hide Direct Token Input' : 'Or Paste Google Access Token (ya29...) Manually'}
-                        </button>
-                      </div>
-
-                      {showManualToken && (
-                        <div className="space-y-2 pt-1 animate-in fade-in duration-150">
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Google Account Email</label>
-                            <input
-                              type="email"
-                              value={googleEmail}
-                              onChange={e => setGoogleEmail(e.target.value)}
-                              placeholder="your.account@gmail.com"
-                              className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Google OAuth Access Token</label>
-                            <input
-                              type="password"
-                              value={googleToken}
-                              onChange={e => setGoogleToken(e.target.value)}
-                              placeholder="ya29.a0AR..."
-                              className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
-                            />
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )}
 
