@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { Subscription, CurrencyCode } from '../../types';
 import { loadSubscriptions, saveSubscription, deleteSubscription as dbDeleteSub } from '../../services/db';
@@ -22,9 +22,19 @@ export const SubscriptionPage: React.FC = () => {
   const [categoryId, setCategoryId] = useState(categories[0]?.id || 'cat-housing');
   const [paymentMethod, setPaymentMethod] = useState('Bank Auto-Debit');
 
+  const formRef = useRef<HTMLFormElement | null>(null);
+
   useEffect(() => {
     loadSubscriptions().then(setSubscriptions);
   }, []);
+
+  useEffect(() => {
+    if (showAddForm && formRef.current) {
+      setTimeout(() => {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [showAddForm]);
 
   const handleAddSubscription = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,7 +205,7 @@ export const SubscriptionPage: React.FC = () => {
 
       {/* Add Subscription Form (App-Matching Custom Dropdowns) */}
       {showAddForm && (
-        <form onSubmit={handleAddSubscription} className="dotgui-glass border border-hairline p-5 rounded-2xl shadow-lg bg-surface-soft/90 backdrop-blur-xl space-y-4 animate-in zoom-in-95 duration-150">
+        <form ref={formRef} onSubmit={handleAddSubscription} className="dotgui-glass border border-hairline p-5 rounded-2xl shadow-lg bg-surface-soft/90 backdrop-blur-xl space-y-4 animate-in zoom-in-95 duration-150">
           <div className="flex items-center justify-between border-b border-hairline pb-2">
             <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-brand-yellow" /> Create New Recurring Subscription

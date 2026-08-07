@@ -623,8 +623,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
         {/* ─── SUB-PAGE 1: SECURITY & PIN PROTECTION ──────────────────────────── */}
         {activeSubPage === 'security' && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            <div className="space-y-4 bg-surface-soft p-4 rounded-xl border border-hairline">
+          <div className="space-y-4 animate-in fade-in duration-150">
+            
+            {/* Card 1: Startup Password Protection */}
+            <div className="space-y-4 bg-surface-soft p-5 rounded-2xl border border-hairline shadow-sm">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
@@ -724,46 +726,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   </form>
                 )}
               </div>
-
-              {/* Backup Encryption PIN */}
-              <div className="pt-3 border-t border-hairline/60 space-y-3">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-xs font-mono font-bold text-ink flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5 text-brand-blue" />
-                      <span>Backup Export Encryption PIN</span>
-                    </h3>
-                    <p className="text-[11px] font-mono text-muted-custom mt-1">
-                      {pinEnabled
-                        ? 'Enabled: Exported backups are AES-256 encrypted with your PIN.'
-                        : 'Disabled: Backups export as plain readable JSON.'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={pinEnabled ? handleDisablePin : () => setShowSetPinModal('set')}
-                    className={`px-4 py-2 rounded-full text-xs font-mono font-bold transition-all border shrink-0 cursor-pointer ${
-                      pinEnabled
-                        ? 'border-brand-blue text-brand-blue bg-surface-soft shadow-sm'
-                        : 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
-                    }`}
-                  >
-                    {pinEnabled ? 'Enabled (Disable)' : 'Disabled (Enable)'}
-                  </button>
-                </div>
-
-                {pinEnabled && (
-                  <button
-                    type="button"
-                    onClick={() => setShowSetPinModal('change')}
-                    className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
-                  >
-                    Change Export PIN
-                  </button>
-                )}
-                {pinMsg && <p className="text-[10px] font-mono text-brand-mint font-bold">{pinMsg}</p>}
-              </div>
             </div>
+
+            {/* Card 2: Backup Export Encryption PIN */}
+            <div className="space-y-4 bg-surface-soft p-5 rounded-2xl border border-hairline shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-brand-blue" />
+                    <span>Backup Export & Snapshot Encryption PIN</span>
+                  </h3>
+                  <p className="text-[11px] font-mono text-muted-custom mt-1">
+                    {pinEnabled
+                      ? 'Enabled: Backups and automated local snapshots are AES-256 encrypted with your PIN.'
+                      : 'Disabled: Backups export as plain readable JSON.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={pinEnabled ? handleDisablePin : () => setShowSetPinModal('set')}
+                  className={`px-4 py-2 rounded-full text-xs font-mono font-bold transition-all border shrink-0 cursor-pointer ${
+                    pinEnabled
+                      ? 'border-brand-blue text-brand-blue bg-surface-soft shadow-sm'
+                      : 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
+                  }`}
+                >
+                  {pinEnabled ? 'Enabled (Disable)' : 'Disabled (Enable)'}
+                </button>
+              </div>
+
+              {pinEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setShowSetPinModal('change')}
+                  className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
+                >
+                  Change Export PIN
+                </button>
+              )}
+              {pinMsg && <p className="text-[10px] font-mono text-brand-mint font-bold">{pinMsg}</p>}
+            </div>
+
           </div>
         )}
 
@@ -907,7 +910,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               {/* Repeat Day for Monthly */}
               {localAutoConfig.schedule === 'monthly' && (
                 <div className="flex items-center justify-between gap-2 pt-1">
-                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold shrink-0">Repeat Day of Month:</label>
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold shrink-0">Repeat on Day:</label>
                   <CustomSelect
                     direction="down"
                     options={Array.from({ length: 31 }, (_, i) => ({ value: (i + 1).toString(), label: `Day ${i + 1}` }))}
@@ -920,6 +923,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   />
                 </div>
               )}
+
+              {/* Compact PIN Encryption Toggle for Backups */}
+              <div className="flex items-center justify-between border-t border-hairline/60 pt-3">
+                <div>
+                  <span className="text-[11px] font-mono font-bold text-ink block">AES-256 Backup PIN Encryption</span>
+                  <span className="text-[10px] font-mono text-muted-custom block">Encrypts all database backups & snapshots</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={pinEnabled ? handleDisablePin : () => setShowSetPinModal('set')}
+                  className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold transition-all border shrink-0 cursor-pointer ${
+                    pinEnabled
+                      ? 'border-brand-blue text-brand-blue bg-surface-soft shadow-sm'
+                      : 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
+                  }`}
+                >
+                  {pinEnabled ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
 
               {/* Perform Manual Snapshot Button */}
               <div className="pt-2">
