@@ -84,6 +84,19 @@ export interface SplitMember {
   isPaid: boolean;
 }
 
+export interface Subscription {
+  id: string;
+  name: string;
+  amount: number;
+  currency: CurrencyCode;
+  billingCycle: 'monthly' | 'weekly' | 'yearly';
+  nextDueDate: string; // YYYY-MM-DD
+  categoryId: string;
+  paymentMethod: string;
+  autoLog: boolean;
+  createdAt: number;
+}
+
 export interface EndOfMonthAuditReport {
   monthKey: string; // YYYY-MM
   totalSpent: number;

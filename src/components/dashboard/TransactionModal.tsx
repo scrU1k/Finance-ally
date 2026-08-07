@@ -14,12 +14,14 @@ interface TransactionModalProps {
 }
 
 export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, initialData }) => {
-  const { categories, trips, baseCurrency, addTransaction, editTransaction } = useFinance();
+  const { categories, trips, baseCurrency, addTransaction, editTransaction, addCategoryItem } = useFinance();
 
   const [amount, setAmount] = useState<string>('');
   const [currency, setCurrency] = useState<CurrencyCode>(baseCurrency);
   const [categoryId, setCategoryId] = useState<string>(categories[0]?.id || 'cat-food');
   const [customCategoryName, setCustomCategoryName] = useState<string>('');
+  const [customTagColor, setCustomTagColor] = useState<string>('#ec4899');
+  const [tagSaveMsg, setTagSaveMsg] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState<string>(
     new Date().toTimeString().split(' ')[0].substring(0, 5)
@@ -27,6 +29,31 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
   const [note, setNote] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('UPI');
   const [tripId, setTripId] = useState<string>('');
+
+  const tagColorPalette = [
+    '#ec4899', // Hot Pink
+    '#8b5cf6', // Purple
+    '#06b6d4', // Cyan
+    '#10b981', // Emerald
+    '#f59e0b', // Amber
+    '#6366f1', // Indigo
+    '#f43f5e', // Rose
+    '#14b8a6', // Teal
+  ];
+
+  const handleSaveCustomTag = async () => {
+    if (!customCategoryName.trim()) return;
+    const tagName = customCategoryName.trim();
+    await addCategoryItem({
+      name: tagName,
+      color: customTagColor,
+      icon: 'Tag',
+      isDefault: false
+    });
+    setTagSaveMsg(`Saved "${tagName}" as reusable tag!`);
+    setCustomCategoryName('');
+    setTimeout(() => setTagSaveMsg(''), 2000);
+  };
 
   useEffect(() => {
     if (initialData) {
@@ -191,8 +218,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
 
           {/* Custom Tag Name for Others */}
           {categoryId === 'cat-others' && (
-            <div className="space-y-1.5 bg-surface-soft p-3 rounded-xl border border-hairline animate-in fade-in duration-150">
-              <label className="text-[11px] font-mono text-muted-custom uppercase font-bold">Custom Tag Name</label>
+            <div className="space-y-3 bg-surface-soft p-3.5 rounded-xl border border-hairline animate-in fade-in duration-150">
+              <label className="text-[11px] font-mono text-muted-custom uppercase font-bold block">Custom Tag Name</label>
               <input
                 type="text"
                 value={customCategoryName}
@@ -200,6 +227,37 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
                 placeholder="e.g. Pet Care, Hobbies, Subscriptions"
                 className="w-full bg-surface-card border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink focus:outline-none focus:border-ink"
               />
+
+              {/* Tag Color Palette Selector */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-muted-custom uppercase font-bold block">Select Tag Color Accent</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {tagColorPalette.map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setCustomTagColor(color)}
+                      className={`w-6 h-6 rounded-full transition-transform cursor-pointer border ${
+                        customTagColor === color ? 'scale-125 border-ink ring-2 ring-white/20' : 'border-hairline hover:scale-110'
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Save as Reusable Tag Button */}
+              {customCategoryName.trim() && (
+                <button
+                  type="button"
+                  onClick={handleSaveCustomTag}
+                  className="w-full border border-brand-purple text-brand-purple hover:bg-surface-card text-xs font-mono font-bold py-1.5 rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  <span>Save as Permanent Tag</span>
+                </button>
+              )}
+
+              {tagSaveMsg && <p className="text-[10px] font-mono text-brand-mint text-center font-bold">{tagSaveMsg}</p>}
             </div>
           )}
 

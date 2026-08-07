@@ -18,6 +18,8 @@ interface FinanceContextType {
   editTransaction: (tx: Transaction) => Promise<void>;
   deleteTx: (id: string) => Promise<void>;
   addCategoryItem: (cat: Omit<Category, 'id'>) => Promise<void>;
+  updateCategoryItem: (cat: Category) => Promise<void>;
+  deleteCategoryItem: (id: string) => Promise<void>;
   addTripItem: (trip: Omit<Trip, 'id' | 'createdAt'>) => Promise<void>;
   removeTripItem: (id: string) => Promise<void>;
   switchBaseCurrency: (newCurrency: CurrencyCode, mode: 'convert' | 'keep') => Promise<void>;
@@ -86,6 +88,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
     await saveCategory(newCat);
     setCategories(prev => [...prev, newCat]);
+  };
+
+  const updateCategoryItem = async (category: Category) => {
+    await saveCategory(category);
+    setCategories(prev => prev.map(c => (c.id === category.id ? category : c)));
+  };
+
+  const deleteCategoryItem = async (id: string) => {
+    setCategories(prev => prev.filter(c => c.id !== id));
   };
 
   const addTripItem = async (tripData: Omit<Trip, 'id' | 'createdAt'>) => {
@@ -172,6 +183,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         editTransaction,
         deleteTx,
         addCategoryItem,
+        updateCategoryItem,
+        deleteCategoryItem,
         addTripItem,
         removeTripItem,
         switchBaseCurrency,

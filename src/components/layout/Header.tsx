@@ -1,17 +1,18 @@
 import React from 'react';
-import { Shield, Settings, Lock, Sparkles, Plane } from 'lucide-react';
+import { Shield, Settings, Lock, Sparkles, Plane, Tag } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { TOP_CURRENCIES } from '../../services/currency';
 
 interface HeaderProps {
   onOpenSettings: () => void;
+  onOpenCategories: () => void;
   onOpenQuickAdd?: () => void;
   onOpenScanner: () => void;
   onTitleClick?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenScanner, onTitleClick }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories, onOpenScanner, onTitleClick }) => {
   const { logout } = useAuth();
   const { baseCurrency, activeTripVault, setActiveTripVault } = useFinance();
 
@@ -53,6 +54,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenScanner, o
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           
+          {/* Category Budget Caps & Tags Button */}
+          <button
+            onClick={onOpenCategories}
+            className="p-1.5 text-muted-custom hover:text-brand-purple hover:bg-surface-card rounded-full transition-colors border border-transparent hover:border-hairline"
+            title="Category Budget Caps & Tag Palette"
+          >
+            <Tag className="w-4 h-4" />
+          </button>
+
           {/* SMS / UPI Scanner Button */}
           <button
             onClick={onOpenScanner}

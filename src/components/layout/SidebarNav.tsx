@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, Plane, Sparkles, PieChart, Users, Lightbulb } from 'lucide-react';
+import { LayoutDashboard, Plane, Sparkles, PieChart, Users, Lightbulb, CalendarCheck } from 'lucide-react';
 
-export type NavTab = 'dashboard' | 'trips' | 'scanner' | 'audit' | 'split' | 'insights';
+export type NavTab = 'dashboard' | 'subscriptions' | 'trips' | 'scanner' | 'audit' | 'split' | 'insights';
 
 interface SidebarNavProps {
   activeTab: NavTab;
@@ -11,6 +11,7 @@ interface SidebarNavProps {
 export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab }) => {
   const items: { id: NavTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'dashboard', label: 'Expense Log', icon: <LayoutDashboard className="w-4 h-4" /> },
+    { id: 'subscriptions', label: 'Subscriptions', icon: <CalendarCheck className="w-4 h-4" /> },
     { id: 'trips', label: 'Trip Manager', icon: <Plane className="w-4 h-4" />, badge: 'Vault' },
     { id: 'scanner', label: 'Notif scan', icon: <Sparkles className="w-4 h-4" /> },
     { id: 'audit', label: 'Financial Audit', icon: <PieChart className="w-4 h-4" /> },

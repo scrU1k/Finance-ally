@@ -1,7 +1,7 @@
-import { Category, Transaction, Trip, UserProfile, CurrencyCode } from '../types';
+import { Category, Transaction, Trip, UserProfile, CurrencyCode, Subscription } from '../types';
 
 const DB_NAME = 'FinanceAllyDB';
-const DB_VERSION = 2; // Incremented for smsTemplates store & IndexedDB-first migration
+const DB_VERSION = 3; // Incremented for subscriptions store
 
 export interface SmsTemplate {
   id: string;
@@ -47,6 +47,9 @@ function openDatabase(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('smsTemplates')) {
         db.createObjectStore('smsTemplates', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('subscriptions')) {
+        db.createObjectStore('subscriptions', { keyPath: 'id' });
       }
     };
 
@@ -258,6 +261,45 @@ export async function deleteSmsTemplate(id: string): Promise<void> {
   }
 }
 
+// ─── RECURRING SUBSCRIPTIONS ───────────────────────────────────────────────────
+
+export async function loadSubscriptions(): Promise<Subscription[]> {
+  try {
+    const db = await openDatabase();
+    return new Promise((resolve) => {
+      const tx = db.transaction('subscriptions', 'readonly');
+      const store = tx.objectStore('subscriptions');
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function saveSubscription(sub: Subscription): Promise<void> {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction('subscriptions', 'readwrite');
+    const store = tx.objectStore('subscriptions');
+    store.put(sub);
+  } catch (e) {
+    console.error('IndexedDB saveSubscription failed:', e);
+  }
+}
+
+export async function deleteSubscription(id: string): Promise<void> {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction('subscriptions', 'readwrite');
+    const store = tx.objectStore('subscriptions');
+    store.delete(id);
+  } catch (e) {
+    console.error('IndexedDB deleteSubscription failed:', e);
+  }
+}
+
 // ─── SEED INITIAL DATA ─────────────────────────────────────────────────────────
 
 function seedInitialTransactions(): Transaction[] {
@@ -336,6 +378,7 @@ export async function exportFullDataBackup(): Promise<string> {
   const categories = await loadCategories();
   const trips = await loadTrips();
   const smsTemplates = await loadSmsTemplates();
+  const subscriptions = await loadSubscriptions();
   const profile = JSON.parse(localStorage.getItem('fa_user_profile') || '{}');
 
   const data = {
@@ -343,9 +386,10 @@ export async function exportFullDataBackup(): Promise<string> {
     categories,
     trips,
     smsTemplates,
+    subscriptions,
     profile,
     exportTimestamp: Date.now(),
-    appVersion: '1.1.0'
+    appVersion: '1.2.0'
   };
   return JSON.stringify(data, null, 2);
 }
@@ -378,6 +422,12 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
       const store = tx.objectStore('smsTemplates');
       store.clear();
       data.smsTemplates.forEach((st: SmsTemplate) => store.put(st));
+    }
+    if (data.subscriptions && Array.isArray(data.subscriptions)) {
+      const tx = db.transaction('subscriptions', 'readwrite');
+      const store = tx.objectStore('subscriptions');
+      store.clear();
+      data.subscriptions.forEach((sub: Subscription) => store.put(sub));
     }
     if (data.profile && typeof data.profile === 'object') {
       localStorage.setItem('fa_user_profile', JSON.stringify(data.profile));
