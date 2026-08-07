@@ -48,39 +48,41 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
 
   return (
     <nav className="relative mb-4 border-b border-hairline/60 pb-3" ref={containerRef}>
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+      <div className="flex items-center justify-between gap-2">
         
-        {/* Primary Tabs */}
-        {primaryTabs.map(tab => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-                setIsOpen(false);
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono whitespace-nowrap transition-all border cursor-pointer ${
-                isActive
-                  ? 'border-ink text-ink font-bold shadow-md bg-surface-card/90 backdrop-blur-xl ring-1 ring-white/10 animate-breathe'
-                  : 'bg-surface-card/60 text-body-custom border-hairline hover:border-ink hover:text-ink'
-              }`}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+        {/* Primary Tabs (Scrollable container without clipping popover) */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
+          {primaryTabs.map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setIsOpen(false);
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono whitespace-nowrap transition-all border cursor-pointer shrink-0 ${
+                  isActive
+                    ? 'border-ink text-ink font-bold shadow-md bg-surface-card/90 backdrop-blur-xl ring-1 ring-white/10 animate-breathe'
+                    : 'bg-surface-card/60 text-body-custom border-hairline hover:border-ink hover:text-ink'
+                }`}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
-        {/* Glassmorphic Chevron Dropdown Button for Secondary Tools */}
-        <div className="relative">
+        {/* Glassmorphic Chevron Dropdown Button (Outside scroll container to prevent clipping) */}
+        <div className="relative shrink-0 z-30">
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-mono whitespace-nowrap transition-all border cursor-pointer shadow-md ${
               isSecondaryActive || isOpen
-                ? 'border-brand-blue text-brand-blue font-bold bg-surface-card/90 backdrop-blur-xl ring-1 ring-white/10'
-                : 'bg-surface-card/60 text-body-custom border-hairline hover:border-ink hover:text-ink'
+                ? 'border-brand-blue text-brand-blue font-bold bg-surface-card/95 backdrop-blur-xl ring-1 ring-white/10 shadow-black/20'
+                : 'bg-surface-card/80 text-body-custom border-hairline hover:border-ink hover:text-ink'
             }`}
             title="More Financial Tools"
           >
@@ -97,7 +99,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
 
           {/* Glassmorphic Popover Menu */}
           {isOpen && (
-            <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 z-40 w-64 bg-surface-card/85 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl shadow-2xl shadow-black/30 p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-white/10">
+            <div className="absolute right-0 top-full mt-2.5 z-50 w-64 bg-surface-card/90 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl shadow-2xl shadow-black/40 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-white/10">
               <span className="px-3 py-1 text-[9.5px] font-mono font-bold text-muted-custom uppercase block border-b border-hairline/60 pb-1 mb-1">
                 Financial Management Tools
               </span>
