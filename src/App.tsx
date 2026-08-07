@@ -17,6 +17,7 @@ import { SmartSuggestions } from './components/insights/SmartSuggestions';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { CategoryManagerModal } from './components/categories/CategoryManagerModal';
 import { SubscriptionPage } from './components/subscriptions/SubscriptionPage';
+import { AutoSmsDetectorBanner } from './components/common/AutoSmsDetectorBanner';
 import { Transaction } from './types';
 import { checkAndPerformLocalAutoBackup } from './services/localAutoBackupService';
 
@@ -55,6 +56,9 @@ const MainAppContent: React.FC = () => {
         onOpenScanner={() => setActiveTab('scanner')}
         onTitleClick={() => setActiveTab('dashboard')}
       />
+
+      {/* Automatic SMS Transaction Detector Banner */}
+      <AutoSmsDetectorBanner />
 
       {/* Main Container */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-3">
