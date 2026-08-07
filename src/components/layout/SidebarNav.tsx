@@ -50,7 +50,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
     <nav className="relative mb-4 border-b border-hairline/60 pb-3" ref={containerRef}>
       <div className="flex items-center justify-between gap-2">
         
-        {/* Primary Tabs (Scrollable container without clipping popover) */}
+        {/* Primary Tabs (Scrollable container) */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
           {primaryTabs.map(tab => {
             const isActive = activeTab === tab.id;
@@ -74,15 +74,15 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
           })}
         </div>
 
-        {/* Glassmorphic Chevron Dropdown Button (Outside scroll container to prevent clipping) */}
+        {/* Circular Glassmorphic Chevron Dropdown Button for Secondary Tools */}
         <div className="relative shrink-0 z-30">
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-mono whitespace-nowrap transition-all border cursor-pointer shadow-md ${
-              isSecondaryActive || isOpen
-                ? 'border-brand-blue text-brand-blue font-bold bg-surface-card/95 backdrop-blur-xl ring-1 ring-white/10 shadow-black/20'
-                : 'bg-surface-card/80 text-body-custom border-hairline hover:border-ink hover:text-ink'
+            className={`flex items-center justify-center transition-all border cursor-pointer shadow-md shrink-0 ${
+              isSecondaryActive
+                ? 'px-3.5 py-2 rounded-full border-brand-blue text-brand-blue font-bold bg-surface-card/95 backdrop-blur-xl ring-1 ring-white/10 shadow-black/20 text-xs font-mono gap-1.5'
+                : 'w-9 h-9 rounded-full bg-surface-card/80 text-body-custom border-hairline hover:border-ink hover:text-ink backdrop-blur-xl ring-1 ring-white/10'
             }`}
             title="More Financial Tools"
           >
@@ -91,9 +91,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
                 {activeSecondary.icon}
                 <span>{activeSecondary.label}</span>
               </span>
-            ) : (
-              <span className="text-[11px] font-semibold text-muted-custom">More Tools</span>
-            )}
+            ) : null}
             <ChevronDown className={`w-4 h-4 text-muted-custom transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-brand-blue' : ''}`} />
           </button>
 
