@@ -9,7 +9,7 @@ interface QuickLogBarProps {
 }
 
 export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => {
-  const { baseCurrency, addTransaction, categories } = useFinance();
+  const { baseCurrency, addTransaction, categories, transactions } = useFinance();
 
   const [inputPrompt, setInputPrompt] = useState('');
   const [parsedExpense, setParsedExpense] = useState<ParsedNaturalExpense | null>(null);
@@ -17,12 +17,52 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
   const [isSuccess, setIsSuccess] = useState(false);
   const [isTagPopupOpen, setIsTagPopupOpen] = useState(false);
 
+  // Proactive Budget Cap Interception State
+  const [budgetWarning, setBudgetWarning] = useState<{
+    categoryName: string;
+    currentSpent: number;
+    newAmount: number;
+    limit: number;
+    pendingMethod?: string;
+  } | null>(null);
+
   const handleParse = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!inputPrompt.trim()) return;
 
     const parsed = parseNaturalLanguageExpense(inputPrompt, baseCurrency);
     setParsedExpense(parsed);
+  };
+
+  const checkBudgetAndLog = (selectedPayment?: string) => {
+    if (!parsedExpense) return;
+    const finalMethod = selectedPayment || paymentMethod;
+
+    const targetCat = categories.find(c => c.id === parsedExpense.categoryId);
+
+    if (targetCat && targetCat.budgetLimit && targetCat.budgetLimit > 0) {
+      // Calculate current month's total spend for this category
+      const currentMonthKey = new Date().toISOString().substring(0, 7); // YYYY-MM
+      const currentSpent = transactions
+        .filter(t => t.categoryId === targetCat.id && t.date.startsWith(currentMonthKey))
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const projectedTotal = currentSpent + parsedExpense.amount;
+      if (projectedTotal > targetCat.budgetLimit) {
+        // Trigger Proactive Warning Modal
+        setBudgetWarning({
+          categoryName: targetCat.name,
+          currentSpent,
+          newAmount: parsedExpense.amount,
+          limit: targetCat.budgetLimit,
+          pendingMethod: finalMethod,
+        });
+        return;
+      }
+    }
+
+    // No warning needed -> Proceed to log
+    handleConfirmLog(finalMethod);
   };
 
   const handleConfirmLog = async (selectedPayment?: string) => {
@@ -41,6 +81,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
       confidenceScore: parsedExpense.confidence,
     });
 
+    setBudgetWarning(null);
     setIsSuccess(true);
     setTimeout(() => {
       setIsSuccess(false);
@@ -150,7 +191,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
                 <button
                   key={method}
                   type="button"
-                  onClick={() => handleConfirmLog(method)}
+                  onClick={() => checkBudgetAndLog(method)}
                   className="px-3 py-1.5 rounded-full text-xs font-mono border border-hairline bg-surface-card text-ink font-semibold hover:border-brand-blue hover:text-brand-blue transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1"
                 >
                   <Check className="w-3 h-3 text-brand-blue" />
@@ -160,6 +201,61 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* PROACTIVE BUDGET CAP WARNING MODAL */}
+      {budgetWarning && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer animate-in fade-in duration-150"
+          onClick={() => setBudgetWarning(null)}
+        >
+          <div
+            className="max-w-sm w-full bg-surface-card/95 backdrop-blur-2xl border border-brand-coral/40 rounded-2xl p-6 shadow-2xl space-y-4 cursor-default relative ring-1 ring-brand-coral/20 animate-in zoom-in-95 duration-150"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-brand-coral border-b border-hairline pb-2.5">
+              <span className="text-sm font-mono font-bold uppercase">⚠️ Proactive Budget Warning</span>
+            </div>
+
+            <div className="space-y-2 text-xs font-mono text-ink">
+              <p className="leading-relaxed">
+                Logging this expense of <strong className="text-brand-coral">{formatCurrency(budgetWarning.newAmount, baseCurrency)}</strong> will push your <strong className="text-ink font-bold">"{budgetWarning.categoryName}"</strong> category budget over its monthly limit!
+              </p>
+
+              <div className="bg-surface-soft p-3 rounded-xl border border-hairline space-y-1 text-[11px]">
+                <div className="flex justify-between">
+                  <span className="text-muted-custom">Current Spend:</span>
+                  <span>{formatCurrency(budgetWarning.currentSpent, baseCurrency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-custom">Monthly Budget Limit:</span>
+                  <span className="font-bold">{formatCurrency(budgetWarning.limit, baseCurrency)}</span>
+                </div>
+                <div className="flex justify-between border-t border-hairline/60 pt-1 font-bold">
+                  <span className="text-brand-coral">Projected Total:</span>
+                  <span className="text-brand-coral">{formatCurrency(budgetWarning.currentSpent + budgetWarning.newAmount, baseCurrency)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setBudgetWarning(null)}
+                className="flex-1 py-2 rounded-xl border border-hairline text-muted-custom text-xs font-mono font-bold hover:border-ink cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConfirmLog(budgetWarning.pendingMethod)}
+                className="flex-1 py-2 rounded-xl border border-brand-coral text-brand-coral hover:bg-brand-coral/10 text-xs font-mono font-bold cursor-pointer shadow-sm"
+              >
+                Proceed & Log
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

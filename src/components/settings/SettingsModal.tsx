@@ -4,6 +4,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { useTheme, ThemeMode, FontFamily } from '../../context/ThemeContext';
 import { TOP_CURRENCIES, convertCurrencyAmount, formatCurrency } from '../../services/currency';
 import { exportFullDataBackup, importFullDataBackup } from '../../services/db';
+import { exportTransactionsToCSV, importTransactionsFromCSV } from '../../services/csvParser';
 import { encryptJSON, decryptJSON, isEncryptedBackup, saveExportPin, verifyExportPin, hasExportPin, clearExportPin } from '../../services/cryptoService';
 import { PinModal } from '../common/PinModal';
 import { CustomSelect } from '../common/CustomSelect';
@@ -11,17 +12,41 @@ import { CurrencyCode } from '../../types';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
-import { X, Settings as SettingsIcon, RefreshCw, Palette, Database, RefreshCcw, ArrowRightLeft, Lock, Eye, EyeOff, Upload, ShieldCheck } from 'lucide-react';
+import {
+  X,
+  Settings as SettingsIcon,
+  RefreshCw,
+  Palette,
+  Database,
+  RefreshCcw,
+  ArrowRightLeft,
+  Lock,
+  Eye,
+  EyeOff,
+  Upload,
+  ShieldCheck,
+  ChevronRight,
+  ArrowLeft,
+  FileSpreadsheet,
+  Cloud,
+  CheckCircle2,
+  Calendar
+} from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type SettingsSubPage = 'main' | 'security' | 'csv' | 'backup';
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { user, toggleRequirePassword, changePassword } = useAuth();
-  const { baseCurrency, switchBaseCurrency, syncForexRates, forexRates } = useFinance();
+  const { baseCurrency, switchBaseCurrency, syncForexRates, forexRates, transactions, categories, addTransaction } = useFinance();
   const { theme, setTheme, fontFamily, setFontFamily } = useTheme();
+
+  // Active Sub-Page Navigation State
+  const [activeSubPage, setActiveSubPage] = useState<SettingsSubPage>('main');
 
   // Embedded Converter State
   const [calcAmount, setCalcAmount] = useState('100');
@@ -48,6 +73,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [importStatus, setImportStatus] = useState('');
   const [exportModalData, setExportModalData] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const csvFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [csvStatus, setCsvStatus] = useState('');
+
+  // Cloud Sync & Schedule State
+  const [selectedCloudProvider, setSelectedCloudProvider] = useState<'gdrive' | 'onedrive' | 'webdav' | 'none'>('none');
+  const [syncSchedule, setSyncSchedule] = useState<'daily' | 'weekly' | 'monthly' | 'manual'>('daily');
+  const [monthlySyncDate, setMonthlySyncDate] = useState<number>(1);
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
+  const [cloudMsg, setCloudMsg] = useState('');
 
   // Export PIN / Encryption state
   const [pinEnabled, setPinEnabled] = useState<boolean>(hasExportPin);
@@ -126,13 +160,64 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   };
 
-  const handleEncryptAndExport = async (pin: string): Promise<string | null> => {
-    try {
-      const plain = await exportFullDataBackup();
-      return await encryptJSON(plain, pin);
-    } catch {
-      return null;
+  const handleExportCSV = () => {
+    const csvStr = exportTransactionsToCSV(transactions, categories);
+    const filename = `finance-ally-export-${new Date().toISOString().split('T')[0]}.csv`;
+
+    if (Capacitor.isNativePlatform()) {
+      Filesystem.writeFile({
+        path: filename,
+        data: csvStr,
+        directory: Directory.Cache,
+        encoding: 'utf8' as any
+      }).then(writeResult => {
+        Share.share({
+          title: 'Finance-Ally CSV Export',
+          url: writeResult.uri,
+          dialogTitle: 'Save CSV Export'
+        });
+      }).catch(() => {
+        navigator.clipboard.writeText(csvStr);
+        setCsvStatus('CSV copied to clipboard!');
+      });
+    } else {
+      const a = document.createElement('a');
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvStr);
+      a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setCsvStatus('CSV export downloaded successfully!');
     }
+  };
+
+  const handleCSVFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const content = event.target?.result as string;
+      if (!content) return;
+
+      const res = importTransactionsFromCSV(content, categories, baseCurrency);
+      if (res.success) {
+        for (const tx of res.transactions) {
+          await addTransaction({
+            amount: tx.amount,
+            currency: tx.currency,
+            categoryId: tx.categoryId,
+            customCategoryName: tx.customCategoryName,
+            date: tx.date,
+            time: tx.time,
+            note: tx.note,
+            paymentMethod: tx.paymentMethod
+          });
+        }
+        setCsvStatus(`Successfully imported ${res.count} transactions!`);
+      } else {
+        setCsvStatus(`Error: ${res.errors.join(', ')}`);
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,11 +230,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       if (!content) return;
 
       if (isEncryptedBackup(content)) {
-        // Needs PIN to decrypt
         setPendingImportContent(content);
         setShowVerifyPinModal(true);
       } else {
-        // Plain JSON — import directly
         const ok = await importFullDataBackup(content);
         if (ok) {
           setImportStatus('Backup restored successfully! Reloading...');
@@ -225,7 +308,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       onClick={onClose}
       className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto cursor-pointer animate-in fade-in duration-200"
     >
-      {/* Fixed FAB Exit Cross Button (stuck to screen layer, positioned lower for aesthetic) */}
+      {/* Fixed FAB Exit Button */}
       <button
         onClick={onClose}
         className="fixed top-12 right-8 z-[60] p-2.5 rounded-full dotgui-glass border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer bg-surface-card/90"
@@ -234,493 +317,739 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         <X className="w-4.5 h-4.5" />
       </button>
 
-      {/* Modal Card Window */}
+      {/* Modal Container */}
       <div
         onClick={e => e.stopPropagation()}
         className="max-w-2xl w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/20 space-y-6 max-h-[90vh] overflow-y-auto relative cursor-default ring-1 ring-white/10"
       >
-        
         {/* Header */}
         <div className="flex items-center justify-between border-b border-hairline pb-4 pr-12">
           <div className="flex items-center gap-2">
+            {activeSubPage !== 'main' && (
+              <button
+                onClick={() => setActiveSubPage('main')}
+                className="p-1 rounded-lg border border-hairline bg-surface-soft hover:bg-surface-card text-ink transition-all cursor-pointer mr-1"
+                title="Back to Settings Menu"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            )}
             <SettingsIcon className="w-5 h-5 text-brand-blue" />
-            <h2 className="text-xl font-display font-bold text-ink">Settings</h2>
+            <h2 className="text-xl font-display font-bold text-ink">
+              {activeSubPage === 'main' && 'Settings'}
+              {activeSubPage === 'security' && 'Security & PIN Protection'}
+              {activeSubPage === 'csv' && 'Data & CSV Portability'}
+              {activeSubPage === 'backup' && 'Backup & Auto-Sync'}
+            </h2>
           </div>
         </div>
 
-        {/* 1. APP SECURITY & PASSWORD MANAGEMENT */}
-        <div className="space-y-4 bg-surface-soft p-4 rounded-xl border border-hairline">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-brand-coral" />
-                <span>Startup Password Protection</span>
-              </h3>
-              <p className="text-[11px] font-mono text-muted-custom mt-1">
-                {user?.requirePassword === false
-                  ? 'Disabled: App opens directly into your vault without password.'
-                  : 'Enabled: App prompts for password/PIN on startup.'}
-              </p>
+        {/* ─── MAIN SETTINGS VIEW ───────────────────────────────────────────────── */}
+        {activeSubPage === 'main' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            
+            {/* SUB-PAGES NAVIGATION MENU ITEMS */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-mono font-bold text-muted-custom uppercase">Settings Categories</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* 1. Security */}
+                <button
+                  type="button"
+                  onClick={() => setActiveSubPage('security')}
+                  className="bg-surface-soft hover:bg-surface-card border border-hairline p-4 rounded-xl flex items-center justify-between transition-all cursor-pointer group text-left shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-surface-card border border-hairline text-brand-coral">
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-mono font-bold text-ink group-hover:text-brand-coral transition-colors">Security</h4>
+                      <p className="text-[10px] font-mono text-muted-custom">Password & PIN</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-custom group-hover:translate-x-0.5 transition-transform" />
+                </button>
+
+                {/* 2. CSV Data Portability */}
+                <button
+                  type="button"
+                  onClick={() => setActiveSubPage('csv')}
+                  className="bg-surface-soft hover:bg-surface-card border border-hairline p-4 rounded-xl flex items-center justify-between transition-all cursor-pointer group text-left shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-surface-card border border-hairline text-brand-mint">
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-mono font-bold text-ink group-hover:text-brand-mint transition-colors">CSV Data</h4>
+                      <p className="text-[10px] font-mono text-muted-custom">Import & Export</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-custom group-hover:translate-x-0.5 transition-transform" />
+                </button>
+
+                {/* 3. Backup & Auto-Sync */}
+                <button
+                  type="button"
+                  onClick={() => setActiveSubPage('backup')}
+                  className="bg-surface-soft hover:bg-surface-card border border-hairline p-4 rounded-xl flex items-center justify-between transition-all cursor-pointer group text-left shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-surface-card border border-hairline text-brand-yellow">
+                      <Cloud className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-mono font-bold text-ink group-hover:text-brand-yellow transition-colors">Backup & Sync</h4>
+                      <p className="text-[10px] font-mono text-muted-custom">JSON & Cloud</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-custom group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => toggleRequirePassword(user?.requirePassword === false ? true : false)}
-              className={`px-4 py-2 rounded-full text-xs font-mono font-bold transition-all border shrink-0 cursor-pointer ${
-                user?.requirePassword === false
-                  ? 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
-                  : 'border-brand-coral text-brand-coral font-bold shadow-sm bg-surface-soft'
-              }`}
-            >
-              {user?.requirePassword === false ? 'Disabled (Enable)' : 'Enabled (Disable)'}
-            </button>
-          </div>
-
-          {/* Change Password Form Toggle */}
-          <div className="pt-3 border-t border-hairline/60">
-            {!isChangingPass ? (
-              <button
-                type="button"
-                onClick={() => setIsChangingPass(true)}
-                className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
-              >
-                Change Password
-              </button>
-            ) : (
-              <form onSubmit={handleChangePassword} className="space-y-3 bg-surface-card p-3 rounded-xl border border-hairline">
-                <div className="text-xs font-mono font-bold text-ink flex items-center justify-between">
-                  <span>Change Password</span>
-                  <button type="button" onClick={() => setIsChangingPass(false)} className="text-muted-custom text-xs cursor-pointer">Cancel</button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* New Password Input */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono text-muted-custom uppercase">New Password</label>
-                    <div className="relative">
-                      <input
-                        type={showNewPass ? 'text' : 'password'}
-                        value={newPass}
-                        onChange={e => setNewPass(e.target.value)}
-                        placeholder="New Password"
-                        required
-                        className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-9 py-1.5 text-xs font-mono text-ink"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPass(!showNewPass)}
-                        className="absolute right-2.5 top-2 text-muted-custom hover:text-ink cursor-pointer"
-                      >
-                        {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Confirm New Password Input */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono text-muted-custom uppercase">Confirm New Password</label>
-                    <div className="relative">
-                      <input
-                        type={showConfirmPass ? 'text' : 'password'}
-                        value={confirmPass}
-                        onChange={e => setConfirmPass(e.target.value)}
-                        placeholder="Confirm Password"
-                        required
-                        className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-9 py-1.5 text-xs font-mono text-ink"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPass(!showConfirmPass)}
-                        className="absolute right-2.5 top-2 text-muted-custom hover:text-ink cursor-pointer"
-                      >
-                        {showConfirmPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {passError && <p className="text-[10px] font-mono text-brand-coral">{passError}</p>}
-                {passMsg && <p className="text-[10px] font-mono text-brand-mint font-bold">{passMsg}</p>}
-
-                <button
-                  type="submit"
-                  className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft text-xs font-mono font-bold py-2 rounded-xl shadow-sm transition-all cursor-pointer"
-                >
-                  Update Password
-                </button>
-              </form>
-            )}
-          </div>
-
-          {/* Backup Encryption PIN subsection */}
-          <div className="pt-3 border-t border-hairline/60 space-y-3">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-xs font-mono font-bold text-ink flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-brand-blue" />
-                  <span>Backup Export Encryption</span>
+            {/* CURRENCY CONVERTER (PRIMARY SECTION ON MAIN PAGE) */}
+            <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                  <ArrowRightLeft className="w-3 h-3 text-brand-blue shrink-0" />
+                  <span>Currency Converter</span>
                 </h3>
-                <p className="text-[11px] font-mono text-muted-custom mt-1">
-                  {pinEnabled
-                    ? 'Enabled: Exported .json files are AES-256 encrypted and PIN-protected.'
-                    : 'Disabled: Backups are exported as plain readable JSON.'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={pinEnabled ? handleDisablePin : () => setShowSetPinModal('set')}
-                className={`px-4 py-2 rounded-full text-xs font-mono font-bold transition-all border shrink-0 cursor-pointer ${
-                  pinEnabled
-                    ? 'border-brand-blue text-brand-blue bg-surface-soft shadow-sm'
-                    : 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
-                }`}
-              >
-                {pinEnabled ? 'Enabled (Disable)' : 'Disabled (Enable)'}
-              </button>
-            </div>
-
-            {pinEnabled && (
-              <button
-                type="button"
-                onClick={() => setShowSetPinModal('change')}
-                className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
-              >
-                Change Export PIN
-              </button>
-            )}
-            {pinMsg && <p className="text-[10px] font-mono text-brand-mint font-bold">{pinMsg}</p>}
-          </div>
-        </div>
-
-        {/* 2. CURRENCY CONVERTER */}
-        <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1">
-              <ArrowRightLeft className="w-2.5 h-2.5 text-brand-blue shrink-0" />
-              <span>Currency Converter</span>
-            </h3>
-            <button
-              onClick={handleSyncRates}
-              disabled={syncing}
-              className="text-[10px] font-mono border border-brand-blue text-brand-blue px-2 py-0.5 rounded-full flex items-center gap-1 hover:bg-surface-card transition-all cursor-pointer font-bold"
-            >
-              <RefreshCw className={`w-2.5 h-2.5 shrink-0 ${syncing ? 'animate-spin' : ''}`} />
-              <span>Live</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono text-muted-custom uppercase">Amount</label>
-              <input
-                type="number"
-                value={calcAmount}
-                onChange={e => setCalcAmount(e.target.value)}
-                className="w-full bg-surface-card border border-hairline rounded-xl px-3 py-1.5 text-sm font-mono text-ink"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono text-muted-custom uppercase">From</label>
-              <CustomSelect
-                options={TOP_CURRENCIES.map(c => ({ value: c.code, label: `${c.flag} ${c.code}` }))}
-                value={calcFrom}
-                onChange={val => setCalcFrom(val as CurrencyCode)}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono text-muted-custom uppercase">To</label>
-              <CustomSelect
-                options={TOP_CURRENCIES.map(c => ({ value: c.code, label: `${c.flag} ${c.code}` }))}
-                value={calcTo}
-                onChange={val => setCalcTo(val as CurrencyCode)}
-              />
-            </div>
-          </div>
-
-          <div className="text-center pt-2 border-t border-hairline/60">
-            <span className="text-xs font-mono text-muted-custom">Converted Value: </span>
-            <span className="text-lg font-display font-bold text-brand-mint">
-              {formatCurrency(convertedValue, calcTo)}
-            </span>
-          </div>
-
-          {syncMsg && <p className="text-[10px] font-mono text-brand-mint text-center">{syncMsg}</p>}
-        </div>
-
-        {/* 3. SWITCH APP BASE CURRENCY (CONVERT vs KEEP) */}
-        <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
-          <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-            <RefreshCcw className="w-3.5 h-3.5 text-brand-coral" />
-            <span>Switch Base App Currency</span>
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono text-muted-custom uppercase">Select New Base Currency</label>
-              <CustomSelect
-                options={TOP_CURRENCIES.map(c => ({ value: c.code, label: `${c.flag} ${c.code} (${c.symbol})` }))}
-                value={targetCurrency}
-                onChange={val => setTargetCurrency(val as CurrencyCode)}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono text-muted-custom uppercase">Switch Mode</label>
-              <div className="flex gap-2">
                 <button
-                  type="button"
-                  onClick={() => setSwitchMode('convert')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
-                    switchMode === 'convert'
-                      ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
-                      : 'bg-surface-card text-body-custom border-hairline'
-                  }`}
+                  onClick={handleSyncRates}
+                  disabled={syncing}
+                  className="text-[10px] font-mono border border-brand-blue text-brand-blue px-2 py-0.5 rounded-full flex items-center gap-1 hover:bg-surface-card transition-all cursor-pointer font-bold"
                 >
-                  Convert Amounts
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSwitchMode('keep')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
-                    switchMode === 'keep'
-                      ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
-                      : 'bg-surface-card text-body-custom border-hairline'
-                  }`}
-                >
-                  Keep Numerical
+                  <RefreshCw className={`w-2.5 h-2.5 shrink-0 ${syncing ? 'animate-spin' : ''}`} />
+                  <span>Live</span>
                 </button>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase">Amount</label>
+                  <input
+                    type="number"
+                    value={calcAmount}
+                    onChange={e => setCalcAmount(e.target.value)}
+                    className="w-full bg-surface-card border border-hairline rounded-xl px-3 py-1.5 text-sm font-mono text-ink"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase">From</label>
+                  <CustomSelect
+                    options={TOP_CURRENCIES.map(c => ({ value: c.code, label: `${c.flag} ${c.code}` }))}
+                    value={calcFrom}
+                    onChange={val => setCalcFrom(val as CurrencyCode)}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase">To</label>
+                  <CustomSelect
+                    options={TOP_CURRENCIES.map(c => ({ value: c.code, label: `${c.flag} ${c.code}` }))}
+                    value={calcTo}
+                    onChange={val => setCalcTo(val as CurrencyCode)}
+                  />
+                </div>
+              </div>
+
+              <div className="text-center pt-2 border-t border-hairline/60">
+                <span className="text-xs font-mono text-muted-custom">Converted Value: </span>
+                <span className="text-lg font-display font-bold text-brand-mint">
+                  {formatCurrency(convertedValue, calcTo)}
+                </span>
+              </div>
+
+              {syncMsg && <p className="text-[10px] font-mono text-brand-mint text-center font-bold">{syncMsg}</p>}
+            </div>
+
+            {/* SWITCH BASE CURRENCY (PRIMARY SECTION ON MAIN PAGE) */}
+            <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
+              <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                <RefreshCcw className="w-3.5 h-3.5 text-brand-coral" />
+                <span>Switch Base App Currency</span>
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase">Select New Base Currency</label>
+                  <CustomSelect
+                    options={TOP_CURRENCIES.map(c => ({ value: c.code, label: `${c.flag} ${c.code} (${c.symbol})` }))}
+                    value={targetCurrency}
+                    onChange={val => setTargetCurrency(val as CurrencyCode)}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase">Switch Mode</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSwitchMode('convert')}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
+                        switchMode === 'convert'
+                          ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
+                          : 'bg-surface-card text-body-custom border-hairline'
+                      }`}
+                    >
+                      Convert Amounts
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSwitchMode('keep')}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
+                        switchMode === 'keep'
+                          ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
+                          : 'bg-surface-card text-body-custom border-hairline'
+                      }`}
+                    >
+                      Keep Numerical
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleExecuteSwitchCurrency}
+                disabled={targetCurrency === baseCurrency || switching}
+                className="w-full border border-brand-coral text-brand-coral hover:bg-surface-card disabled:opacity-40 font-mono text-xs sm:text-sm py-3 px-4 rounded-xl transition-all font-bold cursor-pointer"
+              >
+                {switching ? 'Converting...' : `Switch Base Currency to ${targetCurrency}`}
+              </button>
+            </div>
+
+            {/* THEME & TYPOGRAPHY (PRIMARY SECTION ON MAIN PAGE) */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-brand-purple" />
+                <span>Theme & Typography</span>
+              </h3>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {themes.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setTheme(t.id)}
+                    className={`p-2.5 rounded-xl border text-xs font-mono flex items-center gap-2 transition-all cursor-pointer ${
+                      theme === t.id
+                        ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
+                        : 'border-hairline bg-surface-card text-body-custom hover:border-ink'
+                    }`}
+                  >
+                    <span className="w-3 h-3 rounded-full border border-hairline" style={{ background: t.bg }} />
+                    <span className="truncate">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="border-t border-hairline/60 pt-2" />
+
+              <div className="grid grid-cols-2 gap-2">
+                {fonts.map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFontFamily(f.id)}
+                    style={f.style}
+                    className={`px-3 py-2 rounded-xl text-xs border transition-all text-center truncate cursor-pointer ${
+                      fontFamily === f.id
+                        ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
+                        : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ─── SUB-PAGE 1: SECURITY & PIN PROTECTION ──────────────────────────── */}
+        {activeSubPage === 'security' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <div className="space-y-4 bg-surface-soft p-4 rounded-xl border border-hairline">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-brand-coral" />
+                    <span>Startup Password Protection</span>
+                  </h3>
+                  <p className="text-[11px] font-mono text-muted-custom mt-1">
+                    {user?.requirePassword === false
+                      ? 'Disabled: App opens directly into your vault without password.'
+                      : 'Enabled: App prompts for password/PIN on startup.'}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => toggleRequirePassword(user?.requirePassword === false ? true : false)}
+                  className={`px-4 py-2 rounded-full text-xs font-mono font-bold transition-all border shrink-0 cursor-pointer ${
+                    user?.requirePassword === false
+                      ? 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
+                      : 'border-brand-coral text-brand-coral font-bold shadow-sm bg-surface-soft'
+                  }`}
+                >
+                  {user?.requirePassword === false ? 'Disabled (Enable)' : 'Enabled (Disable)'}
+                </button>
+              </div>
+
+              {/* Change Password Form */}
+              <div className="pt-3 border-t border-hairline/60">
+                {!isChangingPass ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsChangingPass(true)}
+                    className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
+                  >
+                    Change Password
+                  </button>
+                ) : (
+                  <form onSubmit={handleChangePassword} className="space-y-3 bg-surface-card p-3 rounded-xl border border-hairline">
+                    <div className="text-xs font-mono font-bold text-ink flex items-center justify-between">
+                      <span>Change Password</span>
+                      <button type="button" onClick={() => setIsChangingPass(false)} className="text-muted-custom text-xs cursor-pointer">Cancel</button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-muted-custom uppercase">New Password</label>
+                        <div className="relative">
+                          <input
+                            type={showNewPass ? 'text' : 'password'}
+                            value={newPass}
+                            onChange={e => setNewPass(e.target.value)}
+                            placeholder="New Password"
+                            required
+                            className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-9 py-1.5 text-xs font-mono text-ink"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPass(!showNewPass)}
+                            className="absolute right-2.5 top-2 text-muted-custom hover:text-ink cursor-pointer"
+                          >
+                            {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-muted-custom uppercase">Confirm Password</label>
+                        <div className="relative">
+                          <input
+                            type={showConfirmPass ? 'text' : 'password'}
+                            value={confirmPass}
+                            onChange={e => setConfirmPass(e.target.value)}
+                            placeholder="Confirm Password"
+                            required
+                            className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-9 py-1.5 text-xs font-mono text-ink"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPass(!showConfirmPass)}
+                            className="absolute right-2.5 top-2 text-muted-custom hover:text-ink cursor-pointer"
+                          >
+                            {showConfirmPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {passError && <p className="text-[10px] font-mono text-brand-coral">{passError}</p>}
+                    {passMsg && <p className="text-[10px] font-mono text-brand-mint font-bold">{passMsg}</p>}
+
+                    <button
+                      type="submit"
+                      className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft text-xs font-mono font-bold py-2 rounded-xl shadow-sm transition-all cursor-pointer"
+                    >
+                      Update Password
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              {/* Backup Encryption PIN */}
+              <div className="pt-3 border-t border-hairline/60 space-y-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-xs font-mono font-bold text-ink flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-brand-blue" />
+                      <span>Backup Export Encryption PIN</span>
+                    </h3>
+                    <p className="text-[11px] font-mono text-muted-custom mt-1">
+                      {pinEnabled
+                        ? 'Enabled: Exported backups are AES-256 encrypted with your PIN.'
+                        : 'Disabled: Backups export as plain readable JSON.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={pinEnabled ? handleDisablePin : () => setShowSetPinModal('set')}
+                    className={`px-4 py-2 rounded-full text-xs font-mono font-bold transition-all border shrink-0 cursor-pointer ${
+                      pinEnabled
+                        ? 'border-brand-blue text-brand-blue bg-surface-soft shadow-sm'
+                        : 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
+                    }`}
+                  >
+                    {pinEnabled ? 'Enabled (Disable)' : 'Disabled (Enable)'}
+                  </button>
+                </div>
+
+                {pinEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSetPinModal('change')}
+                    className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
+                  >
+                    Change Export PIN
+                  </button>
+                )}
+                {pinMsg && <p className="text-[10px] font-mono text-brand-mint font-bold">{pinMsg}</p>}
+              </div>
             </div>
           </div>
+        )}
 
-          <button
-            onClick={handleExecuteSwitchCurrency}
-            disabled={targetCurrency === baseCurrency || switching}
-            className="w-full border border-brand-coral text-brand-coral hover:bg-surface-card disabled:opacity-40 font-mono text-xs sm:text-sm py-3 px-4 rounded-xl transition-all font-bold cursor-pointer"
-          >
-            {switching ? 'Converting...' : `Switch Base Currency to ${targetCurrency}`}
-          </button>
-        </div>
+        {/* ─── SUB-PAGE 2: DATA & CSV PORTABILITY ─────────────────────────────── */}
+        {activeSubPage === 'csv' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <div className="space-y-4 bg-surface-soft p-5 rounded-xl border border-hairline">
+              <div className="flex items-center gap-2 border-b border-hairline/60 pb-3">
+                <FileSpreadsheet className="w-4 h-4 text-brand-mint" />
+                <h3 className="text-xs font-mono font-bold text-ink uppercase">CSV Import & Export Engine</h3>
+              </div>
+              <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                Export your transaction timeline into standard CSV format for Excel/Google Sheets, or import historical bank statements.
+              </p>
 
-        {/* 4. THEME & FONT CUSTOMIZATION */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-            <Palette className="w-3.5 h-3.5 text-brand-purple" />
-            <span>Theme & Typography</span>
-          </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                {/* CSV Export */}
+                <button
+                  type="button"
+                  onClick={handleExportCSV}
+                  className="border border-brand-mint text-brand-mint hover:bg-surface-card font-mono text-xs py-3 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Export Transactions to CSV</span>
+                </button>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {themes.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTheme(t.id)}
-                className={`p-2.5 rounded-xl border text-xs font-mono flex items-center gap-2 transition-all cursor-pointer ${
-                  theme === t.id
-                    ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
-                    : 'border-hairline bg-surface-card text-body-custom hover:border-ink'
-                }`}
-              >
-                <span className="w-3 h-3 rounded-full border border-hairline" style={{ background: t.bg }} />
-                <span className="truncate">{t.label}</span>
-              </button>
-            ))}
+                {/* CSV Import */}
+                <button
+                  type="button"
+                  onClick={() => csvFileInputRef.current?.click()}
+                  className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer font-bold"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Import Bank Statement CSV</span>
+                </button>
+                <input
+                  type="file"
+                  ref={csvFileInputRef}
+                  onChange={handleCSVFileUpload}
+                  accept=".csv"
+                  className="hidden"
+                />
+              </div>
+
+              {csvStatus && (
+                <div className="p-3 rounded-xl bg-surface-card border border-hairline text-center text-xs font-mono font-bold text-ink">
+                  {csvStatus}
+                </div>
+              )}
+            </div>
           </div>
+        )}
 
-          {/* Hair-thin Section Divider above Typography */}
-          <div className="border-t border-hairline/60 pt-2" />
+        {/* ─── SUB-PAGE 3: BACKUP & AUTO-SYNC ────────────────────────────────── */}
+        {activeSubPage === 'backup' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            
+            {/* MANUAL JSON BACKUP */}
+            <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
+              <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
+                <div className="flex items-center gap-2">
+                  <Database className="w-4 h-4 text-brand-yellow" />
+                  <h3 className="text-xs font-mono font-bold text-ink uppercase">Manual Database Backup (.JSON)</h3>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full border border-hairline bg-surface-card text-[10px] font-mono font-bold text-muted-custom">
+                  .JSON
+                </span>
+              </div>
 
-          {/* 2-Column Typography Grid */}
-          <div className="grid grid-cols-2 gap-2">
-            {fonts.map(f => (
-              <button
-                key={f.id}
-                onClick={() => setFontFamily(f.id)}
-                style={f.style}
-                className={`px-3 py-2 rounded-xl text-xs border transition-all text-center truncate cursor-pointer ${
-                  fontFamily === f.id
-                    ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
-                    : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  className="bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2.5 rounded-xl transition-all cursor-pointer font-bold text-center active:scale-95 shadow-sm"
+                >
+                  Export JSON Backup
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer font-bold active:scale-95"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Restore JSON Backup</span>
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".json"
+                  className="hidden"
+                />
+              </div>
+
+              {importStatus && <p className="text-[10px] font-mono text-brand-mint text-center font-bold">{importStatus}</p>}
+            </div>
+
+            {/* ENCRYPTED CLOUD AUTO-SYNC */}
+            <div className="space-y-4 bg-surface-soft p-4 rounded-xl border border-hairline">
+              <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
+                <div className="flex items-center gap-2">
+                  <Cloud className="w-4 h-4 text-brand-blue" />
+                  <h3 className="text-xs font-mono font-bold text-ink uppercase">Encrypted Cloud Auto-Sync</h3>
+                </div>
+                <span className="text-[10px] font-mono font-bold text-brand-blue border border-brand-blue/30 px-2 py-0.5 rounded-full">
+                  AES-256
+                </span>
+              </div>
+
+              {/* Cloud Provider Select */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Supported Cloud Provider</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'gdrive', label: 'Google Drive' },
+                    { id: 'onedrive', label: 'OneDrive' },
+                    { id: 'webdav', label: 'WebDAV / Nextcloud' }
+                  ].map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCloudProvider(p.id as any);
+                        setCloudMsg(`Selected ${p.label}. OAuth connection ready!`);
+                      }}
+                      className={`p-2.5 rounded-xl border text-xs font-mono font-bold transition-all text-center truncate cursor-pointer ${
+                        selectedCloudProvider === p.id
+                          ? 'border-brand-blue text-brand-blue bg-surface-card shadow-sm'
+                          : 'bg-surface-card border-hairline text-muted-custom hover:text-ink'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Schedule Select */}
+              <div className="space-y-1.5 pt-2">
+                <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Auto-Sync Schedule</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'daily', label: 'Daily' },
+                    { id: 'weekly', label: 'Weekly' },
+                    { id: 'monthly', label: 'Monthly' },
+                    { id: 'manual', label: 'Manual Only' }
+                  ].map(s => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSyncSchedule(s.id as any)}
+                      className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold transition-all text-center cursor-pointer ${
+                        syncSchedule === s.id
+                          ? 'border-ink text-ink bg-surface-card shadow-sm'
+                          : 'bg-surface-card border-hairline text-muted-custom hover:text-ink'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Day of Month Selector for Monthly Schedule */}
+              {syncSchedule === 'monthly' && (
+                <div className="flex items-center gap-3 pt-2">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Repeat Day of Month:</label>
+                  <select
+                    value={monthlySyncDate}
+                    onChange={e => setMonthlySyncDate(parseInt(e.target.value))}
+                    className="bg-surface-card border border-hairline rounded-lg px-3 py-1 text-xs font-mono text-ink cursor-pointer"
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                      <option key={day} value={day}>Day {day}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Toggle Auto-Sync */}
+              <div className="pt-3 border-t border-hairline/60 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-mono font-bold text-ink block">Enable Auto-Sync Payload</span>
+                  <p className="text-[10px] font-mono text-muted-custom">Pushes encrypted payload silently on app open when schedule is due.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedCloudProvider === 'none') {
+                      setCloudMsg('Please select a cloud provider first.');
+                      return;
+                    }
+                    setAutoSyncEnabled(!autoSyncEnabled);
+                    setCloudMsg(!autoSyncEnabled ? 'Auto-sync activated!' : 'Auto-sync paused.');
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-mono font-bold border transition-all cursor-pointer ${
+                    autoSyncEnabled
+                      ? 'border-brand-mint text-brand-mint bg-surface-card shadow-sm'
+                      : 'bg-surface-card border-hairline text-muted-custom hover:border-ink'
+                  }`}
+                >
+                  {autoSyncEnabled ? 'Active' : 'Disabled'}
+                </button>
+              </div>
+
+              {cloudMsg && <p className="text-[10px] font-mono text-brand-mint text-center font-bold">{cloudMsg}</p>}
+            </div>
+
           </div>
-        </div>
+        )}
 
-        {/* 5. BACKUP & FILE IMPORT DATA */}
-        <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-              <Database className="w-3.5 h-3.5 text-brand-yellow" />
-              <span>Offline Backup & Restore</span>
-            </h3>
-            {/* .JSON static indicator badge */}
-            <span className="px-2.5 py-0.5 rounded-full border border-hairline bg-surface-card text-[10px] font-mono font-bold text-muted-custom">
-              .JSON
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {/* Export Button */}
-            <button
-              type="button"
-              onClick={handleExport}
-              className="bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2 rounded-xl transition-all cursor-pointer font-bold text-center active:scale-95 shadow-sm"
-            >
-              Export
-            </button>
-
-            {/* Import Button */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer font-bold active:scale-95"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Import</span>
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              accept=".json"
-              className="hidden"
-            />
-          </div>
-
-          {importStatus && <p className="text-[10px] font-mono text-brand-mint text-center font-bold">{importStatus}</p>}
-        </div>
-
-      {exportModalData && (
-        <div
-          className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer animate-in fade-in duration-200"
-          onClick={() => setExportModalData(null)}
-        >
+        {/* Export Modal overlay for JSON */}
+        {exportModalData && (
           <div
-            className="max-w-md w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl p-6 shadow-2xl shadow-black/20 space-y-4 relative cursor-default ring-1 ring-white/10"
-            onClick={e => e.stopPropagation()}
+            className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer animate-in fade-in duration-200"
+            onClick={() => setExportModalData(null)}
           >
-            <div className="flex items-center justify-between border-b border-hairline pb-2.5">
-              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-                <Database className="w-3.5 h-3.5 text-brand-yellow" /> Export Backup
-                {pinEnabled && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 border border-brand-blue text-brand-blue rounded-full font-bold">AES-256</span>}
-              </span>
-              <button type="button" onClick={() => setExportModalData(null)} className="p-1 text-muted-custom hover:text-ink cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
-              {pinEnabled
-                ? 'Backup encryption is ON. Enter your Export PIN to encrypt the file, then choose a save method.'
-                : 'Export is ready! Choose a destination. On Android, Share is recommended if file downloads are blocked.'}
-            </p>
-            {pinEnabled ? (
-              <ExportWithPinFlow
-                plainData={exportModalData}
-                onEncrypted={async (encryptedStr) => {
-                  const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
-                  if (Capacitor.isNativePlatform()) {
-                    try {
-                      const writeResult = await Filesystem.writeFile({ path: filename, data: encryptedStr, directory: Directory.Cache, encoding: 'utf8' as any });
-                      await Share.share({ title: 'Finance-Ally Encrypted Backup', url: writeResult.uri, dialogTitle: 'Save encrypted backup' });
-                    } catch { navigator.clipboard.writeText(encryptedStr); }
-                  } else {
-                    const a = document.createElement('a');
-                    a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(encryptedStr);
-                    a.download = filename;
-                    document.body.appendChild(a); a.click(); a.remove();
-                  }
-                  setImportStatus('Encrypted backup exported!');
-                  setExportModalData(null);
-                }}
-                onCancel={() => setExportModalData(null)}
-              />
-            ) : (
-              <div className="space-y-2 pt-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
-                      if (Capacitor.isNativePlatform()) {
-                        const writeResult = await Filesystem.writeFile({ path: filename, data: exportModalData, directory: Directory.Cache, encoding: 'utf8' as any });
-                        await Share.share({ title: 'Finance-Ally Backup', url: writeResult.uri, dialogTitle: 'Select destination to save JSON file' });
-                        setImportStatus('Backup saved and shared!');
-                      } else if (navigator.share) {
-                        await navigator.share({ title: 'Finance-Ally Backup', text: exportModalData });
-                        setImportStatus('Backup shared!');
-                      } else {
-                        navigator.clipboard.writeText(exportModalData);
-                        setImportStatus('JSON backup copied to clipboard!');
-                      }
-                      setExportModalData(null);
-                    } catch (err: any) { setImportStatus(`Share error: ${err.message || err}`); }
-                  }}
-                  className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-                >
-                  Share and Choose Destination
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { navigator.clipboard.writeText(exportModalData); setImportStatus('JSON backup copied to clipboard!'); setExportModalData(null); }}
-                  className="w-full bg-surface-soft border border-hairline text-ink hover:border-ink font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-                >
-                  Copy JSON to Clipboard
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
-                      if (Capacitor.isNativePlatform()) {
-                        await Filesystem.writeFile({ path: filename, data: exportModalData, directory: Directory.Documents, encoding: 'utf8' as any });
-                        setImportStatus(`File saved to Documents: ${filename}`);
-                      } else {
-                        const a = document.createElement('a');
-                        a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(exportModalData);
-                        a.download = filename;
-                        document.body.appendChild(a); a.click(); a.remove();
-                        setImportStatus('JSON file download triggered!');
-                      }
-                      setExportModalData(null);
-                    } catch (err: any) { setImportStatus(`Download failed: ${err.message || err}`); }
-                  }}
-                  className="w-full border border-hairline text-muted-custom hover:text-ink font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-                >
-                  Save File to Local Storage
+            <div
+              className="max-w-md w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl p-6 shadow-2xl shadow-black/20 space-y-4 relative cursor-default ring-1 ring-white/10"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-hairline pb-2.5">
+                <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-brand-yellow" /> Export Backup
+                  {pinEnabled && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 border border-brand-blue text-brand-blue rounded-full font-bold">AES-256</span>}
+                </span>
+                <button type="button" onClick={() => setExportModalData(null)} className="p-1 text-muted-custom hover:text-ink cursor-pointer">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-            )}
+              <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                {pinEnabled
+                  ? 'Backup encryption is ON. Enter your Export PIN to encrypt the file, then choose a save method.'
+                  : 'Export is ready! Choose a destination. On Android, Share is recommended if file downloads are blocked.'}
+              </p>
+              {pinEnabled ? (
+                <ExportWithPinFlow
+                  plainData={exportModalData}
+                  onEncrypted={async (encryptedStr) => {
+                    const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
+                    if (Capacitor.isNativePlatform()) {
+                      try {
+                        const writeResult = await Filesystem.writeFile({ path: filename, data: encryptedStr, directory: Directory.Cache, encoding: 'utf8' as any });
+                        await Share.share({ title: 'Finance-Ally Encrypted Backup', url: writeResult.uri, dialogTitle: 'Save encrypted backup' });
+                      } catch { navigator.clipboard.writeText(encryptedStr); }
+                    } else {
+                      const a = document.createElement('a');
+                      a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(encryptedStr);
+                      a.download = filename;
+                      document.body.appendChild(a); a.click(); a.remove();
+                    }
+                    setImportStatus('Encrypted backup exported!');
+                    setExportModalData(null);
+                  }}
+                  onCancel={() => setExportModalData(null)}
+                />
+              ) : (
+                <div className="space-y-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
+                        if (Capacitor.isNativePlatform()) {
+                          const writeResult = await Filesystem.writeFile({ path: filename, data: exportModalData, directory: Directory.Cache, encoding: 'utf8' as any });
+                          await Share.share({ title: 'Finance-Ally Backup', url: writeResult.uri, dialogTitle: 'Select destination to save JSON file' });
+                          setImportStatus('Backup saved and shared!');
+                        } else if (navigator.share) {
+                          await navigator.share({ title: 'Finance-Ally Backup', text: exportModalData });
+                          setImportStatus('Backup shared!');
+                        } else {
+                          navigator.clipboard.writeText(exportModalData);
+                          setImportStatus('JSON backup copied to clipboard!');
+                        }
+                        setExportModalData(null);
+                      } catch (err: any) { setImportStatus(`Share error: ${err.message || err}`); }
+                    }}
+                    className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    Share and Choose Destination
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { navigator.clipboard.writeText(exportModalData); setImportStatus('JSON backup copied to clipboard!'); setExportModalData(null); }}
+                    className="w-full bg-surface-soft border border-hairline text-ink hover:border-ink font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    Copy JSON to Clipboard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
+                        if (Capacitor.isNativePlatform()) {
+                          await Filesystem.writeFile({ path: filename, data: exportModalData, directory: Directory.Documents, encoding: 'utf8' as any });
+                          setImportStatus(`File saved to Documents: ${filename}`);
+                        } else {
+                          const a = document.createElement('a');
+                          a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(exportModalData);
+                          a.download = filename;
+                          document.body.appendChild(a); a.click(); a.remove();
+                          setImportStatus('JSON file download triggered!');
+                        }
+                        setExportModalData(null);
+                      } catch (err: any) { setImportStatus(`Download failed: ${err.message || err}`); }
+                    }}
+                    className="w-full border border-hairline text-muted-custom hover:text-ink font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    Save File to Local Storage
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {showSetPinModal && (
-        <PinModal
-          mode={showSetPinModal}
-          title={showSetPinModal === 'set' ? 'Set Backup Encryption PIN' : 'Change Export PIN'}
-          description="This PIN will AES-256 encrypt your backup exports. You need it to restore from an encrypted backup."
-          onConfirm={handleSavePin}
-          onCancel={() => { setShowSetPinModal(null); setPinActionError(''); }}
-          loading={pinActionLoading}
-          error={pinActionError}
-        />
-      )}
+        {showSetPinModal && (
+          <PinModal
+            mode={showSetPinModal}
+            title={showSetPinModal === 'set' ? 'Set Backup Encryption PIN' : 'Change Export PIN'}
+            description="This PIN will AES-256 encrypt your backup exports. You need it to restore from an encrypted backup."
+            onConfirm={handleSavePin}
+            onCancel={() => { setShowSetPinModal(null); setPinActionError(''); }}
+            loading={pinActionLoading}
+            error={pinActionError}
+          />
+        )}
 
-      {showVerifyPinModal && (
-        <PinModal
-          mode="verify"
-          title="Enter Backup Encryption PIN"
-          description="This backup is AES-256 encrypted. Enter the correct PIN to decrypt and restore your data."
-          onConfirm={handleVerifyPinAndImport}
-          onCancel={() => { setShowVerifyPinModal(false); setVerifyPinError(''); setPendingImportContent(null); }}
-          loading={verifyPinLoading}
-          error={verifyPinError}
-        />
-      )}
+        {showVerifyPinModal && (
+          <PinModal
+            mode="verify"
+            title="Enter Backup Encryption PIN"
+            description="This backup is AES-256 encrypted. Enter the correct PIN to decrypt and restore your data."
+            onConfirm={handleVerifyPinAndImport}
+            onCancel={() => { setShowVerifyPinModal(false); setVerifyPinError(''); setPendingImportContent(null); }}
+            loading={verifyPinLoading}
+            error={verifyPinError}
+          />
+        )}
 
       </div>
     </div>

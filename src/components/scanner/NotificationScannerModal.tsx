@@ -182,8 +182,11 @@ export const NotificationScannerModal: React.FC = () => {
             <Code className="w-4 h-4 text-brand-blue" />
             <div>
               <h3 className="text-xs font-mono font-bold text-ink uppercase">Custom SMS Bank Rules</h3>
-              <p className="text-[10px] font-mono text-muted-custom">
-                Create custom patterns ({'{AMOUNT}'}, {'{MERCHANT}'}) for unrecognized bank SMS formats.
+              <p className="text-[10px] font-mono text-muted-custom leading-relaxed">
+                Create custom patterns with placeholders: <code className="bg-surface-card px-1 py-0.5 rounded text-brand-blue font-bold">{'{AMOUNT}'}</code>, <code className="bg-surface-card px-1 py-0.5 rounded text-brand-blue font-bold">{'{MERCHANT}'}</code>, <code className="bg-surface-card px-1 py-0.5 rounded text-brand-blue font-bold">{'{CURRENCY}'}</code>, <code className="bg-surface-card px-1 py-0.5 rounded text-brand-blue font-bold">{'{REF}'}</code>.
+              </p>
+              <p className="text-[10px] font-mono text-brand-mint font-semibold mt-0.5">
+                💡 <strong>Example:</strong> <span className="italic">Debited {'{CURRENCY}'} {'{AMOUNT}'} at {'{MERCHANT}'} on {'{DATE}'}</span>
               </p>
             </div>
           </div>
@@ -213,7 +216,7 @@ export const NotificationScannerModal: React.FC = () => {
                 />
                 <input
                   type="text"
-                  placeholder="Pattern string (e.g. Paid {CURRENCY} {AMOUNT} to {MERCHANT})"
+                  placeholder="e.g. Paid {CURRENCY} {AMOUNT} to {MERCHANT}"
                   value={newTplPattern}
                   onChange={e => setNewTplPattern(e.target.value)}
                   className="bg-surface-card border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
@@ -228,30 +231,50 @@ export const NotificationScannerModal: React.FC = () => {
               </button>
             </form>
 
-            {/* List Custom User Templates */}
-            {userTemplates.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-[10px] font-mono uppercase text-muted-custom font-bold">Your Saved Patterns</span>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                  {userTemplates.map(t => (
-                    <div key={t.id} className="flex items-center justify-between bg-surface-card p-2 rounded-lg border border-hairline text-xs font-mono">
-                      <div>
+            {/* List Active Rules (Defaults + Custom) */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-mono uppercase text-muted-custom font-bold">Active Parsing Rules</span>
+              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                {/* Custom User Rules */}
+                {userTemplates.map(t => (
+                  <div key={t.id} className="flex items-center justify-between bg-surface-card p-2.5 rounded-lg border border-hairline text-xs font-mono">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5">
                         <span className="font-bold text-ink">{t.name}</span>
-                        <p className="text-[10px] text-muted-custom truncate max-w-xs">{t.pattern}</p>
+                        <span className="text-[9px] font-bold border border-brand-blue/30 text-brand-blue px-1.5 rounded">Custom</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTemplate(t.id)}
-                        className="text-brand-coral hover:opacity-80 p-1 cursor-pointer"
-                        title="Delete template"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <p className="text-[10px] text-muted-custom truncate max-w-xs">{t.pattern}</p>
                     </div>
-                  ))}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTemplate(t.id)}
+                      className="text-brand-coral hover:opacity-80 p-1 cursor-pointer"
+                      title="Delete rule"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Pre-built Default System Rules */}
+                {[
+                  { id: 'def-1', name: 'HDFC Bank Alert', pattern: 'Rs {AMOUNT} debited from A/C at {MERCHANT}' },
+                  { id: 'def-2', name: 'ICICI UPI Alert', pattern: 'Paid {CURRENCY} {AMOUNT} to {MERCHANT}' },
+                  { id: 'def-3', name: 'SBI Card Alert', pattern: 'Spent {CURRENCY} {AMOUNT} at {MERCHANT}' },
+                  { id: 'def-4', name: 'PhonePe UPI', pattern: 'Debited {CURRENCY} {AMOUNT} to {MERCHANT}' },
+                ].map(t => (
+                  <div key={t.id} className="flex items-center justify-between bg-surface-soft p-2.5 rounded-lg border border-hairline text-xs font-mono opacity-85">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-ink">{t.name}</span>
+                        <span className="text-[9px] font-bold border border-hairline text-muted-custom px-1.5 rounded">Built-in</span>
+                      </div>
+                      <p className="text-[10px] text-muted-custom truncate max-w-xs">{t.pattern}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
         )}
       </div>
