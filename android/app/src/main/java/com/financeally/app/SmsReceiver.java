@@ -55,9 +55,15 @@ public class SmsReceiver extends BroadcastReceiver {
         // 2. REQUIRE TRANSACTION KEYWORDS
         boolean hasAction = lower.contains("debited") || lower.contains("spent") || lower.contains("paid") ||
                             lower.contains("sent") || lower.contains("transferred") || lower.contains("credited") ||
-                            lower.contains("withdrawn") || lower.contains("a/c") || lower.contains("ac ");
+                            lower.contains("withdrawn") || lower.contains("a/c") || lower.contains("ac ") ||
+                            lower.contains("charged") || lower.contains("purchase") || lower.contains("txn");
 
-        boolean hasMoney = lower.contains("rs") || lower.contains("inr") || lower.contains("₹") || lower.contains("vpa");
+        boolean hasMoney = lower.contains("rs") || lower.contains("inr") || lower.contains("₹") || lower.contains("vpa") ||
+                           lower.contains("usd") || lower.contains("$") || lower.contains("eur") || lower.contains("€") ||
+                           lower.contains("gbp") || lower.contains("£") || lower.contains("jpy") || lower.contains("¥") ||
+                           lower.contains("cad") || lower.contains("aud") || lower.contains("sgd") || lower.contains("aed") ||
+                           lower.contains("sar") || lower.contains("chf") || lower.contains("cny") || lower.contains("dirham") ||
+                           lower.contains("dollar") || lower.contains("euro") || lower.contains("pound");
 
         return hasAction && hasMoney;
     }

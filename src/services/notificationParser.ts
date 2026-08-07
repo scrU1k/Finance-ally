@@ -10,18 +10,30 @@ export function parseNotificationText(rawText: string, defaultCurrency: Currency
   const date = new Date().toISOString().split('T')[0];
 
   // 1. Currency Detection
-  if (text.includes('₹') || /INR|Rs|Rs\.|Rupees/i.test(text)) currency = 'INR';
-  else if (text.includes('$') || /USD|Dollars/i.test(text)) currency = 'USD';
+  if (text.includes('₹') || /INR|Rs|Rs\.|Rupees|Paise/i.test(text)) currency = 'INR';
+  else if (text.includes('$') || /USD|Dollars|Bucks|CA\$|A\$|S\$/i.test(text)) {
+    if (/CAD|CA\$/i.test(text)) currency = 'CAD';
+    else if (/AUD|A\$/i.test(text)) currency = 'AUD';
+    else if (/SGD|S\$/i.test(text)) currency = 'SGD';
+    else currency = 'USD';
+  }
   else if (text.includes('€') || /EUR|Euros/i.test(text)) currency = 'EUR';
   else if (text.includes('£') || /GBP|Pounds/i.test(text)) currency = 'GBP';
-  else if (text.includes('¥') || /JPY|Yen/i.test(text)) currency = 'JPY';
+  else if (text.includes('¥') || /JPY|Yen|CNY|Yuan|RMB/i.test(text)) {
+    if (/CNY|Yuan|RMB/i.test(text)) currency = 'CNY';
+    else currency = 'JPY';
+  }
+  else if (/CHF|Franc/i.test(text)) currency = 'CHF';
+  else if (/CAD/i.test(text)) currency = 'CAD';
+  else if (/AUD/i.test(text)) currency = 'AUD';
+  else if (/SGD/i.test(text)) currency = 'SGD';
 
-  // 2. Amount Extraction (Regex matches amount patterns e.g. "spent Rs 450", "Paid $35.50", "Debited INR 1,200.00", "sent ₹350.00")
+  // 2. Amount Extraction
   const amountRegexes = [
-    /(?:paid|spent|debited|sent|purchase|vpa|amt|amount|cost)\s*(?:of|for)?\s*(?:[₹$€£¥]|INR|USD|EUR|GBP|JPY|Rs\.?|Rs)?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
-    /(?:[₹$€£¥]|INR|USD|EUR|GBP|JPY|Rs\.?)\s*([0-9,]+(?:\.[0-9]{1,2})?)\s*(?:debited|spent|paid|used|sent)/i,
-    /(?:[₹$€£¥]|INR|USD|EUR|GBP|JPY|Rs\.?)\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
-    /([0-9,]+(?:\.[0-9]{1,2})?)\s*(?:INR|USD|EUR|GBP|JPY|Rs\.?)/i
+    /(?:paid|spent|debited|sent|purchase|vpa|amt|amount|cost|charged)\s*(?:of|for)?\s*(?:[₹$€£¥]|INR|USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|SGD|Rs\.?|Rs)?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
+    /(?:[₹$€£¥]|INR|USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|SGD|Rs\.?)\s*([0-9,]+(?:\.[0-9]{1,2})?)\s*(?:debited|spent|paid|used|sent|charged)/i,
+    /(?:[₹$€£¥]|INR|USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|SGD|Rs\.?)\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
+    /([0-9,]+(?:\.[0-9]{1,2})?)\s*(?:INR|USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|SGD|Rs\.?)/i
   ];
 
   for (const regex of amountRegexes) {

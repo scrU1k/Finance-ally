@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Check, X } from 'lucide-react';
+import { Sparkles, Check, Edit3, X } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { getPendingSmsQueue, dismissPendingSmsItem, PendingSmsItem } from '../../services/autoSmsScanner';
 import { parseNotificationText } from '../../services/notificationParser';
+import { Transaction } from '../../types';
 
-export const AutoSmsDetectorBanner: React.FC = () => {
+interface AutoSmsDetectorBannerProps {
+  onEditDetectedTransaction?: (tx: Transaction) => void;
+}
+
+export const AutoSmsDetectorBanner: React.FC<AutoSmsDetectorBannerProps> = ({ onEditDetectedTransaction }) => {
   const { addTransaction, baseCurrency } = useFinance();
   const [pendingItems, setPendingItems] = useState<PendingSmsItem[]>([]);
 
@@ -40,6 +45,27 @@ export const AutoSmsDetectorBanner: React.FC = () => {
     setPendingItems(prev => prev.filter(i => i.id !== current.id));
   };
 
+  const handleEdit = () => {
+    if (onEditDetectedTransaction) {
+      const tx: Transaction = {
+        id: `tx-${Date.now()}`,
+        amount: parsed.amount || 0,
+        currency: parsed.currency || baseCurrency,
+        categoryId: parsed.suggestedCategoryId,
+        date: parsed.date,
+        time: new Date().toTimeString().split(' ')[0].substring(0, 5),
+        note: parsed.merchant,
+        paymentMethod: 'UPI',
+        isAutoParsed: true,
+        confidenceScore: parsed.confidence || 95,
+        createdAt: Date.now()
+      };
+      onEditDetectedTransaction(tx);
+    }
+    dismissPendingSmsItem(current.id);
+    setPendingItems(prev => prev.filter(i => i.id !== current.id));
+  };
+
   const handleDismiss = () => {
     dismissPendingSmsItem(current.id);
     setPendingItems(prev => prev.filter(i => i.id !== current.id));
@@ -55,12 +81,18 @@ export const AutoSmsDetectorBanner: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0 font-mono text-xs">
+      <div className="flex items-center gap-1.5 shrink-0 font-mono text-xs">
         <button
           onClick={handleAutoLog}
           className="bg-brand-mint/20 border border-brand-mint/40 text-brand-mint font-bold px-3 py-1 rounded-xl hover:bg-brand-mint/30 cursor-pointer shadow-sm flex items-center gap-1"
         >
-          <Check className="w-3.5 h-3.5" /> Log Expense
+          <Check className="w-3.5 h-3.5" /> Log
+        </button>
+        <button
+          onClick={handleEdit}
+          className="bg-surface-soft border border-hairline text-ink font-bold px-3 py-1 rounded-xl hover:border-ink cursor-pointer shadow-sm flex items-center gap-1"
+        >
+          <Edit3 className="w-3.5 h-3.5 text-brand-blue" /> Edit
         </button>
         <button
           onClick={handleDismiss}

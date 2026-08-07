@@ -58,7 +58,12 @@ const MainAppContent: React.FC = () => {
       />
 
       {/* Automatic SMS Transaction Detector Banner */}
-      <AutoSmsDetectorBanner />
+      <AutoSmsDetectorBanner
+        onEditDetectedTransaction={tx => {
+          setEditingTransaction(tx);
+          setIsQuickAddOpen(true);
+        }}
+      />
 
       {/* Main Container */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-3">
