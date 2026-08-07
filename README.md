@@ -9,7 +9,7 @@ Finance-Ally is a premium, beautifully crafted personal finance app designed for
 ## Why Choose Finance-Ally?
 
 - **100% Offline & Private**: All your financial logs, trip budgets, and notes stay sandboxed on your device. No signup required, no cloud tracking, no hidden data sales. Just a local account to keep your data from being accessed by others.
-- **Stunning Glassmorphic Design**: Built using the `.dotgui` UI design language featuring frosted glass surfaces, dynamic lighting, fluid micro-animations, and custom ambient glowing active tabs.
+- **Stunning Glassmorphic Design**: Built featuring frosted glass surfaces, dynamic lighting, fluid micro-animations, and custom ambient glowing active tabs.
 - **Smart Natural Language Quick Logging**: Simply type your expenses like you're texting a friend (`450 rs coffee and sandwich 2nd aug 8pm`), and Finance-Ally instantly parses the amount, date, time, and category for you.
 - **Trip Vaults**: Planning a vacation? Create dedicated trip vaults to track domestic & international travel spending in local currencies without cluttering your daily home budget.
 - **Split Bills**: Easily split group meals and trips with friends. Calculate tips/taxes, toggle who has paid or owes, and generate formatted text summaries to copy or send to your friends.
