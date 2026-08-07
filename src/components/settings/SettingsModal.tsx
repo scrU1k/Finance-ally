@@ -404,7 +404,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             
             {/* SUB-PAGES NAVIGATION MENU ITEMS */}
             <div className="space-y-2">
-              <span className="text-[10px] font-mono font-bold text-muted-custom uppercase">Settings Categories</span>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* 1. Security */}
                 <button
@@ -906,20 +905,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
               {/* Repeat Day for Monthly */}
               {localAutoConfig.schedule === 'monthly' && (
-                <div className="flex items-center gap-3 pt-1">
-                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Repeat Day of Month:</label>
-                  <select
-                    value={localAutoConfig.monthlyDay}
-                    onChange={e => {
-                      const updated = saveLocalAutoBackupConfig({ monthlyDay: parseInt(e.target.value) });
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold shrink-0">Repeat Day of Month:</label>
+                  <CustomSelect
+                    direction="down"
+                    options={Array.from({ length: 31 }, (_, i) => ({ value: (i + 1).toString(), label: `Day ${i + 1}` }))}
+                    value={localAutoConfig.monthlyDay.toString()}
+                    onChange={val => {
+                      const updated = saveLocalAutoBackupConfig({ monthlyDay: parseInt(val) });
                       setLocalAutoConfig(updated);
                     }}
-                    className="bg-surface-card border border-hairline rounded-lg px-3 py-1 text-xs font-mono text-ink cursor-pointer"
-                  >
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                      <option key={day} value={day}>Day {day}</option>
-                    ))}
-                  </select>
+                    className="w-32 shrink-0"
+                  />
                 </div>
               )}
 

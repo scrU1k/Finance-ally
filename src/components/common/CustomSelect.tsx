@@ -56,7 +56,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between gap-2 bg-surface-soft border border-hairline hover:border-ink rounded-xl px-3 py-2 text-xs font-mono text-ink transition-all cursor-pointer shadow-sm min-h-[38px]"
+        className="w-full flex items-center justify-between gap-2 bg-surface-card/80 backdrop-blur-xl saturate-[180%] border border-hairline hover:border-ink rounded-xl px-3 py-2 text-xs font-mono text-ink transition-all cursor-pointer shadow-md min-h-[38px] ring-1 ring-white/10 overflow-hidden"
       >
         <span className="truncate flex items-center gap-1.5 font-semibold">
           {selectedOpt?.icon}
@@ -67,7 +67,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 
       {/* Glass Popover Menu */}
       {isOpen && (
-        <div className={`absolute left-0 right-0 ${popoverPositionClass} z-[70] bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-xl shadow-2xl shadow-black/20 p-1 max-h-56 overflow-y-auto space-y-0.5 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10`}>
+        <div className={`absolute left-0 right-0 ${popoverPositionClass} z-[70] bg-surface-card/85 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-xl shadow-2xl shadow-black/30 p-1.5 max-h-56 overflow-y-auto space-y-0.5 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10`}>
           {options.map(opt => {
             const isSelected = opt.value === value;
             return (
