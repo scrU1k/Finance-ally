@@ -92,27 +92,3 @@ export function parseNotificationText(rawText: string, defaultCurrency: Currency
     referenceId
   };
 }
-
-// Sandbox Test Samples
-export const SAMPLE_NOTIFICATIONS = [
-  {
-    title: 'Google Pay UPI Alert',
-    text: 'Paid ₹450.00 to Starbucks Coffee via UPI Ref: GPAY-94102910 on 06-Aug.'
-  },
-  {
-    title: 'HDFC Bank SMS Alert',
-    text: 'HDFC Bank: Rs 1,200.00 debited from A/C **4912 at UBER RIDES on 06-AUG-26. Txn ID: 9481920.'
-  },
-  {
-    title: 'PhonePe Food Alert',
-    text: 'Debited ₹380 to Swiggy Food Delivery. Txn RRN: 8391024.'
-  },
-  {
-    title: 'Amex Card Alert',
-    text: 'USD $89.99 spent at Apple Store Online on 06/08/2026.'
-  },
-  {
-    title: 'Utility Bill Alert',
-    text: 'Rs 2,450.00 paid for State Electricity Power Bill on 05-Aug via NetBanking.'
-  }
-];
