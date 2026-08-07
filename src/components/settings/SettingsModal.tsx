@@ -362,14 +362,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       onClick={onClose}
       className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto cursor-pointer animate-in fade-in duration-200"
     >
-      {/* Fixed FAB Exit Button */}
-      <button
-        onClick={onClose}
-        className="fixed top-12 right-8 z-[60] p-2.5 rounded-full dotgui-glass border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer bg-surface-card/90"
-        title="Close Settings"
-      >
-        <X className="w-4.5 h-4.5" />
-      </button>
+      {/* Fixed FAB Exit Button (Main Page Only) */}
+      {activeSubPage === 'main' && (
+        <button
+          onClick={onClose}
+          className="fixed top-12 right-8 z-[60] p-2.5 rounded-full dotgui-glass border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer bg-surface-card/90"
+          title="Close Settings"
+        >
+          <X className="w-4.5 h-4.5" />
+        </button>
+      )}
 
       {/* Modal Container */}
       <div
@@ -378,25 +380,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       >
         <div className="p-6 sm:p-8 space-y-6 overflow-y-auto max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-hairline pb-4 pr-12">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between border-b border-hairline pb-4">
+          <div className="flex items-center gap-2 min-w-0 pr-2">
             {activeSubPage !== 'main' && (
               <button
                 onClick={() => setActiveSubPage('main')}
-                className="p-1 rounded-lg border border-hairline bg-surface-soft hover:bg-surface-card text-ink transition-all cursor-pointer mr-1"
+                className="p-1.5 rounded-lg border border-hairline bg-surface-soft hover:bg-surface-card text-ink transition-all cursor-pointer mr-1 shrink-0"
                 title="Back to Settings Menu"
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
             )}
-            <SettingsIcon className="w-5 h-5 text-brand-blue" />
-            <h2 className="text-xl font-display font-bold text-ink">
+            <SettingsIcon className="w-5 h-5 text-brand-blue shrink-0" />
+            <h2 className="text-lg sm:text-xl font-display font-bold text-ink truncate">
               {activeSubPage === 'main' && 'Settings'}
               {activeSubPage === 'security' && 'Security & PIN Protection'}
               {activeSubPage === 'csv' && 'Data & CSV Portability'}
               {activeSubPage === 'backup' && 'Backup & Auto-Sync'}
             </h2>
           </div>
+
+          {/* Sub-Pages In-Card Top-Right Close Button */}
+          {activeSubPage !== 'main' && (
+            <button
+              onClick={onClose}
+              className="p-2 text-muted-custom hover:text-ink hover:bg-surface-soft border border-hairline rounded-full cursor-pointer transition-all shrink-0"
+              title="Close Settings"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* ─── MAIN SETTINGS VIEW ───────────────────────────────────────────────── */}
