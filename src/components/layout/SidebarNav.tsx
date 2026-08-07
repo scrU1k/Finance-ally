@@ -28,7 +28,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
             onClick={() => setActiveTab(item.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono whitespace-nowrap transition-all border ${
               isActive
-                ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
+                ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft animate-breathe'
                 : 'bg-surface-card text-body-custom border-hairline hover:border-ink hover:text-ink'
             }`}
           >

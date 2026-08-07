@@ -17,10 +17,14 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
-  const [needsOnboarding, setNeedsOnboarding] = useState<boolean>(false);
+  const [user, setUser] = useState<UserProfile | null>(() => getStoredUserProfile());
+  const [needsOnboarding, setNeedsOnboarding] = useState<boolean>(() => !getStoredUserProfile());
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
+    const existing = getStoredUserProfile();
+    return existing ? (existing.requirePassword === false) : false;
+  });
 
+  // Keep a small effect to listen for any external changes if needed, but synchronous setup prevents flashing.
   useEffect(() => {
     const existing = getStoredUserProfile();
     if (!existing) {
@@ -28,12 +32,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else {
       setUser(existing);
       setNeedsOnboarding(false);
-      // Skip lock screen if password protection is disabled
-      if (existing.requirePassword === false) {
-        setIsUnlocked(true);
-      } else {
-        setIsUnlocked(false);
-      }
     }
   }, []);
 

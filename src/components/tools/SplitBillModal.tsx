@@ -75,8 +75,12 @@ export const SplitBillModal: React.FC = () => {
     });
   };
 
-  const shareText = `Split Bill Summary:\nTotal: ${formatCurrency(totalWithTip, currency)}\nPer Person: ${formatCurrency(perPersonEqual, currency)}\n\nMembers:\n` + 
-    members.map(m => `- ${m.name}: ${formatCurrency(perPersonEqual, currency)} (${m.isPaid ? 'PAID' : 'PENDING'})`).join('\n');
+  const shareText = `**Split Bill Summary**
+Total: ${formatCurrency(totalWithTip, currency)}
+Cost: ${formatCurrency(numAmount, currency)} + ${numTip}% Tip/Tax
+No. of people: **${members.length}**  Per person: ${formatCurrency(perPersonEqual, currency)}
+Members:
+${members.map(m => `- ${m.name}: **${formatCurrency(perPersonEqual, currency)}** *(${m.isPaid ? 'Paid' : 'Pending'})*`).join('\n')}`;
 
   const handleCopyShare = () => {
     navigator.clipboard.writeText(shareText);

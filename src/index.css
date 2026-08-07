@@ -13,6 +13,12 @@
   --color-body-custom: var(--body);
   --color-muted-custom: var(--muted);
   --color-hairline: var(--hairline);
+  --animate-breathe: breathe 3s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; box-shadow: 0 0 12px var(--hairline); }
+  50% { opacity: 0.7; box-shadow: 0 0 2px transparent; }
 }
 
 @layer base {
