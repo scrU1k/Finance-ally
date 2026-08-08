@@ -12,6 +12,7 @@ export interface ParsedNaturalExpense {
   time: string; // HH:mm
   timeLabel: string;
   confidence: number;
+  isNewCustomTag?: boolean;
 }
 
 // ─── Exhaustive Time Parser ────────────────────────────────────────────────────
@@ -161,10 +162,31 @@ function parseExhaustiveDate(lower: string): { dateStr: string; label: string; m
 
 export function parseNaturalLanguageExpense(
   inputText: string,
-  baseCurrency: CurrencyCode = 'INR'
+  baseCurrency: CurrencyCode = 'INR',
+  existingCategories: Array<{ id: string; name: string }> = []
 ): ParsedNaturalExpense {
   const text = inputText.trim();
   const lower = text.toLowerCase();
+
+  // 0. EXPLICIT USER TYPED TAG EXTRACTION
+  // Matches: tag-..., tag:..., tag...., tag/..., '...', "...", <...>
+  let explicitTagName: string | null = null;
+  let explicitTagMatchText: string | null = null;
+
+  const tagKeywordRegex = /\btag\s*[\:\-\.\/]\s*([a-z0-9\s\&]+)/i;
+  const matchTagKeyword = text.match(tagKeywordRegex);
+
+  if (matchTagKeyword) {
+    explicitTagName = matchTagKeyword[1].trim();
+    explicitTagMatchText = matchTagKeyword[0];
+  } else {
+    const quoteTagRegex = /(?:'([^']+)'|"([^"]+)"|<([^>]+)>)/;
+    const matchQuoteTag = text.match(quoteTagRegex);
+    if (matchQuoteTag) {
+      explicitTagName = (matchQuoteTag[1] || matchQuoteTag[2] || matchQuoteTag[3]).trim();
+      explicitTagMatchText = matchQuoteTag[0];
+    }
+  }
 
   // 1. EXTRACT DATE & TIME
   const now = new Date();
@@ -345,6 +367,11 @@ export function parseNaturalLanguageExpense(
     }
   }
 
+  // Strip explicit tag text from description
+  if (explicitTagMatchText) {
+    cleanDesc = cleanDesc.replace(new RegExp(explicitTagMatchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), ' ');
+  }
+
   // Remove date/time patterns from description
   const monthNames2 = Object.keys(MONTH_MAP).join('|');
   cleanDesc = cleanDesc
@@ -368,18 +395,50 @@ export function parseNaturalLanguageExpense(
   }
 
   // 4. CATEGORY CLASSIFICATION
-  const catResult = categorizeNoteWithArcticFTS5(text + ' ' + cleanDesc);
+  let categoryId = '';
+  let categoryName = '';
+  let confidence = 99;
+  let isNewCustomTag = false;
+
+  if (explicitTagName) {
+    const titleCasedTag = explicitTagName
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+
+    const lowerTag = explicitTagName.toLowerCase();
+    const matchedCategory = existingCategories.find(
+      c => c.name.toLowerCase() === lowerTag || c.name.toLowerCase().includes(lowerTag)
+    );
+
+    if (matchedCategory) {
+      categoryId = matchedCategory.id;
+      categoryName = matchedCategory.name;
+      confidence = 100;
+    } else {
+      categoryId = `cat-custom-${Date.now()}`;
+      categoryName = titleCasedTag;
+      isNewCustomTag = true;
+      confidence = 100;
+    }
+  } else {
+    const catResult = categorizeNoteWithArcticFTS5(text + ' ' + cleanDesc);
+    categoryId = catResult.categoryId;
+    categoryName = catResult.categoryName;
+    confidence = catResult.confidence;
+  }
 
   return {
     amount: amount || 100,
     currency,
     description: cleanDesc,
-    categoryId: catResult.categoryId,
-    categoryName: catResult.categoryName,
+    categoryId,
+    categoryName,
     date: dateStr,
     dateLabel,
     time: timeStr,
     timeLabel,
-    confidence: catResult.confidence,
+    confidence,
+    isNewCustomTag,
   };
 }

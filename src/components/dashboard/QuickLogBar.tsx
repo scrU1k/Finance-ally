@@ -19,13 +19,18 @@ export interface StagedLogItem extends ParsedNaturalExpense {
 }
 
 export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMultiLogOpen: isMultiLogOpenProp, onToggleMultiLog }) => {
-  const { baseCurrency, addTransaction, categories, transactions, activeTripVault } = useFinance();
+  const { baseCurrency, addTransaction, categories, transactions, activeTripVault, addCategoryItem } = useFinance();
 
   const [inputPrompt, setInputPrompt] = useState('');
   const [parsedExpense, setParsedExpense] = useState<ParsedNaturalExpense | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>('UPI');
   const [isSuccess, setIsSuccess] = useState(false);
   const [isTagPopupOpen, setIsTagPopupOpen] = useState(false);
+
+  // Custom Tag Creation Modal Form State
+  const [showCustomTagForm, setShowCustomTagForm] = useState(false);
+  const [customTagName, setCustomTagName] = useState('');
+  const [selectedCustomColor, setSelectedCustomColor] = useState('#EE5F1C');
 
   // Multi-Log Batch State - isOpen is driven by parent toolbar via prop, with internal fallback
   const [isMultiLogOpenInternal, setIsMultiLogOpenInternal] = useState(false);
@@ -45,11 +50,29 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
     pendingMethod?: string;
   } | null>(null);
 
+  const COLOR_PALETTE = ['#EE5F1C', '#3B82F6', '#8B5CF6', '#10B981', '#EC4899', '#F59E0B', '#F43F5E', '#14B8A6', '#6366F1', '#06B6D4'];
+
+  const ensureCustomTagSaved = async (catName: string): Promise<string> => {
+    const existing = categories.find(c => c.name.toLowerCase() === catName.toLowerCase());
+    if (existing) return existing.id;
+
+    const color = selectedCustomColor || COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
+    await addCategoryItem({
+      name: catName,
+      color,
+      icon: 'Tag',
+      isDefault: false
+    });
+
+    const newlyAdded = categories.find(c => c.name.toLowerCase() === catName.toLowerCase());
+    return newlyAdded?.id || 'cat-others';
+  };
+
   const handleParse = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!inputPrompt.trim()) return;
 
-    const parsed = parseNaturalLanguageExpense(inputPrompt, baseCurrency);
+    const parsed = parseNaturalLanguageExpense(inputPrompt, baseCurrency, categories);
     setParsedExpense(parsed);
   };
 
@@ -58,7 +81,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
     if (e) e.preventDefault();
     if (!multiInputPrompt.trim()) return;
 
-    const parsed = parseNaturalLanguageExpense(multiInputPrompt, baseCurrency);
+    const parsed = parseNaturalLanguageExpense(multiInputPrompt, baseCurrency, categories);
 
     if (editingStagedId) {
       setStagedItems(prev =>
@@ -108,10 +131,15 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
     const item = stagedItems.find(i => i.id === id);
     if (!item) return;
 
+    let targetCatId = item.categoryId;
+    if (item.isNewCustomTag || targetCatId.startsWith('cat-custom-')) {
+      targetCatId = await ensureCustomTagSaved(item.categoryName);
+    }
+
     await addTransaction({
       amount: item.amount,
       currency: item.currency,
-      categoryId: item.categoryId,
+      categoryId: targetCatId,
       date: item.date,
       time: item.time,
       note: item.description,
@@ -130,10 +158,15 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
     if (stagedItems.length === 0) return;
 
     for (const item of stagedItems) {
+      let targetCatId = item.categoryId;
+      if (item.isNewCustomTag || targetCatId.startsWith('cat-custom-')) {
+        targetCatId = await ensureCustomTagSaved(item.categoryName);
+      }
+
       await addTransaction({
         amount: item.amount,
         currency: item.currency,
-        categoryId: item.categoryId,
+        categoryId: targetCatId,
         date: item.date,
         time: item.time,
         note: item.description,
@@ -188,10 +221,15 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
     if (!parsedExpense) return;
     const finalMethod = selectedPayment || paymentMethod;
 
+    let targetCatId = parsedExpense.categoryId;
+    if (parsedExpense.isNewCustomTag || targetCatId.startsWith('cat-custom-')) {
+      targetCatId = await ensureCustomTagSaved(parsedExpense.categoryName);
+    }
+
     await addTransaction({
       amount: parsedExpense.amount,
       currency: parsedExpense.currency,
-      categoryId: parsedExpense.categoryId,
+      categoryId: targetCatId,
       date: parsedExpense.date,
       time: parsedExpense.time,
       note: parsedExpense.description,
@@ -328,46 +366,44 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
 
                     {/* Line 3: Compact Payment Dropdown (Left) & Segmented Icon Action Pill (Right) */}
                     <div className="flex items-center justify-between gap-2 min-w-0 pt-0.5">
-                      <select
-                        value={item.paymentMethod}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setStagedItems(prev =>
-                            prev.map(i => i.id === item.id ? { ...i, paymentMethod: val } : i)
-                          );
-                        }}
-                        className="bg-surface-soft border border-hairline rounded-lg px-2 py-1 text-xs text-ink font-mono font-semibold focus:outline-none focus:border-brand-blue cursor-pointer transition-all shrink-0 w-24"
-                      >
-                        {paymentOptions.map(p => (
-                          <option key={p} value={p} className="bg-surface-card text-ink">{p}</option>
-                        ))}
-                      </select>
+                      <div className="w-28 shrink-0">
+                        <CustomSelect
+                          options={paymentOptions.map(p => ({ value: p, label: p }))}
+                          value={item.paymentMethod}
+                          onChange={val => {
+                            setStagedItems(prev =>
+                              prev.map(i => i.id === item.id ? { ...i, paymentMethod: val } : i)
+                            );
+                          }}
+                          direction="up"
+                        />
+                      </div>
 
-                      {/* Single segmented pill parted by vertical lines for action icons */}
-                      <div className="border border-hairline bg-surface-soft rounded-lg flex items-center divide-x divide-hairline overflow-hidden shrink-0 shadow-2xs">
+                      {/* Single segmented pill parted by vertical lines for enlarged action icons */}
+                      <div className="border border-hairline bg-surface-soft rounded-xl flex items-center divide-x divide-hairline overflow-hidden shrink-0 shadow-sm">
                         <button
                           type="button"
                           onClick={() => handleSaveSingleStagedItem(item.id)}
-                          className="p-1.5 hover:bg-brand-mint/15 transition-colors cursor-pointer"
+                          className="px-3 py-2 hover:bg-brand-mint/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center min-w-[40px] min-h-[38px]"
                           title="Save expense"
                         >
-                          <Check className="w-3.5 h-3.5 text-brand-mint" />
+                          <Check className="w-4.5 h-4.5 text-brand-mint stroke-[2.5]" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleEditStagedItem(item.id)}
-                          className="p-1.5 hover:bg-brand-blue/15 transition-colors cursor-pointer"
+                          className="px-3 py-2 hover:bg-brand-blue/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center min-w-[40px] min-h-[38px]"
                           title="Edit expense"
                         >
-                          <Edit2 className="w-3.5 h-3.5 text-brand-blue" />
+                          <Edit2 className="w-4.5 h-4.5 text-brand-blue stroke-[2.2]" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteStagedItem(item.id)}
-                          className="p-1.5 hover:bg-brand-coral/15 transition-colors cursor-pointer"
+                          className="px-3 py-2 hover:bg-brand-coral/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center min-w-[40px] min-h-[38px]"
                           title="Delete expense"
                         >
-                          <Trash2 className="w-3.5 h-3.5 text-brand-coral" />
+                          <Trash2 className="w-4.5 h-4.5 text-brand-coral stroke-[2.2]" />
                         </button>
                       </div>
                     </div>
@@ -535,70 +571,17 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
       )}
 
       {/* Centered Glassmorphic Category Tag Selection Popup */}
-      {isTagPopupOpen && parsedExpense && (
-        <div
-          className="fixed inset-0 z-[80] bg-canvas/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setIsTagPopupOpen(false)}
-        >
-          <div
-            className="dotgui-glass border border-hairline rounded-2xl shadow-2xl p-5 space-y-4 bg-surface-card/95 backdrop-blur-xl w-72 max-w-[92vw]"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-hairline pb-2">
-              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-brand-purple" /> Select Tag
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsTagPopupOpen(false)}
-                className="p-1 text-muted-custom hover:text-ink cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 gap-1.5 max-h-60 overflow-y-auto no-scrollbar">
-              {categories.map(cat => {
-                const isSelected = parsedExpense.categoryId === cat.id;
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => {
-                      setParsedExpense({
-                        ...parsedExpense,
-                        categoryId: cat.id,
-                        categoryName: cat.name,
-                      });
-                      setIsTagPopupOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2 p-2 rounded-xl border text-xs font-mono text-left transition-all cursor-pointer ${
-                      isSelected
-                        ? 'border-ink text-ink font-bold bg-surface-soft'
-                        : 'border-hairline bg-surface-card text-body-custom hover:border-ink'
-                    }`}
-                  >
-                    <span
-                      className="w-3.5 h-3.5 rounded-full shrink-0"
-                      style={{ backgroundColor: cat.color }}
-                    />
-                    <span className="truncate">{cat.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Staged Item Category Tag Selection Popup */}
-      {changingTagStagedId && (
+      {(isTagPopupOpen || changingTagStagedId) && (
         <div
           className="fixed inset-0 z-[85] bg-canvas/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setChangingTagStagedId(null)}
+          onClick={() => {
+            setIsTagPopupOpen(false);
+            setChangingTagStagedId(null);
+            setShowCustomTagForm(false);
+          }}
         >
           <div
-            className="dotgui-glass border border-hairline rounded-2xl shadow-2xl p-5 space-y-4 bg-surface-card/95 backdrop-blur-xl w-72 max-w-[92vw]"
+            className="dotgui-glass border border-hairline rounded-2xl shadow-2xl p-5 space-y-4 bg-surface-card/95 backdrop-blur-xl w-80 max-w-[94vw] animate-in zoom-in-95 duration-150"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-hairline pb-2">
@@ -607,46 +590,151 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
               </span>
               <button
                 type="button"
-                onClick={() => setChangingTagStagedId(null)}
+                onClick={() => {
+                  setIsTagPopupOpen(false);
+                  setChangingTagStagedId(null);
+                  setShowCustomTagForm(false);
+                }}
                 className="p-1 text-muted-custom hover:text-ink cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-1.5 max-h-60 overflow-y-auto no-scrollbar">
-              {categories.map(cat => {
-                const currentItem = stagedItems.find(i => i.id === changingTagStagedId);
-                const isSelected = currentItem?.categoryId === cat.id;
-                return (
+            {!showCustomTagForm ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-1.5 max-h-60 overflow-y-auto pr-1 no-scrollbar">
+                  {categories.map(cat => {
+                    const currentCatId = isTagPopupOpen ? parsedExpense?.categoryId : stagedItems.find(i => i.id === changingTagStagedId)?.categoryId;
+                    const isSelected = currentCatId === cat.id;
+                    const isOthers = cat.id === 'cat-others' || cat.name.toLowerCase() === 'others';
+
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={async () => {
+                          if (isOthers) {
+                            setShowCustomTagForm(true);
+                          } else {
+                            if (isTagPopupOpen && parsedExpense) {
+                              setParsedExpense({
+                                ...parsedExpense,
+                                categoryId: cat.id,
+                                categoryName: cat.name,
+                              });
+                              setIsTagPopupOpen(false);
+                            } else if (changingTagStagedId) {
+                              setStagedItems(prev =>
+                                prev.map(i =>
+                                  i.id === changingTagStagedId
+                                    ? { ...i, categoryId: cat.id, categoryName: cat.name }
+                                    : i
+                                )
+                              );
+                              setChangingTagStagedId(null);
+                            }
+                          }
+                        }}
+                        className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-mono text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-ink text-ink font-bold bg-surface-soft'
+                            : 'border-hairline bg-surface-card text-body-custom hover:border-ink'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <span
+                            className="w-3.5 h-3.5 rounded-full shrink-0"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                          <span className="truncate">{cat.name}</span>
+                        </div>
+                        {isOthers && (
+                          <span className="text-[10px] font-mono font-semibold text-brand-purple bg-brand-purple/10 px-1.5 py-0.5 rounded shrink-0">
+                            + Custom Tag
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCustomTagForm(true)}
+                  className="w-full py-2 rounded-xl border border-dashed border-brand-purple/60 text-brand-purple hover:bg-brand-purple/10 text-xs font-mono font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create Custom Tag</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-1 animate-in fade-in duration-150">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Custom Tag Name:</label>
+                  <input
+                    type="text"
+                    value={customTagName}
+                    onChange={e => setCustomTagName(e.target.value)}
+                    placeholder="e.g. Flower, Gaming, Books"
+                    className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-brand-purple"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Pick Tag Color:</label>
+                  <div className="flex flex-wrap gap-2">
+                    {COLOR_PALETTE.map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setSelectedCustomColor(c)}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                          selectedCustomColor === c ? 'ring-2 ring-ink scale-110' : 'hover:scale-105'
+                        }`}
+                        style={{ backgroundColor: c }}
+                      >
+                        {selectedCustomColor === c && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
                   <button
-                    key={cat.id}
                     type="button"
-                    onClick={() => {
-                      setStagedItems(prev =>
-                        prev.map(i =>
-                          i.id === changingTagStagedId
-                            ? { ...i, categoryId: cat.id, categoryName: cat.name }
-                            : i
-                        )
-                      );
-                      setChangingTagStagedId(null);
-                    }}
-                    className={`w-full flex items-center gap-2 p-2 rounded-xl border text-xs font-mono text-left transition-all cursor-pointer ${
-                      isSelected
-                        ? 'border-ink text-ink font-bold bg-surface-soft'
-                        : 'border-hairline bg-surface-card text-body-custom hover:border-ink'
-                    }`}
+                    onClick={() => setShowCustomTagForm(false)}
+                    className="flex-1 py-2 rounded-xl border border-hairline text-muted-custom text-xs font-mono font-bold hover:border-ink cursor-pointer"
                   >
-                    <span
-                      className="w-3.5 h-3.5 rounded-full shrink-0"
-                      style={{ backgroundColor: cat.color }}
-                    />
-                    <span className="truncate">{cat.name}</span>
+                    Back
                   </button>
-                );
-              })}
-            </div>
+                  <button
+                    type="button"
+                    disabled={!customTagName.trim()}
+                    onClick={async () => {
+                      if (!customTagName.trim()) return;
+                      const newCatId = await ensureCustomTagSaved(customTagName.trim());
+                      const name = customTagName.trim();
+                      if (isTagPopupOpen && parsedExpense) {
+                        setParsedExpense({ ...parsedExpense, categoryId: newCatId, categoryName: name });
+                        setIsTagPopupOpen(false);
+                      } else if (changingTagStagedId) {
+                        setStagedItems(prev =>
+                          prev.map(i => i.id === changingTagStagedId ? { ...i, categoryId: newCatId, categoryName: name } : i)
+                        );
+                        setChangingTagStagedId(null);
+                      }
+                      setCustomTagName('');
+                      setShowCustomTagForm(false);
+                    }}
+                    className="flex-1 py-2 rounded-xl border border-brand-mint text-brand-mint hover:bg-brand-mint/10 text-xs font-mono font-bold transition-all cursor-pointer shadow-sm disabled:opacity-40"
+                  >
+                    Save & Apply
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
