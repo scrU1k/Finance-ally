@@ -333,9 +333,9 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
             </div>
           )}
 
-          {/* Amount on Right of Line 2 */}
+          {/* Amount on Right of Line 2 (Increased font size) */}
           <div className="text-right shrink-0">
-            <div className="text-xs sm:text-sm font-display font-bold text-ink tracking-tight">
+            <div className="text-sm sm:text-base font-display font-bold text-ink tracking-tight">
               -{formatCurrency(transaction.amount, transaction.currency)}
             </div>
             {transaction.originalAmount && (
@@ -363,32 +363,6 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
         )}
 
       </div>
-
-      {/* Hover Action Buttons */}
-      {!isSelectMode && (
-        <div className="opacity-80 sm:opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity shrink-0 mt-0.5">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(transaction);
-            }}
-            className="p-1 text-muted-custom hover:text-ink hover:bg-surface-soft rounded-lg transition-colors"
-            title="Edit Transaction"
-          >
-            <Edit2 className="w-3 h-3" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(transaction.id);
-            }}
-            className="p-1 text-muted-custom hover:text-brand-coral hover:bg-surface-soft rounded-lg transition-colors"
-            title="Delete Transaction"
-          >
-            <Trash2 className="w-3 h-3" />
-          </button>
-        </div>
-      )}
     </div>
   );
 };
