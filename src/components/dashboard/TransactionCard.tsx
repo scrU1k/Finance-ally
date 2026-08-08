@@ -51,21 +51,23 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   const IconComponent = CATEGORY_ICON_MAP[category.icon] ?? Tag;
 
   const timerRef = React.useRef<number | null>(null);
-  const [isLongPressActive, setIsLongPressActive] = React.useState(false);
+  const isLongPressRef = React.useRef(false);
   const touchStartPos = React.useRef<{ x: number; y: number } | null>(null);
   const isScrolledRef = React.useRef(false);
+  const lastTouchTimeRef = React.useRef(0);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    lastTouchTimeRef.current = Date.now();
     isScrolledRef.current = false;
+    isLongPressRef.current = false;
     if (e.touches.length > 0) {
       touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }
-    setIsLongPressActive(false);
 
     if (timerRef.current) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => {
       if (!isScrolledRef.current) {
-        setIsLongPressActive(true);
+        isLongPressRef.current = true;
         onToggleSelect?.(transaction.id);
         try {
           navigator.vibrate?.(50);
@@ -75,6 +77,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    lastTouchTimeRef.current = Date.now();
     if (touchStartPos.current && e.touches.length > 0) {
       const dx = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
       const dy = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
@@ -89,6 +92,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    lastTouchTimeRef.current = Date.now();
     if (timerRef.current) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
@@ -98,8 +102,8 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
       return;
     }
 
-    if (isLongPressActive) {
-      setIsLongPressActive(false);
+    if (isLongPressRef.current) {
+      isLongPressRef.current = false;
       return;
     }
 
@@ -111,25 +115,28 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (Date.now() - lastTouchTimeRef.current < 1000) return;
     if (e.button !== 0) return;
-    setIsLongPressActive(false);
 
+    isLongPressRef.current = false;
     if (timerRef.current) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => {
-      setIsLongPressActive(true);
+      isLongPressRef.current = true;
       onToggleSelect?.(transaction.id);
     }, 500);
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
+    if (Date.now() - lastTouchTimeRef.current < 1000) return;
     if (e.button !== 0) return;
+
     if (timerRef.current) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
     }
 
-    if (isLongPressActive) {
-      setIsLongPressActive(false);
+    if (isLongPressRef.current) {
+      isLongPressRef.current = false;
       return;
     }
 
@@ -141,6 +148,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   };
 
   const handleMouseLeave = () => {
+    if (Date.now() - lastTouchTimeRef.current < 1000) return;
     if (timerRef.current) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
@@ -156,7 +164,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       className={`dotgui-card p-4 flex items-center justify-between gap-3 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${
-        isSelected ? 'border-brand-blue ring-1 ring-brand-blue/30 bg-brand-blue/5' : ''
+        isSelected ? 'border-brand-blue ring-2 ring-brand-blue/40 bg-brand-blue/10 shadow-lg scale-[1.005]' : ''
       }`}
     >
       
