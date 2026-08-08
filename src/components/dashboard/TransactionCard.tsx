@@ -283,29 +283,31 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 
         {/* Note & Tag metadata */}
         <div className="min-w-0 space-y-0.5 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <h4 className="text-xs sm:text-sm font-semibold text-ink truncate font-sans-custom">
+          {/* Main line: Name (left, truncated) + Category Tag Pill (right, shrink-0) */}
+          <div className="flex items-center justify-between gap-1.5 min-w-0">
+            <h4 className="text-xs sm:text-sm font-semibold text-ink truncate font-sans-custom min-w-0 flex-1">
               {transaction.note || category.name}
             </h4>
 
             {/* Category Tag Pill */}
             <span
-              className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate whitespace-nowrap max-w-[100px]"
+              className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate whitespace-nowrap shrink-0 max-w-[95px]"
               style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
             >
               {(category.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : category.name}
             </span>
+          </div>
 
+          {/* Subtitle line: Trip Tag Pill (below name) + Time + Payment Method */}
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-custom flex-wrap">
             {/* Trip Tag Pill */}
             {trip && (
-              <span className="text-[9px] font-mono bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 truncate whitespace-nowrap max-w-[100px]">
+              <span className="text-[9px] font-mono bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 truncate whitespace-nowrap max-w-[105px] shrink-0">
                 <Plane className="w-2.5 h-2.5 shrink-0" />
                 <span className="truncate">{trip.name}</span>
               </span>
             )}
-          </div>
 
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-custom">
             <span>{transaction.time || '12:00'}</span>
             {transaction.paymentMethod && (
               <>

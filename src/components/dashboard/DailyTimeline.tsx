@@ -193,155 +193,131 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
       {/* 1. Smart Natural Language Quick-Log Input Bar */}
       <QuickLogBar />
 
-      {/* 2. Controls Toolbar: Search | Tags | Date | Hide Charts */}
+      {/* 2. Controls Toolbar: Search & View Mode (Main Row) */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+        <div className="flex items-center justify-between gap-2 py-0.5">
           
           {/* 1. Search Chip Button */}
           <button
             type="button"
             onClick={() => setShowSearchInput(!showSearchInput)}
             className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              showSearchInput || searchQuery
+              showSearchInput || searchQuery || selectedCatFilter !== 'all'
                 ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
             }`}
-            title="Search logs"
+            title="Search & filter logs"
           >
             <Search className="w-3.5 h-3.5 text-brand-blue shrink-0" />
             <span>Search</span>
-          </button>
-
-          {/* 2. Tags Filter Toggle Chip Button */}
-          <button
-            type="button"
-            onClick={() => setShowTagFilterRow(!showTagFilterRow)}
-            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              showTagFilterRow || selectedCatFilter !== 'all'
-                ? 'border-brand-mint text-brand-mint font-bold shadow-sm bg-surface-soft'
-                : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
-            }`}
-            title="Filter by category tags"
-          >
-            <Tag className="w-3.5 h-3.5 text-brand-mint shrink-0" />
-            <span>
-              {selectedCatFilter !== 'all' && activeCategoryObj
-                ? `Tag: ${activeCategoryObj.name}`
-                : 'Tags'}
-            </span>
-            {(showTagFilterRow || selectedCatFilter !== 'all') && (
-              <span
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedCatFilter('all');
-                  setShowTagFilterRow(false);
-                }}
-                className="ml-0.5 hover:text-brand-coral cursor-pointer p-0.5 text-xs font-bold"
-                title="Clear tag filter & close"
-              >
-                ✕
-              </span>
+            {(searchQuery || selectedCatFilter !== 'all') && (
+              <span className="w-2 h-2 rounded-full bg-brand-blue animate-pulse" />
             )}
           </button>
 
-          {/* 3. Custom App-Styled Date Picker Chip */}
-          <CustomDatePicker
-            value={searchQuery.match(/^\d{4}-\d{2}-\d{2}$/) ? searchQuery : ''}
-            onChange={(selectedDate) => setSearchQuery(selectedDate)}
-            className="shrink-0"
-          />
-
-          {/* 4. Hide/Show Charts Chip Button */}
+          {/* 2. View Mode Switcher Chip Button (Cycles Compact -> List -> Grid -> Compact) */}
           <button
             type="button"
-            onClick={() => setShowCharts(!showCharts)}
+            onClick={() => handleSetViewMode(viewMode === 'compact' ? 'list' : viewMode === 'list' ? 'grid' : 'compact')}
             className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              !showCharts
-                ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
+              viewMode !== 'compact'
+                ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
             }`}
+            title="Tap to cycle view mode (Compact -> List -> Grid)"
           >
-            <Sparkles className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
-            <span>{showCharts ? 'Hide Charts' : 'Show Charts'}</span>
-          </button>
-
-          {/* 5. View Mode Switcher Chip Button */}
-          <div className="relative shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowViewMenu(!showViewMenu)}
-              className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                viewMode !== 'compact'
-                  ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
-                  : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
-              }`}
-              title="Change timeline view layout"
-            >
+            {viewMode === 'grid' ? (
+              <Grid className="w-3.5 h-3.5 text-brand-purple shrink-0" />
+            ) : viewMode === 'list' ? (
+              <List className="w-3.5 h-3.5 text-brand-purple shrink-0" />
+            ) : (
               <LayoutGrid className="w-3.5 h-3.5 text-brand-purple shrink-0" />
-              <span className="capitalize">{viewMode}</span>
-            </button>
-
-            {/* Dropdown Options */}
-            {showViewMenu && (
-              <div className="absolute top-full right-0 mt-1 z-40 bg-surface-card/95 backdrop-blur-2xl border border-hairline rounded-xl shadow-2xl p-1.5 space-y-1 w-32 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10">
-                <button
-                  onClick={() => { handleSetViewMode('compact'); setShowViewMenu(false); }}
-                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-colors cursor-pointer ${
-                    viewMode === 'compact' ? 'bg-brand-purple/15 text-brand-purple font-bold' : 'text-ink hover:bg-surface-soft'
-                  }`}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
-                  <span>Compact</span>
-                </button>
-
-                <button
-                  onClick={() => { handleSetViewMode('list'); setShowViewMenu(false); }}
-                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-colors cursor-pointer ${
-                    viewMode === 'list' ? 'bg-brand-purple/15 text-brand-purple font-bold' : 'text-ink hover:bg-surface-soft'
-                  }`}
-                >
-                  <List className="w-3.5 h-3.5 shrink-0" />
-                  <span>List</span>
-                </button>
-
-                <button
-                  onClick={() => { handleSetViewMode('grid'); setShowViewMenu(false); }}
-                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-colors cursor-pointer ${
-                    viewMode === 'grid' ? 'bg-brand-purple/15 text-brand-purple font-bold' : 'text-ink hover:bg-surface-soft'
-                  }`}
-                >
-                  <Grid className="w-3.5 h-3.5 shrink-0" />
-                  <span>Grid</span>
-                </button>
-              </div>
             )}
-          </div>
-
-
+            <span className="capitalize">{viewMode}</span>
+          </button>
 
         </div>
 
-        {/* Expandable Search Input Bar */}
-        {(showSearchInput || searchQuery) && (
-          <div className="relative animate-in fade-in zoom-in-95 duration-150">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search notes, merchants, amounts, dates..."
-              autoFocus
-              className="w-full bg-surface-card border border-hairline text-ink rounded-xl pl-9 pr-8 py-2 text-xs font-mono focus:outline-none focus:border-ink placeholder:text-muted-custom shadow-sm"
-            />
-            <Search className="w-3.5 h-3.5 text-muted-custom absolute left-3 top-2.5" />
-            {searchQuery && (
+        {/* Expandable Search Drawer (Search Input Bar + Filter Chips) */}
+        {(showSearchInput || searchQuery || selectedCatFilter !== 'all') && (
+          <div className="space-y-2.5 bg-surface-soft/60 backdrop-blur-md p-3 rounded-2xl border border-hairline animate-in fade-in zoom-in-95 duration-150 shadow-sm">
+            {/* Search Input */}
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search notes, merchants, amounts, dates..."
+                autoFocus
+                className="w-full bg-surface-card border border-hairline text-ink rounded-xl pl-9 pr-8 py-2 text-xs font-mono focus:outline-none focus:border-ink placeholder:text-muted-custom shadow-sm"
+              />
+              <Search className="w-3.5 h-3.5 text-muted-custom absolute left-3 top-2.5" />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-2.5 text-muted-custom hover:text-ink cursor-pointer text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Hidden Chips Sub-Row: Tags | Date | Hide/Show Charts */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+              {/* Tags Filter Toggle Chip */}
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-muted-custom hover:text-ink cursor-pointer text-xs"
+                onClick={() => setShowTagFilterRow(!showTagFilterRow)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                  showTagFilterRow || selectedCatFilter !== 'all'
+                    ? 'border-brand-mint text-brand-mint font-bold shadow-sm bg-surface-soft'
+                    : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+                }`}
+                title="Filter by category tags"
               >
-                ✕
+                <Tag className="w-3.5 h-3.5 text-brand-mint shrink-0" />
+                <span>
+                  {selectedCatFilter !== 'all' && activeCategoryObj
+                    ? `Tag: ${activeCategoryObj.name}`
+                    : 'Tags'}
+                </span>
+                {(showTagFilterRow || selectedCatFilter !== 'all') && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedCatFilter('all');
+                      setShowTagFilterRow(false);
+                    }}
+                    className="ml-0.5 hover:text-brand-coral cursor-pointer p-0.5 text-xs font-bold"
+                    title="Clear tag filter & close"
+                  >
+                    ✕
+                  </span>
+                )}
               </button>
-            )}
+
+              {/* Custom Date Picker Chip */}
+              <CustomDatePicker
+                value={searchQuery.match(/^\d{4}-\d{2}-\d{2}$/) ? searchQuery : ''}
+                onChange={(selectedDate) => setSearchQuery(selectedDate)}
+                className="shrink-0"
+              />
+
+              {/* Hide/Show Charts Chip */}
+              <button
+                type="button"
+                onClick={() => setShowCharts(!showCharts)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                  !showCharts
+                    ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
+                    : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
+                <span>{showCharts ? 'Hide Charts' : 'Show Charts'}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
