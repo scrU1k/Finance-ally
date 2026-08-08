@@ -1,6 +1,13 @@
-import { LocalNotifications } from '@capacitor/local-notifications';
+import { registerPlugin } from '@capacitor/core';
 import { Transaction, CurrencyCode } from '../types';
 import { formatCurrency } from './currency';
+
+// Register the native ScheduledNotification plugin
+const ScheduledNotification = registerPlugin<{
+  scheduleNotification(opts: { id: number; title: string; body: string; timestamp: number }): Promise<{ success: boolean }>;
+  showNotification(opts: { id: number; title: string; body: string }): Promise<{ success: boolean }>;
+  cancelNotification(opts: { id: number }): Promise<{ success: boolean }>;
+}>('ScheduledNotification');
 
 const NOTIFIED_KEY = 'fa_notified_scheduled_txs';
 
@@ -29,140 +36,75 @@ function hashString(str: string): number {
     hash = (hash << 5) - hash + str.charCodeAt(i);
     hash |= 0;
   }
-  return hash;
-}
-
-/**
- * Creates native Android Notification Channel for scheduled payments.
- */
-async function createAndroidNotificationChannel() {
-  try {
-    await LocalNotifications.createChannel({
-      id: 'scheduled_payments',
-      name: 'Scheduled Payments',
-      description: 'Notifications for scheduled expenses and payment reminders',
-      importance: 5, // High Importance: Heads-up banner + sound + vibration
-      visibility: 1, // Public
-      sound: 'beep.wav',
-      vibration: true,
-    });
-  } catch (e) {
-    console.warn('Native notification channel creation error:', e);
-  }
+  return Math.abs(hash) % 2147483647 || 1001;
 }
 
 /**
  * Requests native system notification permissions on app launch.
+ * The actual Android runtime permission dialog is triggered natively in MainActivity.java.
  */
 export async function requestNotificationPermission(): Promise<boolean> {
-  try {
-    // 1. Native Android / iOS LocalNotifications check & request
-    const capStatus = await LocalNotifications.checkPermissions();
-    if (capStatus.display !== 'granted') {
-      const reqRes = await LocalNotifications.requestPermissions();
-      if (reqRes.display === 'granted') {
-        await createAndroidNotificationChannel();
-        return true;
-      }
-    } else {
-      await createAndroidNotificationChannel();
-      return true;
-    }
-  } catch (e) {
-    console.log('Capacitor local notifications check failed, checking web fallback:', e);
-  }
-
-  // 2. Web Notification API fallback
+  // On Android, the native permission dialog is handled by MainActivity.java on launch.
+  // Capacitor's Notification API is used here only as a JS-layer check.
   if (typeof window !== 'undefined' && 'Notification' in window) {
     if (Notification.permission === 'granted') return true;
     if (Notification.permission !== 'denied') {
       const result = await Notification.requestPermission();
       return result === 'granted';
     }
+    return false;
   }
-  return false;
+  return true; // Native Android handles it
 }
 
 /**
- * Pre-schedules a native Android/iOS system notification for a future scheduled expense.
- * Android OS will fire this notification at the exact target date & time even if app is in background.
+ * Pre-schedules a native Android system notification for a future scheduled expense.
+ * Uses AlarmManager.setExactAndAllowWhileIdle via the native ScheduledNotificationPlugin —
+ * fires even when the app is in background or closed.
  */
 export async function scheduleFutureNativeNotification(tx: Transaction, baseCurrency: CurrencyCode) {
   if (!tx.isScheduled || !tx.date) return;
 
-  const tDateStr = tx.date;
   const tTimeStr = tx.time && tx.time.trim() ? tx.time.trim() : '00:00';
-  const targetTime = new Date(`${tDateStr}T${tTimeStr}:00`).getTime();
+  const targetTime = new Date(`${tx.date}T${tTimeStr}:00`).getTime();
 
   if (isNaN(targetTime) || targetTime <= Date.now()) return;
 
   const formattedAmt = formatCurrency(tx.amount, tx.currency || baseCurrency);
   const title = '⏰ Scheduled Payment Due';
-  const body = `Your scheduled expense "${tx.note || 'Scheduled Expense'}" of ${formattedAmt} is due now!`;
+  const body = `"${tx.note || 'Scheduled Expense'}" of ${formattedAmt} is now due and has been logged.`;
+  const id = hashString(tx.id);
 
   try {
-    await createAndroidNotificationChannel();
-    const idHash = Math.abs(hashString(tx.id)) % 2147483647 || 1001;
-    await LocalNotifications.schedule({
-      notifications: [
-        {
-          title,
-          body,
-          id: idHash,
-          schedule: { at: new Date(targetTime) },
-          channelId: 'scheduled_payments',
-        },
-      ],
-    });
-    console.log(`Pre-scheduled native notification for ${tx.date} at ${tx.time}`);
+    await ScheduledNotification.scheduleNotification({ id, title, body, timestamp: targetTime });
+    console.log(`[Native] Scheduled alarm notification for ${tx.date} at ${tTimeStr}, id=${id}`);
   } catch (e) {
-    console.warn('Failed to pre-schedule native notification:', e);
+    console.warn('[Native] scheduleNotification failed:', e);
   }
 }
 
 /**
- * Triggers an immediate native Android/iOS system notification when a scheduled payment activates.
+ * Fires an immediate native Android notification when a scheduled payment activates.
  */
 export async function triggerScheduledPaymentNotification(tx: Transaction, baseCurrency: CurrencyCode) {
   const notifiedSet = getNotifiedTxIds();
-  if (notifiedSet.has(tx.id)) return; // Already notified
+  if (notifiedSet.has(tx.id)) return;
 
   markTxAsNotified(tx.id);
 
   const title = '⏰ Scheduled Payment Logged';
   const formattedAmt = formatCurrency(tx.amount, tx.currency || baseCurrency);
-  const body = `Your scheduled expense "${tx.note || 'Scheduled Expense'}" of ${formattedAmt} is now active and added to your total.`;
+  const body = `"${tx.note || 'Scheduled Expense'}" of ${formattedAmt} is now active and added to your total.`;
+  const id = hashString(tx.id);
 
-  // 1. Native Capacitor Local Notification
   try {
-    await createAndroidNotificationChannel();
-    const idHash = Math.abs(hashString(tx.id)) % 2147483647 || 1001;
-    await LocalNotifications.schedule({
-      notifications: [
-        {
-          title,
-          body,
-          id: idHash,
-          schedule: { at: new Date(Date.now() + 500) }, // Fire in 0.5 sec
-          channelId: 'scheduled_payments',
-        },
-      ],
-    });
-    console.log('Fired native Capacitor local notification for tx:', tx.id);
+    await ScheduledNotification.showNotification({ id, title, body });
+    console.log('[Native] Fired immediate notification for tx:', tx.id);
   } catch (e) {
-    console.warn('Capacitor LocalNotification failed, trying web fallback:', e);
-
-    // 2. Web Notification fallback
+    console.warn('[Native] showNotification failed, trying web fallback:', e);
+    // Web fallback
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-      try {
-        new Notification(title, {
-          body,
-          icon: '/favicon.ico',
-          tag: `tx-scheduled-${tx.id}`,
-        });
-      } catch (err) {
-        console.warn('Web notification error:', err);
-      }
+      try { new Notification(title, { body, icon: '/favicon.ico', tag: `tx-${tx.id}` }); } catch {}
     }
   }
 }
