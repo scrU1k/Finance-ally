@@ -3,8 +3,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { parseNaturalLanguageExpense, ParsedNaturalExpense } from '../../services/naturalLanguageParser';
 import { formatCurrency } from '../../services/currency';
 import { CustomDatePicker } from '../common/CustomDatePicker';
-import { CustomSelect } from '../common/CustomSelect';
-import { Sparkles, ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus, Edit2 } from 'lucide-react';
+import { Sparkles, ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus } from 'lucide-react';
 
 interface QuickLogBarProps {
   onLoggedSuccess?: () => void;
@@ -42,8 +41,6 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
     setInternalBatchDate(newDate);
     onBatchDateChange?.(newDate);
   };
-
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   // Proactive Budget Cap Interception State
   const [budgetWarning, setBudgetWarning] = useState<{
@@ -150,68 +147,41 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
   const paymentOptions = ['UPI', 'Credit Card', 'Debit Card', 'Cash', 'Net Banking'];
 
   return (
-    <div className="space-y-3">
-      {/* Primary Input Card */}
-      <div className="dotgui-card p-4 sm:p-5 space-y-3 bg-surface-card border border-hairline shadow-sm relative overflow-hidden">
+    <div className="space-y-3 dotgui-glass border border-hairline p-4 rounded-2xl shadow-lg bg-surface-card/90 backdrop-blur-xl">
 
-        {/* Active Multi-Log Mode Banner Header */}
-        {isMultiLogActive && (
-          <div className="flex items-center justify-between bg-brand-purple/10 border border-brand-purple/30 px-3.5 py-2 rounded-2xl animate-in fade-in duration-150">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-brand-purple" />
-              <span className="text-xs font-mono font-bold text-brand-purple uppercase tracking-wider">
-                Multi-Log Mode Active
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={onToggleMultiLog}
-              className="text-xs font-mono text-muted-custom hover:text-brand-coral cursor-pointer flex items-center gap-1 font-bold"
-              title="Exit Multi-Log mode"
-            >
-              <X className="w-3.5 h-3.5" /> Exit
-            </button>
-          </div>
-        )}
+      {/* Natural Language Prompt Input Bar - EXACTLY AS ORIGINALLY DESIGNED */}
+      <form onSubmit={handleParse} className="relative flex items-center gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={inputPrompt}
+            onChange={e => setInputPrompt(e.target.value)}
+            placeholder="Quick Log: 300Rs spent on Burger..."
+            className="w-full bg-surface-soft border border-hairline rounded-2xl pl-12 pr-4 py-3.5 text-sm sm:text-base font-sans-custom text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[54px]"
+          />
+          <Sparkles className="w-4 h-4 text-brand-yellow absolute left-4.5 top-1/2 -translate-y-1/2" />
+        </div>
 
-        {/* Natural Language Prompt Form */}
-        <form onSubmit={handleParse} className="space-y-2">
-          <div className="relative flex items-center">
-            <input
-              type="text"
-              value={inputPrompt}
-              onChange={e => setInputPrompt(e.target.value)}
-              placeholder={isMultiLogActive ? `Log expense for ${batchDate} (e.g., 300 for lunch)` : "Log expense (e.g. 500 for dinner at 8pm)..."}
-              className="w-full bg-surface-soft border border-hairline rounded-2xl pl-4 pr-12 py-3 text-xs sm:text-sm font-sans-custom text-ink focus:outline-none focus:border-brand-blue placeholder:text-muted-custom shadow-inner"
-            />
-            <button
-              type="submit"
-              disabled={!inputPrompt.trim()}
-              className="absolute right-2 p-2 rounded-xl bg-brand-blue text-white disabled:opacity-40 hover:opacity-90 transition-all cursor-pointer shadow-sm active:scale-95 flex items-center justify-center"
-              title="Identify expense"
-            >
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </form>
+        <button
+          type="submit"
+          disabled={!inputPrompt.trim()}
+          className="border-2 border-brand-blue text-brand-blue hover:bg-brand-blue/10 disabled:opacity-40 w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-lg active:scale-95 bg-surface-card"
+          title="Log Expense"
+        >
+          <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+        </button>
+      </form>
 
-        {/* Below Text Box: Multi-Log Date Selector Chip Button */}
-        {isMultiLogActive && (
-          <div className="flex items-center justify-between pt-1 animate-in fade-in duration-150">
-            <div className="relative">
-              <CustomDatePicker
-                value={batchDate}
-                onChange={val => setBatchDate(val)}
-                className="bg-brand-purple/10 border-brand-purple/40 text-brand-purple font-bold rounded-xl text-xs px-3 py-1.5 shadow-xs hover:border-brand-purple cursor-pointer"
-              />
-            </div>
-            <span className="text-[10px] font-mono text-muted-custom">
-              Expenses typed above will be saved for {batchDate}
-            </span>
-          </div>
-        )}
-
-      </div>
+      {/* Compact Date Field below Quick Log Text Box when Multi-Log is active */}
+      {isMultiLogActive && (
+        <div className="flex items-center pt-0.5 animate-in fade-in duration-150">
+          <CustomDatePicker
+            value={batchDate}
+            onChange={val => setBatchDate(val)}
+            className="bg-surface-soft border-brand-purple/50 text-brand-purple font-bold rounded-xl text-xs px-3 py-1 hover:border-brand-purple cursor-pointer shadow-2xs"
+          />
+        </div>
+      )}
 
       {/* Success Notification */}
       {isSuccess && (

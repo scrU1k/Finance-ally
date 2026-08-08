@@ -258,7 +258,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             title={isMultiLogActive ? "Click to exit Multi-Log mode" : "Click to select a date for Multi-Log session"}
           >
             <ListPlus className="w-3.5 h-3.5 text-brand-purple shrink-0" />
-            <span>{isMultiLogActive ? `Multi-Log: ${batchDate}` : 'Multi-Log'}</span>
+            <span>Multi-Log</span>
           </button>
 
           {/* 2. View Mode Switcher Chip Button (Cycles Compact -> List -> Grid -> Compact) */}
@@ -592,8 +592,8 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
               </button>
             </div>
 
-            <p className="text-xs font-mono text-muted-custom leading-relaxed">
-              Select the target date for your multi-log session. All quick logs typed during this session will be saved for this date.
+            <p className="text-xs font-mono font-semibold text-brand-purple leading-relaxed">
+              All expenses will be logged to the selected date
             </p>
 
             <div className="flex justify-center pt-2">
