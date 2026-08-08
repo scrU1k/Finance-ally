@@ -708,33 +708,26 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                 const isCollapsed = collapsedDates.has(group.date);
                 return (
                   <div key={group.date} className="space-y-2.5">
-                    {/* Collapsible Day Header */}
-                    <div
-                      onClick={() => toggleDateCollapse(group.date)}
-                      className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-surface-card/80 hover:bg-surface-card border border-hairline text-xs font-mono text-ink cursor-pointer transition-colors group shadow-sm"
-                      title={isCollapsed ? 'Click to expand logs for this day' : 'Click to collapse logs for this day'}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-brand-blue group-hover:scale-110 transition-transform shrink-0" />
+                    {/* Day Header with converted Daily Total (Exact Original Visual Style) */}
+                    <div className="flex items-center justify-between px-1 border-b border-hairline/60 pb-1.5 text-xs font-mono text-ink">
+                      <div
+                        onClick={() => toggleDateCollapse(group.date)}
+                        className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+                        title={isCollapsed ? 'Click to expand logs for this day' : 'Click to collapse logs for this day'}
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-muted-custom shrink-0" />
                         <span className="font-bold uppercase whitespace-nowrap">
                           {formatDayHeader(group.date)}
                         </span>
-                        <span className="text-[10px] text-muted-custom font-mono">
-                          ({group.transactions.length})
-                        </span>
+                        {isCollapsed && (
+                          <span className="text-[10px] text-muted-custom font-bold bg-surface-soft px-1.5 py-0.5 rounded-full border border-hairline">
+                            Collapsed
+                          </span>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-custom whitespace-nowrap">
-                          Spend: <span className="text-ink font-bold">{formatCurrency(group.dayTotal, baseCurrency)}</span>
-                        </span>
-                        <span className="text-muted-custom group-hover:text-ink transition-colors">
-                          {isCollapsed ? (
-                            <ChevronRight className="w-4 h-4" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4" />
-                          )}
-                        </span>
-                      </div>
+                      <span className="text-muted-custom whitespace-nowrap ml-2">
+                        Spend: <span className="text-ink font-bold">{formatCurrency(group.dayTotal, baseCurrency)}</span>
+                      </span>
                     </div>
 
                     {/* Day Transactions List (Hidden if collapsed) */}
@@ -857,11 +850,11 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                 >
                   <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow flex items-center justify-center font-mono font-bold text-sm shrink-0">
+                      <div className="px-2.5 py-1.5 rounded-2xl bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow flex items-center justify-center font-mono font-bold text-xs shrink-0 tracking-wider">
                         {y.yearKey}
                       </div>
                       <div>
-                        <h4 className="text-base font-display font-bold text-ink">{y.yearKey} Annual Summary</h4>
+                        <h4 className="text-base font-display font-bold text-ink">Annual Summary</h4>
                         <p className="text-xs font-mono text-muted-custom">{y.txCount} total logged expenses</p>
                       </div>
                     </div>
