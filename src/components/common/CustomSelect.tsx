@@ -51,7 +51,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     : 'bottom-full mb-1.5';
 
   return (
-    <div className={`relative ${className}`} ref={containerRef}>
+    <div className={`relative ${className} ${isOpen ? 'z-[90]' : 'z-10'}`} ref={containerRef}>
       {/* Select Trigger Button */}
       <button
         type="button"

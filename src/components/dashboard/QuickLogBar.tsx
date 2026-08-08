@@ -613,27 +613,23 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
                       <button
                         key={cat.id}
                         type="button"
-                        onClick={async () => {
-                          if (isOthers) {
-                            setShowCustomTagForm(true);
-                          } else {
-                            if (isTagPopupOpen && parsedExpense) {
-                              setParsedExpense({
-                                ...parsedExpense,
-                                categoryId: cat.id,
-                                categoryName: cat.name,
-                              });
-                              setIsTagPopupOpen(false);
-                            } else if (changingTagStagedId) {
-                              setStagedItems(prev =>
-                                prev.map(i =>
-                                  i.id === changingTagStagedId
-                                    ? { ...i, categoryId: cat.id, categoryName: cat.name }
-                                    : i
-                                )
-                              );
-                              setChangingTagStagedId(null);
-                            }
+                        onClick={() => {
+                          if (isTagPopupOpen && parsedExpense) {
+                            setParsedExpense({
+                              ...parsedExpense,
+                              categoryId: cat.id,
+                              categoryName: cat.name,
+                            });
+                            setIsTagPopupOpen(false);
+                          } else if (changingTagStagedId) {
+                            setStagedItems(prev =>
+                              prev.map(i =>
+                                i.id === changingTagStagedId
+                                  ? { ...i, categoryId: cat.id, categoryName: cat.name }
+                                  : i
+                              )
+                            );
+                            setChangingTagStagedId(null);
                           }
                         }}
                         className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-mono text-left transition-all cursor-pointer ${
@@ -650,9 +646,17 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
                           <span className="truncate">{cat.name}</span>
                         </div>
                         {isOthers && (
-                          <span className="text-[10px] font-mono font-semibold text-brand-purple bg-brand-purple/10 px-1.5 py-0.5 rounded shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowCustomTagForm(true);
+                            }}
+                            className="text-[10px] font-mono font-semibold text-brand-purple bg-brand-purple/10 hover:bg-brand-purple/20 px-1.5 py-0.5 rounded shrink-0 transition-colors cursor-pointer"
+                            title="Click to create a new custom tag"
+                          >
                             + Custom Tag
-                          </span>
+                          </button>
                         )}
                       </button>
                     );
