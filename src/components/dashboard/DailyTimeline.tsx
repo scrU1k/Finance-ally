@@ -47,8 +47,25 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
 
-  // Multi-Log batch session open state (chip lives in the toolbar, canvas in QuickLogBar)
-  const [isMultiLogOpen, setIsMultiLogOpen] = useState(false);
+  // Streamlined Multi-Log state (selecting a date fixes all subsequent quick logs to that date)
+  const [isMultiLogActive, setIsMultiLogActive] = useState(false);
+  const [batchDate, setBatchDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [showMultiLogDatePickerModal, setShowMultiLogDatePickerModal] = useState(false);
+
+  const handleToggleMultiLog = () => {
+    if (isMultiLogActive) {
+      setIsMultiLogActive(false);
+      setBatchDate(new Date().toISOString().split('T')[0]);
+    } else {
+      setShowMultiLogDatePickerModal(true);
+    }
+  };
+
+  const handleSelectMultiLogDate = (selectedDate: string) => {
+    setBatchDate(selectedDate);
+    setIsMultiLogActive(true);
+    setShowMultiLogDatePickerModal(false);
+  };
 
   // Persistent View Mode ('compact' | 'list' | 'grid')
   const [viewMode, setViewMode] = useState<TimelineViewMode>(() => {
@@ -201,8 +218,10 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
       
       {/* 1. Smart Natural Language Quick-Log Input Bar */}
       <QuickLogBar
-        isMultiLogOpen={isMultiLogOpen}
-        onToggleMultiLog={() => setIsMultiLogOpen(v => !v)}
+        isMultiLogActive={isMultiLogActive}
+        onToggleMultiLog={handleToggleMultiLog}
+        batchDate={batchDate}
+        onBatchDateChange={setBatchDate}
       />
 
       {/* 2. Controls Toolbar: Search & View Mode (Main Row) */}
@@ -230,16 +249,16 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
           {/* 1b. Multi-Log Chip Button */}
           <button
             type="button"
-            onClick={() => setIsMultiLogOpen(v => !v)}
+            onClick={handleToggleMultiLog}
             className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              isMultiLogOpen
+              isMultiLogActive
                 ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
             }`}
-            title="Log multiple expenses at once"
+            title={isMultiLogActive ? "Click to exit Multi-Log mode" : "Click to select a date for Multi-Log session"}
           >
             <ListPlus className="w-3.5 h-3.5 text-brand-purple shrink-0" />
-            <span>Multi-Log</span>
+            <span>{isMultiLogActive ? `Multi-Log: ${batchDate}` : 'Multi-Log'}</span>
           </button>
 
           {/* 2. View Mode Switcher Chip Button (Cycles Compact -> List -> Grid -> Compact) */}
@@ -545,6 +564,44 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
               >
                 Delete
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Multi-Log Date Selection Modal */}
+      {showMultiLogDatePickerModal && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150 cursor-pointer"
+          onClick={() => setShowMultiLogDatePickerModal(false)}
+        >
+          <div
+            className="bg-surface-card/90 backdrop-blur-2xl border border-hairline rounded-3xl p-6 shadow-2xl space-y-4 max-w-sm w-full cursor-default ring-1 ring-white/10 text-center animate-in zoom-in-95 duration-150"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-hairline pb-2.5">
+              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-brand-purple" /> Select Multi-Log Date
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowMultiLogDatePickerModal(false)}
+                className="p-1 text-muted-custom hover:text-ink cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs font-mono text-muted-custom leading-relaxed">
+              Select the target date for your multi-log session. All quick logs typed during this session will be saved for this date.
+            </p>
+
+            <div className="flex justify-center pt-2">
+              <CustomDatePicker
+                value={batchDate}
+                onChange={handleSelectMultiLogDate}
+                className="bg-surface-soft border-brand-purple/40 text-brand-purple font-bold rounded-xl text-sm px-4 py-2"
+              />
             </div>
           </div>
         </div>

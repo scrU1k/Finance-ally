@@ -4,21 +4,23 @@ import { parseNaturalLanguageExpense, ParsedNaturalExpense } from '../../service
 import { formatCurrency } from '../../services/currency';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { CustomSelect } from '../common/CustomSelect';
-import { Sparkles, ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus, Trash2, Edit2, ListPlus } from 'lucide-react';
+import { Sparkles, ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus, Edit2 } from 'lucide-react';
 
 interface QuickLogBarProps {
   onLoggedSuccess?: () => void;
-  isMultiLogOpen?: boolean;
+  isMultiLogActive?: boolean;
   onToggleMultiLog?: () => void;
+  batchDate?: string;
+  onBatchDateChange?: (date: string) => void;
 }
 
-export interface StagedLogItem extends ParsedNaturalExpense {
-  id: string;
-  rawPrompt: string;
-  paymentMethod: string;
-}
-
-export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMultiLogOpen: isMultiLogOpenProp, onToggleMultiLog }) => {
+export const QuickLogBar: React.FC<QuickLogBarProps> = ({
+  onLoggedSuccess,
+  isMultiLogActive = false,
+  onToggleMultiLog,
+  batchDate: batchDateProp,
+  onBatchDateChange,
+}) => {
   const { baseCurrency, addTransaction, categories, transactions, activeTripVault, addCategoryItem } = useFinance();
 
   const [inputPrompt, setInputPrompt] = useState('');
@@ -32,14 +34,16 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
   const [customTagName, setCustomTagName] = useState('');
   const [selectedCustomColor, setSelectedCustomColor] = useState('#EE5F1C');
 
-  // Multi-Log Batch State - isOpen is driven by parent toolbar via prop, with internal fallback
-  const [isMultiLogOpenInternal, setIsMultiLogOpenInternal] = useState(false);
-  const isMultiLogOpen = isMultiLogOpenProp !== undefined ? isMultiLogOpenProp : isMultiLogOpenInternal;
-  const [batchDate, setBatchDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [multiInputPrompt, setMultiInputPrompt] = useState('');
-  const [stagedItems, setStagedItems] = useState<StagedLogItem[]>([]);
-  const [editingStagedId, setEditingStagedId] = useState<string | null>(null);
-  const [changingTagStagedId, setChangingTagStagedId] = useState<string | null>(null);
+  // Internal Date State for Multi-Log mode
+  const [internalBatchDate, setInternalBatchDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const batchDate = batchDateProp !== undefined ? batchDateProp : internalBatchDate;
+
+  const setBatchDate = (newDate: string) => {
+    setInternalBatchDate(newDate);
+    onBatchDateChange?.(newDate);
+  };
+
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   // Proactive Budget Cap Interception State
   const [budgetWarning, setBudgetWarning] = useState<{
@@ -73,120 +77,14 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
     if (!inputPrompt.trim()) return;
 
     const parsed = parseNaturalLanguageExpense(inputPrompt, baseCurrency, categories);
+
+    // If Multi-Log mode is active, override parsed date with the selected batch date
+    if (isMultiLogActive && batchDate) {
+      parsed.date = batchDate;
+      parsed.dateLabel = batchDate;
+    }
+
     setParsedExpense(parsed);
-  };
-
-  // Multi-Log Handlers
-  const handleAddStagedItem = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!multiInputPrompt.trim()) return;
-
-    const parsed = parseNaturalLanguageExpense(multiInputPrompt, baseCurrency, categories);
-
-    if (editingStagedId) {
-      setStagedItems(prev =>
-        prev.map(item =>
-          item.id === editingStagedId
-            ? {
-                ...parsed,
-                id: editingStagedId,
-                rawPrompt: multiInputPrompt,
-                date: batchDate,
-                paymentMethod: item.paymentMethod || 'UPI',
-              }
-            : item
-        )
-      );
-      setEditingStagedId(null);
-    } else {
-      const newItem: StagedLogItem = {
-        ...parsed,
-        id: `staged-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        rawPrompt: multiInputPrompt,
-        date: batchDate,
-        paymentMethod: 'UPI',
-      };
-      setStagedItems(prev => [...prev, newItem]);
-    }
-
-    setMultiInputPrompt('');
-  };
-
-  const handleEditStagedItem = (id: string) => {
-    const item = stagedItems.find(i => i.id === id);
-    if (!item) return;
-    setMultiInputPrompt(item.rawPrompt);
-    setEditingStagedId(id);
-  };
-
-  const handleDeleteStagedItem = (id: string) => {
-    setStagedItems(prev => prev.filter(i => i.id !== id));
-    if (editingStagedId === id) {
-      setEditingStagedId(null);
-      setMultiInputPrompt('');
-    }
-  };
-
-  const handleSaveSingleStagedItem = async (id: string) => {
-    const item = stagedItems.find(i => i.id === id);
-    if (!item) return;
-
-    let targetCatId = item.categoryId;
-    if (item.isNewCustomTag || targetCatId.startsWith('cat-custom-')) {
-      targetCatId = await ensureCustomTagSaved(item.categoryName);
-    }
-
-    await addTransaction({
-      amount: item.amount,
-      currency: item.currency,
-      categoryId: targetCatId,
-      date: item.date,
-      time: item.time,
-      note: item.description,
-      paymentMethod: item.paymentMethod,
-      isAutoParsed: true,
-      confidenceScore: item.confidence,
-      tripId: activeTripVault?.id || undefined,
-    });
-
-    handleDeleteStagedItem(id);
-    setIsSuccess(true);
-    setTimeout(() => setIsSuccess(false), 1200);
-  };
-
-  const handleSaveAllStaged = async () => {
-    if (stagedItems.length === 0) return;
-
-    for (const item of stagedItems) {
-      let targetCatId = item.categoryId;
-      if (item.isNewCustomTag || targetCatId.startsWith('cat-custom-')) {
-        targetCatId = await ensureCustomTagSaved(item.categoryName);
-      }
-
-      await addTransaction({
-        amount: item.amount,
-        currency: item.currency,
-        categoryId: targetCatId,
-        date: item.date,
-        time: item.time,
-        note: item.description,
-        paymentMethod: item.paymentMethod,
-        isAutoParsed: true,
-        confidenceScore: item.confidence,
-        tripId: activeTripVault?.id || undefined,
-      });
-    }
-
-    setStagedItems([]);
-    setMultiInputPrompt('');
-    setEditingStagedId(null);
-    if (onToggleMultiLog) onToggleMultiLog(); // close via parent
-    else setIsMultiLogOpenInternal(false);
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
-      onLoggedSuccess?.();
-    }, 1200);
   };
 
   const checkBudgetAndLog = (selectedPayment?: string) => {
@@ -196,7 +94,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
     const targetCat = categories.find(c => c.id === parsedExpense.categoryId);
 
     if (targetCat && targetCat.budgetLimit && targetCat.budgetLimit > 0) {
-      const currentMonthKey = new Date().toISOString().substring(0, 7);
+      const currentMonthKey = parsedExpense.date.substring(0, 7);
       const currentSpent = transactions
         .filter(t => t.categoryId === targetCat.id && t.date.startsWith(currentMonthKey))
         .reduce((sum, t) => sum + t.amount, 0);
@@ -246,195 +144,80 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
       setParsedExpense(null);
       setInputPrompt('');
       onLoggedSuccess?.();
-    }, 1200);
+    }, 1000);
   };
 
   const paymentOptions = ['UPI', 'Credit Card', 'Debit Card', 'Cash', 'Net Banking'];
 
   return (
-    <div className="space-y-3 dotgui-glass border border-hairline p-4 rounded-2xl shadow-lg bg-surface-card/90 backdrop-blur-xl">
-      
-      {/* Natural Language Prompt Input Bar */}
-      <form onSubmit={handleParse} className="relative flex items-center gap-2">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={inputPrompt}
-            onChange={e => setInputPrompt(e.target.value)}
-            placeholder="Quick Log: 300Rs spent on Burger..."
-            className="w-full bg-surface-soft border border-hairline rounded-2xl pl-12 pr-4 py-3.5 text-sm sm:text-base font-sans-custom text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[54px]"
-          />
-          <Sparkles className="w-4 h-4 text-brand-yellow absolute left-4.5 top-1/2 -translate-y-1/2" />
-        </div>
+    <div className="space-y-3">
+      {/* Primary Input Card */}
+      <div className="dotgui-card p-4 sm:p-5 space-y-3 bg-surface-card border border-hairline shadow-sm relative overflow-hidden">
 
-        <button
-          type="submit"
-          disabled={!inputPrompt.trim()}
-          className="border-2 border-brand-blue text-brand-blue hover:bg-brand-blue/10 disabled:opacity-40 w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-lg active:scale-95 bg-surface-card"
-          title="Log Expense"
-        >
-          <ArrowRight className="w-5 h-5 stroke-[2.5]" />
-        </button>
-      </form>
-
-
-
-      {/* EXPANDABLE MULTI-LOG BATCH CANVAS DRAWER - controlled by parent toolbar */}
-      {(isMultiLogOpen ?? false) && (
-        <div className="bg-surface-soft border border-hairline p-4 rounded-xl space-y-4 animate-in fade-in zoom-in-95 duration-150 relative shadow-inner">
-          
-          {/* Header & Date Selector: Two-Line Layout */}
-          <div className="space-y-2 border-b border-hairline pb-3">
-            {/* Line 1: Title (One-line on top, no wrapping, no truncation) */}
-            <div className="overflow-x-auto no-scrollbar">
-              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5 whitespace-nowrap">
-                <ListPlus className="w-4 h-4 text-brand-purple shrink-0" />
-                <span>Multi-Log Batch Session</span>
+        {/* Active Multi-Log Mode Banner Header */}
+        {isMultiLogActive && (
+          <div className="flex items-center justify-between bg-brand-purple/10 border border-brand-purple/30 px-3.5 py-2 rounded-2xl animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-brand-purple" />
+              <span className="text-xs font-mono font-bold text-brand-purple uppercase tracking-wider">
+                Multi-Log Mode Active
               </span>
             </div>
-
-            {/* Line 2: Set Date */}
-            <div className="flex items-center gap-2 pt-0.5">
-              <span className="text-xs font-mono text-muted-custom shrink-0 font-semibold">Set Date:</span>
-              <CustomDatePicker
-                value={batchDate}
-                onChange={val => {
-                  setBatchDate(val);
-                  setStagedItems(prev => prev.map(item => ({ ...item, date: val })));
-                }}
-              />
-            </div>
+            <button
+              type="button"
+              onClick={onToggleMultiLog}
+              className="text-xs font-mono text-muted-custom hover:text-brand-coral cursor-pointer flex items-center gap-1 font-bold"
+              title="Exit Multi-Log mode"
+            >
+              <X className="w-3.5 h-3.5" /> Exit
+            </button>
           </div>
+        )}
 
-          {/* Input Row */}
-          <form onSubmit={handleAddStagedItem} className="flex items-center gap-2">
+        {/* Natural Language Prompt Form */}
+        <form onSubmit={handleParse} className="space-y-2">
+          <div className="relative flex items-center">
             <input
               type="text"
-              value={multiInputPrompt}
-              onChange={e => setMultiInputPrompt(e.target.value)}
-              placeholder="e.g. 450 cab to airport at 8pm"
-              className="flex-1 bg-surface-card border border-hairline rounded-xl px-3.5 py-2 text-xs sm:text-sm font-sans-custom text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom"
+              value={inputPrompt}
+              onChange={e => setInputPrompt(e.target.value)}
+              placeholder={isMultiLogActive ? `Log expense for ${batchDate} (e.g., 300 for lunch)` : "Log expense (e.g. 500 for dinner at 8pm)..."}
+              className="w-full bg-surface-soft border border-hairline rounded-2xl pl-4 pr-12 py-3 text-xs sm:text-sm font-sans-custom text-ink focus:outline-none focus:border-brand-blue placeholder:text-muted-custom shadow-inner"
             />
             <button
               type="submit"
-              disabled={!multiInputPrompt.trim()}
-              className="w-9 h-9 rounded-xl border border-brand-blue text-brand-blue hover:bg-brand-blue/10 disabled:opacity-40 transition-all cursor-pointer shadow-sm flex items-center justify-center shrink-0 bg-surface-card"
-              title={editingStagedId ? 'Update item' : 'Add item'}
+              disabled={!inputPrompt.trim()}
+              className="absolute right-2 p-2 rounded-xl bg-brand-blue text-white disabled:opacity-40 hover:opacity-90 transition-all cursor-pointer shadow-sm active:scale-95 flex items-center justify-center"
+              title="Identify expense"
             >
-              <Plus className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4" />
             </button>
-          </form>
+          </div>
+        </form>
 
-          {/* Staged Items List */}
-          {stagedItems.length > 0 && (
-            <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-              {stagedItems.map((item) => {
-                const catObj = categories.find(c => c.id === item.categoryId);
-                const catColor = catObj?.color || '#8B5CF6';
-
-                return (
-                  <div
-                    key={item.id}
-                    className="bg-surface-card border border-hairline p-3 rounded-xl space-y-2 text-xs font-mono"
-                  >
-                    {/* Line 1: Name (Left, truncated) & Amount (Right, no wrap) */}
-                    <div className="flex items-center justify-between gap-2 min-w-0">
-                      <span className="font-bold text-ink truncate text-sm flex-1 min-w-0">
-                        {item.description}
-                      </span>
-                      <span className="font-bold text-brand-mint text-sm shrink-0 whitespace-nowrap">
-                        {formatCurrency(item.amount, item.currency)}
-                      </span>
-                    </div>
-
-                    {/* Line 2: Time (Left) & Category Tag (Right) */}
-                    <div className="flex items-center justify-between gap-2 min-w-0">
-                      <span className="text-muted-custom text-xs font-mono shrink-0">
-                        {item.time}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setChangingTagStagedId(item.id)}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded-lg font-bold shrink-0 flex items-center gap-1 hover:opacity-80 active:scale-95 transition-all cursor-pointer shadow-2xs"
-                        style={{ backgroundColor: `${catColor}18`, color: catColor, border: `1px solid ${catColor}40` }}
-                        title="Click to change category tag"
-                      >
-                        <Tag className="w-3 h-3" />
-                        <span>{item.categoryName}</span>
-                      </button>
-                    </div>
-
-                    {/* Line 3: Compact Payment Dropdown (Left) & Segmented Icon Action Pill (Right) */}
-                    <div className="flex items-center justify-between gap-2 min-w-0 pt-0.5">
-                      <div className="w-28 shrink-0">
-                        <CustomSelect
-                          options={paymentOptions.map(p => ({ value: p, label: p }))}
-                          value={item.paymentMethod}
-                          onChange={val => {
-                            setStagedItems(prev =>
-                              prev.map(i => i.id === item.id ? { ...i, paymentMethod: val } : i)
-                            );
-                          }}
-                          direction="up"
-                        />
-                      </div>
-
-                      {/* Single segmented pill parted by vertical lines for enlarged action icons */}
-                      <div className="border border-hairline bg-surface-soft rounded-xl flex items-center divide-x divide-hairline overflow-hidden shrink-0 shadow-sm">
-                        <button
-                          type="button"
-                          onClick={() => handleSaveSingleStagedItem(item.id)}
-                          className="px-3 py-2 hover:bg-brand-mint/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center min-w-[40px] min-h-[38px]"
-                          title="Save expense"
-                        >
-                          <Check className="w-4.5 h-4.5 text-brand-mint stroke-[2.5]" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleEditStagedItem(item.id)}
-                          className="px-3 py-2 hover:bg-brand-blue/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center min-w-[40px] min-h-[38px]"
-                          title="Edit expense"
-                        >
-                          <Edit2 className="w-4.5 h-4.5 text-brand-blue stroke-[2.2]" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteStagedItem(item.id)}
-                          className="px-3 py-2 hover:bg-brand-coral/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center min-w-[40px] min-h-[38px]"
-                          title="Delete expense"
-                        >
-                          <Trash2 className="w-4.5 h-4.5 text-brand-coral stroke-[2.2]" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+        {/* Below Text Box: Multi-Log Date Selector Chip Button */}
+        {isMultiLogActive && (
+          <div className="flex items-center justify-between pt-1 animate-in fade-in duration-150">
+            <div className="relative">
+              <CustomDatePicker
+                value={batchDate}
+                onChange={val => setBatchDate(val)}
+                className="bg-brand-purple/10 border-brand-purple/40 text-brand-purple font-bold rounded-xl text-xs px-3 py-1.5 shadow-xs hover:border-brand-purple cursor-pointer"
+              />
             </div>
-          )}
+            <span className="text-[10px] font-mono text-muted-custom">
+              Expenses typed above will be saved for {batchDate}
+            </span>
+          </div>
+        )}
 
-          {/* Save All Button */}
-          {stagedItems.length > 0 && (
-            <div className="pt-2 border-t border-hairline flex justify-end">
-              <button
-                type="button"
-                onClick={handleSaveAllStaged}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-brand-mint text-brand-mint hover:bg-surface-card text-xs font-mono font-bold transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2 active:scale-95"
-              >
-                <Check className="w-4 h-4" />
-                <span>Save All</span>
-              </button>
-            </div>
-          )}
-
-        </div>
-      )}
+      </div>
 
       {/* Success Notification */}
       {isSuccess && (
         <div className="flex items-center gap-2 text-xs font-mono text-brand-mint font-bold bg-surface-soft p-3 rounded-xl border border-brand-mint/30 animate-in fade-in duration-150">
           <Check className="w-4 h-4" />
-          <span>Expense Recorded Successfully!</span>
+          <span>Expense Recorded for {parsedExpense?.date || batchDate}!</span>
         </div>
       )}
 
@@ -565,30 +348,29 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
               <button
                 type="button"
                 onClick={() => handleConfirmLog(budgetWarning.pendingMethod)}
-                className="flex-1 py-2 rounded-xl border border-brand-coral text-brand-coral hover:bg-brand-coral/10 text-xs font-mono font-bold cursor-pointer shadow-sm"
+                className="flex-1 py-2 rounded-xl bg-brand-coral text-white font-mono text-xs font-bold hover:bg-brand-coral/90 transition-all cursor-pointer shadow-md"
               >
-                Proceed & Log
+                Log Anyway
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Centered Glassmorphic Category Tag Selection Popup */}
-      {(isTagPopupOpen || changingTagStagedId) && (
+      {/* CATEGORY TAG SELECTION MODAL */}
+      {isTagPopupOpen && parsedExpense && (
         <div
-          className="fixed inset-0 z-[85] bg-canvas/60 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer animate-in fade-in duration-150"
           onClick={() => {
             setIsTagPopupOpen(false);
-            setChangingTagStagedId(null);
             setShowCustomTagForm(false);
           }}
         >
           <div
-            className="dotgui-glass border border-hairline rounded-2xl shadow-2xl p-5 space-y-4 bg-surface-card/95 backdrop-blur-xl w-80 max-w-[94vw] animate-in zoom-in-95 duration-150"
+            className="max-w-md w-full bg-surface-card/90 backdrop-blur-2xl border border-hairline rounded-3xl p-5 shadow-2xl space-y-4 cursor-default relative ring-1 ring-white/10 max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-150"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-hairline pb-2">
+            <div className="flex items-center justify-between border-b border-hairline pb-3">
               <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5 text-brand-purple" /> Select Category Tag
               </span>
@@ -596,7 +378,6 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
                 type="button"
                 onClick={() => {
                   setIsTagPopupOpen(false);
-                  setChangingTagStagedId(null);
                   setShowCustomTagForm(false);
                 }}
                 className="p-1 text-muted-custom hover:text-ink cursor-pointer"
@@ -605,144 +386,109 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
               </button>
             </div>
 
+            {/* Category Tag Grid */}
+            <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1 no-scrollbar">
+              {categories.map(cat => {
+                const isSelected = parsedExpense.categoryId === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      setParsedExpense({
+                        ...parsedExpense,
+                        categoryId: cat.id,
+                        categoryName: cat.name,
+                        isNewCustomTag: false,
+                      });
+                      setIsTagPopupOpen(false);
+                      setShowCustomTagForm(false);
+                    }}
+                    className={`p-2.5 rounded-xl border text-left text-xs font-mono flex items-center gap-2 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-brand-purple bg-surface-soft font-bold text-ink shadow-sm'
+                        : 'border-hairline bg-surface-card text-body-custom hover:border-ink'
+                    }`}
+                  >
+                    <span
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    <span className="truncate">{cat.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Category Button */}
             {!showCustomTagForm ? (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 gap-1.5 max-h-60 overflow-y-auto pr-1 no-scrollbar">
-                  {categories.map(cat => {
-                    const currentCatId = isTagPopupOpen ? parsedExpense?.categoryId : stagedItems.find(i => i.id === changingTagStagedId)?.categoryId;
-                    const isSelected = currentCatId === cat.id;
-                    const isOthers = cat.id === 'cat-others' || cat.name.toLowerCase() === 'others';
-
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => {
-                          if (isTagPopupOpen && parsedExpense) {
-                            setParsedExpense({
-                              ...parsedExpense,
-                              categoryId: cat.id,
-                              categoryName: cat.name,
-                            });
-                            setIsTagPopupOpen(false);
-                          } else if (changingTagStagedId) {
-                            setStagedItems(prev =>
-                              prev.map(i =>
-                                i.id === changingTagStagedId
-                                  ? { ...i, categoryId: cat.id, categoryName: cat.name }
-                                  : i
-                              )
-                            );
-                            setChangingTagStagedId(null);
-                          }
-                        }}
-                        className={`w-full flex items-center justify-between p-2 rounded-xl border text-xs font-mono text-left transition-all cursor-pointer ${
-                          isSelected
-                            ? 'border-ink text-ink font-bold bg-surface-soft'
-                            : 'border-hairline bg-surface-card text-body-custom hover:border-ink'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <span
-                            className="w-3.5 h-3.5 rounded-full shrink-0"
-                            style={{ backgroundColor: cat.color }}
-                          />
-                          <span className="truncate">{cat.name}</span>
-                        </div>
-                        {isOthers && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowCustomTagForm(true);
-                            }}
-                            className="text-[10px] font-mono font-semibold text-brand-purple bg-brand-purple/10 hover:bg-brand-purple/20 px-1.5 py-0.5 rounded shrink-0 transition-colors cursor-pointer"
-                            title="Click to create a new custom tag"
-                          >
-                            + Custom Tag
-                          </button>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowCustomTagForm(true)}
-                  className="w-full py-2 rounded-xl border border-dashed border-brand-purple/60 text-brand-purple hover:bg-brand-purple/10 text-xs font-mono font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Create Custom Tag</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowCustomTagForm(true)}
+                className="w-full py-2 rounded-xl border border-dashed border-brand-purple/50 text-brand-purple hover:bg-brand-purple/10 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Create Custom Tag</span>
+              </button>
             ) : (
-              <div className="space-y-3 pt-1 animate-in fade-in duration-150">
+              <div className="space-y-3 p-3 bg-surface-soft rounded-2xl border border-hairline animate-in fade-in duration-150">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Custom Tag Name:</label>
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Custom Tag Name</label>
                   <input
                     type="text"
                     value={customTagName}
                     onChange={e => setCustomTagName(e.target.value)}
-                    placeholder="e.g. Flower, Gaming, Books"
-                    className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-brand-purple"
-                    autoFocus
+                    placeholder="e.g. Flowers, Gaming, Books"
+                    className="w-full bg-surface-card border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink focus:outline-none focus:border-brand-purple"
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Pick Tag Color:</label>
-                  <div className="flex flex-wrap gap-2">
-                    {COLOR_PALETTE.map(c => (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Choose Color</label>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {COLOR_PALETTE.map(color => (
                       <button
-                        key={c}
+                        key={color}
                         type="button"
-                        onClick={() => setSelectedCustomColor(c)}
-                        className={`w-6 h-6 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                          selectedCustomColor === c ? 'ring-2 ring-ink scale-110' : 'hover:scale-105'
+                        onClick={() => setSelectedCustomColor(color)}
+                        className={`w-6 h-6 rounded-full transition-transform cursor-pointer ${
+                          selectedCustomColor === color ? 'scale-125 ring-2 ring-white shadow-md' : 'hover:scale-110'
                         }`}
-                        style={{ backgroundColor: c }}
-                      >
-                        {selectedCustomColor === c && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-                      </button>
+                        style={{ backgroundColor: color }}
+                      />
                     ))}
                   </div>
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex items-center gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => setShowCustomTagForm(false)}
-                    className="flex-1 py-2 rounded-xl border border-hairline text-muted-custom text-xs font-mono font-bold hover:border-ink cursor-pointer"
+                    className="flex-1 py-1.5 rounded-xl border border-hairline text-muted-custom text-xs font-mono font-bold"
                   >
-                    Back
+                    Cancel
                   </button>
                   <button
                     type="button"
-                    disabled={!customTagName.trim()}
-                    onClick={async () => {
+                    onClick={() => {
                       if (!customTagName.trim()) return;
-                      const newCatId = await ensureCustomTagSaved(customTagName.trim());
-                      const name = customTagName.trim();
-                      if (isTagPopupOpen && parsedExpense) {
-                        setParsedExpense({ ...parsedExpense, categoryId: newCatId, categoryName: name });
-                        setIsTagPopupOpen(false);
-                      } else if (changingTagStagedId) {
-                        setStagedItems(prev =>
-                          prev.map(i => i.id === changingTagStagedId ? { ...i, categoryId: newCatId, categoryName: name } : i)
-                        );
-                        setChangingTagStagedId(null);
-                      }
-                      setCustomTagName('');
+                      setParsedExpense({
+                        ...parsedExpense,
+                        categoryId: 'cat-custom-temp',
+                        categoryName: customTagName.trim(),
+                        isNewCustomTag: true,
+                      });
+                      setIsTagPopupOpen(false);
                       setShowCustomTagForm(false);
                     }}
-                    className="flex-1 py-2 rounded-xl border border-brand-mint text-brand-mint hover:bg-brand-mint/10 text-xs font-mono font-bold transition-all cursor-pointer shadow-sm disabled:opacity-40"
+                    className="flex-1 py-1.5 rounded-xl bg-brand-purple text-white font-mono text-xs font-bold shadow-md hover:bg-brand-purple/90"
                   >
-                    Save & Apply
+                    Use Custom Tag
                   </button>
                 </div>
               </div>
             )}
+
           </div>
         </div>
       )}
