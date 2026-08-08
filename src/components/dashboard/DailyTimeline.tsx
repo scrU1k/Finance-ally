@@ -6,7 +6,7 @@ import { TransactionDetailModal } from './TransactionDetailModal';
 import { LiveSpendChart } from './LiveSpendChart';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { QuickLogBar } from './QuickLogBar';
-import { Search, Sparkles, Calendar, Tag, X, CheckSquare, Edit2, Trash2, LayoutGrid, List, Grid } from 'lucide-react';
+import { Search, Sparkles, Calendar, Tag, X, CheckSquare, Edit2, Trash2, LayoutGrid, List, Grid, ListPlus } from 'lucide-react';
 import { BulkEditModal } from './BulkEditModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 
@@ -46,6 +46,9 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+
+  // Multi-Log batch session open state (chip lives in the toolbar, canvas in QuickLogBar)
+  const [isMultiLogOpen, setIsMultiLogOpen] = useState(false);
 
   // Persistent View Mode ('compact' | 'list' | 'grid')
   const [viewMode, setViewMode] = useState<TimelineViewMode>(() => {
@@ -191,7 +194,10 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
     <div className="space-y-6 pb-24">
       
       {/* 1. Smart Natural Language Quick-Log Input Bar */}
-      <QuickLogBar />
+      <QuickLogBar
+        isMultiLogOpen={isMultiLogOpen}
+        onToggleMultiLog={() => setIsMultiLogOpen(v => !v)}
+      />
 
       {/* 2. Controls Toolbar: Search & View Mode (Main Row) */}
       <div className="space-y-3">
@@ -213,6 +219,21 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             {(searchQuery || selectedCatFilter !== 'all') && (
               <span className="w-2 h-2 rounded-full bg-brand-blue animate-pulse" />
             )}
+          </button>
+
+          {/* 1b. Multi-Log Chip Button */}
+          <button
+            type="button"
+            onClick={() => setIsMultiLogOpen(v => !v)}
+            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              isMultiLogOpen
+                ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
+                : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+            }`}
+            title="Log multiple expenses at once"
+          >
+            <ListPlus className="w-3.5 h-3.5 text-brand-purple shrink-0" />
+            <span>Multi-Log</span>
           </button>
 
           {/* 2. View Mode Switcher Chip Button (Cycles Compact -> List -> Grid -> Compact) */}

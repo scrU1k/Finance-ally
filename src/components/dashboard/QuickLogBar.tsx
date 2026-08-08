@@ -3,10 +3,13 @@ import { useFinance } from '../../context/FinanceContext';
 import { parseNaturalLanguageExpense, ParsedNaturalExpense } from '../../services/naturalLanguageParser';
 import { formatCurrency } from '../../services/currency';
 import { CustomDatePicker } from '../common/CustomDatePicker';
-import { Sparkles, ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus, Trash2, Edit2, Layers, ListPlus } from 'lucide-react';
+import { CustomSelect } from '../common/CustomSelect';
+import { Sparkles, ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus, Trash2, Edit2, ListPlus } from 'lucide-react';
 
 interface QuickLogBarProps {
   onLoggedSuccess?: () => void;
+  isMultiLogOpen?: boolean;
+  onToggleMultiLog?: () => void;
 }
 
 export interface StagedLogItem extends ParsedNaturalExpense {
@@ -15,7 +18,7 @@ export interface StagedLogItem extends ParsedNaturalExpense {
   paymentMethod: string;
 }
 
-export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => {
+export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMultiLogOpen: isMultiLogOpenProp, onToggleMultiLog }) => {
   const { baseCurrency, addTransaction, categories, transactions, activeTripVault } = useFinance();
 
   const [inputPrompt, setInputPrompt] = useState('');
@@ -24,8 +27,9 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
   const [isSuccess, setIsSuccess] = useState(false);
   const [isTagPopupOpen, setIsTagPopupOpen] = useState(false);
 
-  // Multi-Log Batch State
-  const [isMultiLogOpen, setIsMultiLogOpen] = useState(false);
+  // Multi-Log Batch State - isOpen is driven by parent toolbar via prop, with internal fallback
+  const [isMultiLogOpenInternal, setIsMultiLogOpenInternal] = useState(false);
+  const isMultiLogOpen = isMultiLogOpenProp !== undefined ? isMultiLogOpenProp : isMultiLogOpenInternal;
   const [batchDate, setBatchDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [multiInputPrompt, setMultiInputPrompt] = useState('');
   const [stagedItems, setStagedItems] = useState<StagedLogItem[]>([]);
@@ -142,7 +146,8 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
     setStagedItems([]);
     setMultiInputPrompt('');
     setEditingStagedId(null);
-    setIsMultiLogOpen(false);
+    if (onToggleMultiLog) onToggleMultiLog(); // close via parent
+    else setIsMultiLogOpenInternal(false);
     setIsSuccess(true);
     setTimeout(() => {
       setIsSuccess(false);
@@ -233,42 +238,17 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
         </button>
       </form>
 
-      {/* Multi-Log Toggle Chip Button */}
-      <div className="flex items-center justify-between pt-0.5">
-        <button
-          type="button"
-          onClick={() => setIsMultiLogOpen(!isMultiLogOpen)}
-          className={`px-3 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-            isMultiLogOpen || stagedItems.length > 0
-              ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
-              : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
-          }`}
-          title="Log multiple expenses for a single date"
-        >
-          <ListPlus className="w-3.5 h-3.5 text-brand-purple shrink-0" />
-          <span>Multi-Log</span>
-          {stagedItems.length > 0 && (
-            <span className="bg-brand-purple text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
-              {stagedItems.length}
-            </span>
-          )}
-        </button>
-      </div>
 
-      {/* EXPANDABLE MULTI-LOG BATCH CANVAS DRAWER */}
-      {isMultiLogOpen && (
+
+      {/* EXPANDABLE MULTI-LOG BATCH CANVAS DRAWER - controlled by parent toolbar */}
+      {(isMultiLogOpen ?? false) && (
         <div className="bg-surface-soft border border-hairline p-4 rounded-xl space-y-4 animate-in fade-in zoom-in-95 duration-150 relative shadow-inner">
           
           {/* Header & Date Selector */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline pb-3">
-            <div className="space-y-0.5">
-              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-                <ListPlus className="w-4 h-4 text-brand-purple" /> Multi-Log Batch Session
-              </span>
-              <p className="text-[11px] font-mono text-muted-custom">
-                Set date once, add entries, edit/delete staged items, and click Save All.
-              </p>
-            </div>
+          <div className="flex items-center justify-between gap-3 border-b border-hairline pb-3">
+            <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+              <ListPlus className="w-4 h-4 text-brand-purple" /> Multi-Log Batch Session
+            </span>
 
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs font-mono text-muted-custom shrink-0 font-semibold">Date:</span>
@@ -294,10 +274,10 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
             <button
               type="submit"
               disabled={!multiInputPrompt.trim()}
-              className="px-3.5 py-2 rounded-xl border border-brand-blue text-brand-blue hover:bg-brand-blue/10 disabled:opacity-40 text-xs font-mono font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1 shrink-0 bg-surface-card"
+              className="w-9 h-9 rounded-xl border border-brand-blue text-brand-blue hover:bg-brand-blue/10 disabled:opacity-40 transition-all cursor-pointer shadow-sm flex items-center justify-center shrink-0 bg-surface-card"
+              title={editingStagedId ? 'Update item' : 'Add item'}
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>{editingStagedId ? 'Update' : 'Add'}</span>
+              <Plus className="w-4 h-4" />
             </button>
           </form>
 
@@ -308,70 +288,68 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
                 const catObj = categories.find(c => c.id === item.categoryId);
                 const catColor = catObj?.color || '#8B5CF6';
 
+                const paymentSelectOptions = paymentOptions.map(p => ({ value: p, label: p }));
+
                 return (
                   <div
                     key={item.id}
-                    className="bg-surface-card border border-hairline p-3 rounded-xl flex items-center justify-between gap-3 text-xs font-mono"
+                    className="bg-surface-card border border-hairline p-3 rounded-xl space-y-2 text-xs font-mono"
                   >
-                    <div className="space-y-1 min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-ink truncate">{item.description}</span>
-                        <span
-                          className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium shrink-0"
-                          style={{ backgroundColor: `${catColor}15`, color: catColor, border: `1px solid ${catColor}30` }}
-                        >
-                          {item.categoryName}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] text-muted-custom">
-                        <span className="font-bold text-ink">{formatCurrency(item.amount, item.currency)}</span>
-                        <span>•</span>
-                        <span>{item.time}</span>
-                        <span>•</span>
-                        {/* Payment Method selector pill per staged item */}
-                        <select
+                    {/* Row 1: Name + Category tag */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-bold text-ink truncate flex-1">{item.description}</span>
+                      <span
+                        className="text-[9px] font-mono px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                        style={{ backgroundColor: `${catColor}15`, color: catColor, border: `1px solid ${catColor}30` }}
+                      >
+                        {item.categoryName}
+                      </span>
+                    </div>
+
+                    {/* Row 2: Amount, time, payment selector + action buttons */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-bold text-ink shrink-0">{formatCurrency(item.amount, item.currency)}</span>
+                      <span className="text-muted-custom shrink-0">•</span>
+                      <span className="text-muted-custom shrink-0">{item.time}</span>
+                      <span className="text-muted-custom shrink-0">•</span>
+                      <div className="flex-1 min-w-0">
+                        <CustomSelect
+                          options={paymentSelectOptions}
                           value={item.paymentMethod}
-                          onChange={e => {
-                            const val = e.target.value;
+                          onChange={val => {
                             setStagedItems(prev =>
                               prev.map(i => i.id === item.id ? { ...i, paymentMethod: val } : i)
                             );
                           }}
-                          className="bg-surface-soft border border-hairline rounded px-1 py-0.5 text-[10px] text-ink font-mono font-semibold focus:outline-none cursor-pointer"
-                        >
-                          {paymentOptions.map(p => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
+                          direction="up"
+                        />
                       </div>
-                    </div>
-
-                    {/* Staged Item Controls: Save, Edit, Delete */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleSaveSingleStagedItem(item.id)}
-                        className="p-1.5 rounded-lg border border-hairline hover:border-brand-mint text-brand-mint hover:bg-surface-soft transition-colors cursor-pointer"
-                        title="Save single item"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleEditStagedItem(item.id)}
-                        className="p-1.5 rounded-lg border border-hairline hover:border-brand-blue text-brand-blue hover:bg-surface-soft transition-colors cursor-pointer"
-                        title="Edit item prompt"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteStagedItem(item.id)}
-                        className="p-1.5 rounded-lg border border-hairline hover:border-brand-coral text-brand-coral hover:bg-surface-soft transition-colors cursor-pointer"
-                        title="Delete item"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSingleStagedItem(item.id)}
+                          className="p-1.5 rounded-lg border border-hairline hover:border-brand-mint text-brand-mint hover:bg-surface-soft transition-colors cursor-pointer"
+                          title="Save"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEditStagedItem(item.id)}
+                          className="p-1.5 rounded-lg border border-hairline hover:border-brand-blue text-brand-blue hover:bg-surface-soft transition-colors cursor-pointer"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteStagedItem(item.id)}
+                          className="p-1.5 rounded-lg border border-hairline hover:border-brand-coral text-brand-coral hover:bg-surface-soft transition-colors cursor-pointer"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
