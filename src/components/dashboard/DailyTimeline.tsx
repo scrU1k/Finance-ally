@@ -725,7 +725,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                         {isCollapsed ? (
                           <ChevronDown className="w-3.5 h-3.5 text-muted-custom shrink-0" />
                         ) : (
-                          <Calendar className="w-3.5 h-3.5 text-muted-custom shrink-0" />
+                          <Calendar className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400 shrink-0" />
                         )}
                         <span className="font-bold uppercase whitespace-nowrap">
                           {formatDayHeader(group.date)}
