@@ -342,20 +342,23 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
 
               {/* Transactions List */}
               <div className="space-y-2">
-                {group.transactions.map(tx => (
-                  <TransactionCard
-                    key={tx.id}
-                    transaction={tx}
-                    categories={categories}
-                    trips={trips}
-                    onSelect={t => setSelectedTxDetail(t)}
-                    onEdit={t => onEditTransaction(t)}
-                    onDelete={id => deleteTx(id)}
-                    isSelectMode={isSelectMode}
-                    isSelected={selectedTxIds.includes(tx.id)}
-                    onToggleSelect={handleToggleSelect}
-                  />
-                ))}
+                {group.transactions.map(tx => {
+                  const isSelected = selectedTxIds.includes(tx.id);
+                  return (
+                    <TransactionCard
+                      key={tx.id}
+                      transaction={tx}
+                      categories={categories}
+                      trips={trips}
+                      onSelect={t => setSelectedTxDetail(t)}
+                      onEdit={t => onEditTransaction(t)}
+                      onDelete={id => deleteTx(id)}
+                      isSelectMode={isSelectMode}
+                      isSelected={isSelected}
+                      onToggleSelect={handleToggleSelect}
+                    />
+                  );
+                })}
               </div>
 
             </div>

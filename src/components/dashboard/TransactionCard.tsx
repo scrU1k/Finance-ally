@@ -163,8 +163,13 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      style={{
+        borderColor: isSelected ? 'var(--brand-blue)' : undefined,
+        boxShadow: isSelected ? '0 0 0 2px var(--brand-blue), 0 8px 20px -4px rgba(0, 0, 0, 0.3)' : undefined,
+        backgroundColor: isSelected ? 'rgba(45, 212, 191, 0.12)' : undefined,
+      }}
       className={`dotgui-card p-4 flex items-center justify-between gap-3 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${
-        isSelected ? 'border-brand-blue ring-2 ring-brand-blue/40 bg-brand-blue/10 shadow-lg scale-[1.005]' : ''
+        isSelected ? 'scale-[1.005]' : ''
       }`}
     >
       
