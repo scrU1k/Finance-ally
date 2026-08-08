@@ -499,72 +499,79 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
 
         {/* Floating Glassmorphic View Popover Menu */}
         {showViewMenu && (
-          <div
-            className="absolute right-0 top-full mt-2 z-50 w-72 bg-surface-card/95 backdrop-blur-2xl border border-hairline rounded-2xl shadow-2xl p-3.5 space-y-3.5 ring-1 ring-white/15 animate-in fade-in zoom-in-95 duration-150"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Popover Header */}
-            <div className="flex items-center justify-between border-b border-hairline/60 pb-2">
-              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-                <Eye className="w-3.5 h-3.5 text-brand-purple" />
-                View Settings
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowViewMenu(false)}
-                className="text-muted-custom hover:text-ink text-xs p-0.5 cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* 1. Time Period Selector (Day | Week | Month | Year) */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-mono text-muted-custom font-bold uppercase">Grouping Period</label>
-              <div className="grid grid-cols-4 gap-1 p-1 bg-surface-soft/80 rounded-xl border border-hairline">
-                {(['day', 'week', 'month', 'year'] as const).map(mode => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => handleSetPeriodMode(mode)}
-                    className={`py-1 rounded-lg text-xs font-mono capitalize transition-all cursor-pointer font-bold ${
-                      periodMode === mode
-                        ? 'bg-brand-purple text-white shadow-sm'
-                        : 'text-muted-custom hover:text-ink'
-                    }`}
-                  >
-                    {mode}
-                  </button>
-                ))}
+          <>
+            {/* Transparent backdrop to catch empty space clicks */}
+            <div
+              className="fixed inset-0 z-40 bg-transparent"
+              onClick={() => setShowViewMenu(false)}
+            />
+            <div
+              className="absolute right-0 top-full mt-2 z-50 w-72 bg-surface-card/95 backdrop-blur-2xl border border-hairline rounded-2xl shadow-2xl p-3.5 space-y-3.5 ring-1 ring-white/15 animate-in fade-in zoom-in-95 duration-150"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Popover Header */}
+              <div className="flex items-center justify-between border-b border-hairline/60 pb-2">
+                <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-brand-purple" />
+                  View Settings
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowViewMenu(false)}
+                  className="text-muted-custom hover:text-ink text-xs p-0.5 cursor-pointer"
+                >
+                  ✕
+                </button>
               </div>
-            </div>
 
-            {/* 2. Layout Style Sub-Options (Compact | List | Grid) - Hidden for 'year' */}
-            {periodMode !== 'year' && (
-              <div className="space-y-1.5 animate-in fade-in duration-100">
-                <label className="text-[10px] font-mono text-muted-custom font-bold uppercase">Layout Style</label>
-                <div className="grid grid-cols-3 gap-1 p-1 bg-surface-soft/80 rounded-xl border border-hairline">
-                  {(['compact', 'list', 'grid'] as const).map(layout => (
+              {/* 1. Time Period Selector (Day | Week | Month | Year) */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono text-muted-custom font-bold uppercase">Grouping Period</label>
+                <div className="grid grid-cols-4 gap-1 p-1 bg-surface-soft/80 rounded-xl border border-hairline">
+                  {(['day', 'week', 'month', 'year'] as const).map(mode => (
                     <button
-                      key={layout}
+                      key={mode}
                       type="button"
-                      onClick={() => handleSetViewMode(layout)}
-                      className={`py-1 rounded-lg text-xs font-mono capitalize transition-all cursor-pointer font-bold flex items-center justify-center gap-1 ${
-                        viewMode === layout
+                      onClick={() => handleSetPeriodMode(mode)}
+                      className={`py-1 rounded-lg text-xs font-mono capitalize transition-all cursor-pointer font-bold ${
+                        periodMode === mode
                           ? 'bg-brand-purple text-white shadow-sm'
                           : 'text-muted-custom hover:text-ink'
                       }`}
                     >
-                      {layout === 'compact' && <LayoutGrid className="w-3 h-3" />}
-                      {layout === 'list' && <List className="w-3.5 h-3.5" />}
-                      {layout === 'grid' && <Grid className="w-3.5 h-3.5" />}
-                      <span>{layout}</span>
+                      {mode}
                     </button>
                   ))}
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* 2. Layout Style Sub-Options (Compact | List | Grid) - ONLY for 'day' */}
+              {periodMode === 'day' && (
+                <div className="space-y-1.5 animate-in fade-in duration-100">
+                  <label className="text-[10px] font-mono text-muted-custom font-bold uppercase">Layout Style</label>
+                  <div className="grid grid-cols-3 gap-1 p-1 bg-surface-soft/80 rounded-xl border border-hairline">
+                    {(['compact', 'list', 'grid'] as const).map(layout => (
+                      <button
+                        key={layout}
+                        type="button"
+                        onClick={() => handleSetViewMode(layout)}
+                        className={`py-1 rounded-lg text-xs font-mono capitalize transition-all cursor-pointer font-bold flex items-center justify-center gap-1 ${
+                          viewMode === layout
+                            ? 'bg-brand-purple text-white shadow-sm'
+                            : 'text-muted-custom hover:text-ink'
+                        }`}
+                      >
+                        {layout === 'compact' && <LayoutGrid className="w-3 h-3" />}
+                        {layout === 'list' && <List className="w-3.5 h-3.5" />}
+                        {layout === 'grid' && <Grid className="w-3.5 h-3.5" />}
+                        <span>{layout}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {/* Expandable Search Drawer (Search Input Bar + Filter Chips) */}
@@ -708,22 +715,21 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                 const isCollapsed = collapsedDates.has(group.date);
                 return (
                   <div key={group.date} className="space-y-2.5">
-                    {/* Day Header with converted Daily Total (Exact Original Visual Style) */}
+                    {/* Day Header with converted Daily Total */}
                     <div className="flex items-center justify-between px-1 border-b border-hairline/60 pb-1.5 text-xs font-mono text-ink">
                       <div
                         onClick={() => toggleDateCollapse(group.date)}
                         className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
                         title={isCollapsed ? 'Click to expand logs for this day' : 'Click to collapse logs for this day'}
                       >
-                        <Calendar className="w-3.5 h-3.5 text-muted-custom shrink-0" />
+                        {isCollapsed ? (
+                          <ChevronDown className="w-3.5 h-3.5 text-muted-custom shrink-0" />
+                        ) : (
+                          <Calendar className="w-3.5 h-3.5 text-muted-custom shrink-0" />
+                        )}
                         <span className="font-bold uppercase whitespace-nowrap">
                           {formatDayHeader(group.date)}
                         </span>
-                        {isCollapsed && (
-                          <span className="text-[10px] text-muted-custom font-bold bg-surface-soft px-1.5 py-0.5 rounded-full border border-hairline">
-                            Collapsed
-                          </span>
-                        )}
                       </div>
                       <span className="text-muted-custom whitespace-nowrap ml-2">
                         Spend: <span className="text-ink font-bold">{formatCurrency(group.dayTotal, baseCurrency)}</span>
