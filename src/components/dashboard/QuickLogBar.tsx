@@ -443,8 +443,12 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
         <div className="bg-surface-soft border border-hairline p-4 rounded-xl space-y-3 animate-in fade-in zoom-in-95 duration-150 relative">
           
           <button
-            onClick={() => setParsedExpense(null)}
+            onClick={() => {
+              setParsedExpense(null);
+              setPrompt('');
+            }}
             className="absolute top-3 right-3 text-muted-custom hover:text-ink cursor-pointer"
+            title="Clear quick log text box"
           >
             <X className="w-3.5 h-3.5" />
           </button>

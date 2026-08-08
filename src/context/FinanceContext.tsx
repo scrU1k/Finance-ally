@@ -3,6 +3,8 @@ import { Transaction, Category, Trip, CurrencyCode, PeriodType } from '../types'
 import { loadTransactions, saveTransaction, deleteTransaction, loadCategories, saveCategory, deleteCategory, loadTrips, saveTrip, deleteTrip } from '../services/db';
 import { getStoredForexRates, fetchLiveExchangeRates, switchAppBaseCurrency, convertCurrencyAmount } from '../services/currency';
 import { useAuth } from './AuthContext';
+import { isPendingScheduledTx } from '../utils/scheduledUtils';
+import { requestNotificationPermission, triggerScheduledPaymentNotification } from '../services/notificationService';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -101,9 +103,37 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  // Auto-request notification permissions & background ticker for scheduled payments
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    requestNotificationPermission();
+
+    const interval = setInterval(() => {
+      // Check if any scheduled transaction has arrived at its execution date/time
+      const now = new Date();
+      transactions.forEach(t => {
+        if (t.isScheduled || isPendingScheduledTx(t)) {
+          const tDateStr = t.date;
+          const tTimeStr = t.time && t.time.trim() ? t.time.trim() : '00:00';
+          const targetDateTime = new Date(`${tDateStr}T${tTimeStr}:00`);
+
+          if (!isNaN(targetDateTime.getTime()) && targetDateTime.getTime() <= now.getTime()) {
+            triggerScheduledPaymentNotification(t, baseCurrency);
+          }
+        }
+      });
+      setTick(prev => prev + 1);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [transactions, baseCurrency]);
+
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt'>) => {
+    const isFuture = isPendingScheduledTx(txData as Transaction);
     const newTx: Transaction = {
       ...txData,
+      isScheduled: txData.isScheduled !== undefined ? txData.isScheduled : isFuture,
       tripId: txData.tripId || activeTripVault?.id || undefined,
       id: `tx-${Date.now()}-${crypto.randomUUID().split('-')[0]}`,
       createdAt: Date.now(),
@@ -113,8 +143,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const editTransaction = async (tx: Transaction) => {
-    await saveTransaction(tx);
-    setTransactions(prev => prev.map(t => (t.id === tx.id ? tx : t)));
+    const isFuture = isPendingScheduledTx(tx);
+    const updatedTx: Transaction = {
+      ...tx,
+      isScheduled: tx.isScheduled !== undefined ? tx.isScheduled : isFuture,
+    };
+    await saveTransaction(updatedTx);
+    setTransactions(prev => prev.map(t => (t.id === updatedTx.id ? updatedTx : t)));
   };
 
   const deleteTx = async (id: string) => {
@@ -204,8 +239,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [transactions, period, activeTripVault]);
 
   // Calculate real-time period total spent converted to current active base currency
+  // EXCLUDES pending scheduled transactions until their set date/time arrives!
   const periodTotalSpent = useMemo(() => {
     return filteredTransactions.reduce((total, tx) => {
+      if (isPendingScheduledTx(tx)) return total;
       const converted = convertCurrencyAmount(tx.amount, tx.currency, baseCurrency, forexRates);
       return total + converted;
     }, 0);

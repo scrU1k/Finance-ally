@@ -2,6 +2,7 @@ import React from 'react';
 import { Transaction, Category, Trip } from '../../types';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 import { useFinance } from '../../context/FinanceContext';
+import { isPendingScheduledTx, getScheduledCountdownText } from '../../utils/scheduledUtils';
 import { X, Calendar, Clock, CreditCard, Tag, Plane, Sparkles, Trash2, Edit3 } from 'lucide-react';
 
 interface TransactionDetailModalProps {
@@ -67,7 +68,13 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
             <span className="text-xs font-mono font-bold text-ink uppercase tracking-wider">
               {(category?.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : (category?.name || 'General Expense')}
             </span>
-            {transaction.isAutoParsed && (
+            {isPendingScheduledTx(transaction) && (
+              <span className="text-[10px] font-mono text-brand-yellow bg-brand-yellow/15 border border-brand-yellow/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                <Clock className="w-3 h-3 text-brand-yellow animate-spin" />
+                Scheduled ({getScheduledCountdownText(transaction.date, transaction.time)})
+              </span>
+            )}
+            {transaction.isAutoParsed && !isPendingScheduledTx(transaction) && (
               <span className="text-[10px] font-mono text-brand-yellow border border-brand-yellow/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
                 {transaction.confidenceScore || 95}% Accuracy

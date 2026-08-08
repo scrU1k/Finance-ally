@@ -408,11 +408,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </button>
             )}
             <SettingsIcon className="w-5 h-5 text-brand-blue shrink-0" />
-            <h2 className="text-lg sm:text-xl font-display font-bold text-ink truncate">
-              {activeSubPage === 'main' && 'Settings'}
-              {activeSubPage === 'security' && 'Security & PIN Protection'}
-              {activeSubPage === 'csv' && 'Data & CSV Portability'}
-              {activeSubPage === 'backup' && 'Backup & Auto-Sync'}
+            <h2 className="text-lg sm:text-xl font-display font-bold text-ink truncate flex items-center gap-2">
+              <span>
+                {activeSubPage === 'main' && 'Settings'}
+                {activeSubPage === 'security' && 'Security & PIN Protection'}
+                {activeSubPage === 'csv' && 'Data & CSV Portability'}
+                {activeSubPage === 'backup' && 'Backup & Auto-Sync'}
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-purple/15 text-brand-purple border border-brand-purple/30 font-bold shrink-0">
+                v1.1
+              </span>
             </h2>
           </div>
 

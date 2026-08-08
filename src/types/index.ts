@@ -42,6 +42,8 @@ export interface Transaction {
   tripId?: string; // Optional foreign trip tag
   isAutoParsed?: boolean;
   confidenceScore?: number; // Arctic-embed categorization score (0-100)
+  isScheduled?: boolean; // Future scheduled payment designation
+  scheduledAt?: string; // ISO timestamp or YYYY-MM-DDTHH:mm for scheduled notification
   createdAt: number;
 }
 

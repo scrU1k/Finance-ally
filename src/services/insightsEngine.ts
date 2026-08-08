@@ -7,6 +7,7 @@ import {
   Subscription,
 } from '../types';
 import { formatCurrency } from './currency';
+import { isPendingScheduledTx } from '../utils/scheduledUtils';
 
 // ─── Pure Helpers ────────────────────────────────────────────────────────────
 
@@ -212,10 +213,11 @@ function computeSavingsPressureScore(
 // ─── Smart Spending Suggestions ──────────────────────────────────────────────
 
 export function generateSmartSpendingSuggestions(
-  transactions: Transaction[],
+  rawTransactions: Transaction[],
   categories: Category[],
   currency: CurrencyCode
 ): string[] {
+  const transactions = rawTransactions.filter(t => !isPendingScheduledTx(t));
   const suggestions: string[] = [];
 
   if (transactions.length === 0) {
@@ -316,12 +318,13 @@ export function generateSmartSpendingSuggestions(
 // ─── End-of-Month Audit ──────────────────────────────────────────────────────
 
 export function generateEndOfMonthAudit(
-  allTransactions: Transaction[],
+  rawTransactions: Transaction[],
   categories: Category[],
   monthKey: string,
   currency: CurrencyCode,
   subscriptions?: Subscription[]
 ): EndOfMonthAuditReport {
+  const allTransactions = rawTransactions.filter(t => !isPendingScheduledTx(t));
   const monthTxs = allTransactions.filter(t => t.date.startsWith(monthKey));
   const totalSpent = monthTxs.reduce((acc, t) => acc + t.amount, 0);
 
