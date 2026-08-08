@@ -2,10 +2,17 @@ import React, { useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { parseNaturalLanguageExpense, ParsedNaturalExpense } from '../../services/naturalLanguageParser';
 import { formatCurrency } from '../../services/currency';
-import { Sparkles, ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag } from 'lucide-react';
+import { CustomDatePicker } from '../common/CustomDatePicker';
+import { Sparkles, ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus, Trash2, Edit2, Layers, ListPlus } from 'lucide-react';
 
 interface QuickLogBarProps {
   onLoggedSuccess?: () => void;
+}
+
+export interface StagedLogItem extends ParsedNaturalExpense {
+  id: string;
+  rawPrompt: string;
+  paymentMethod: string;
 }
 
 export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => {
@@ -16,6 +23,13 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
   const [paymentMethod, setPaymentMethod] = useState<string>('UPI');
   const [isSuccess, setIsSuccess] = useState(false);
   const [isTagPopupOpen, setIsTagPopupOpen] = useState(false);
+
+  // Multi-Log Batch State
+  const [isMultiLogOpen, setIsMultiLogOpen] = useState(false);
+  const [batchDate, setBatchDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [multiInputPrompt, setMultiInputPrompt] = useState('');
+  const [stagedItems, setStagedItems] = useState<StagedLogItem[]>([]);
+  const [editingStagedId, setEditingStagedId] = useState<string | null>(null);
 
   // Proactive Budget Cap Interception State
   const [budgetWarning, setBudgetWarning] = useState<{
@@ -34,6 +48,108 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
     setParsedExpense(parsed);
   };
 
+  // Multi-Log Handlers
+  const handleAddStagedItem = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!multiInputPrompt.trim()) return;
+
+    const parsed = parseNaturalLanguageExpense(multiInputPrompt, baseCurrency);
+
+    if (editingStagedId) {
+      setStagedItems(prev =>
+        prev.map(item =>
+          item.id === editingStagedId
+            ? {
+                ...parsed,
+                id: editingStagedId,
+                rawPrompt: multiInputPrompt,
+                date: batchDate,
+                paymentMethod: item.paymentMethod || 'UPI',
+              }
+            : item
+        )
+      );
+      setEditingStagedId(null);
+    } else {
+      const newItem: StagedLogItem = {
+        ...parsed,
+        id: `staged-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        rawPrompt: multiInputPrompt,
+        date: batchDate,
+        paymentMethod: 'UPI',
+      };
+      setStagedItems(prev => [...prev, newItem]);
+    }
+
+    setMultiInputPrompt('');
+  };
+
+  const handleEditStagedItem = (id: string) => {
+    const item = stagedItems.find(i => i.id === id);
+    if (!item) return;
+    setMultiInputPrompt(item.rawPrompt);
+    setEditingStagedId(id);
+  };
+
+  const handleDeleteStagedItem = (id: string) => {
+    setStagedItems(prev => prev.filter(i => i.id !== id));
+    if (editingStagedId === id) {
+      setEditingStagedId(null);
+      setMultiInputPrompt('');
+    }
+  };
+
+  const handleSaveSingleStagedItem = async (id: string) => {
+    const item = stagedItems.find(i => i.id === id);
+    if (!item) return;
+
+    await addTransaction({
+      amount: item.amount,
+      currency: item.currency,
+      categoryId: item.categoryId,
+      date: item.date,
+      time: item.time,
+      note: item.description,
+      paymentMethod: item.paymentMethod,
+      isAutoParsed: true,
+      confidenceScore: item.confidence,
+      tripId: activeTripVault?.id || undefined,
+    });
+
+    handleDeleteStagedItem(id);
+    setIsSuccess(true);
+    setTimeout(() => setIsSuccess(false), 1200);
+  };
+
+  const handleSaveAllStaged = async () => {
+    if (stagedItems.length === 0) return;
+
+    for (const item of stagedItems) {
+      await addTransaction({
+        amount: item.amount,
+        currency: item.currency,
+        categoryId: item.categoryId,
+        date: item.date,
+        time: item.time,
+        note: item.description,
+        paymentMethod: item.paymentMethod,
+        isAutoParsed: true,
+        confidenceScore: item.confidence,
+        tripId: activeTripVault?.id || undefined,
+      });
+    }
+
+    setStagedItems([]);
+    setMultiInputPrompt('');
+    setEditingStagedId(null);
+    setIsMultiLogOpen(false);
+    setIsSuccess(true);
+    setTimeout(() => {
+      setIsSuccess(false);
+      onLoggedSuccess?.();
+    }, 1200);
+  };
+
   const checkBudgetAndLog = (selectedPayment?: string) => {
     if (!parsedExpense) return;
     const finalMethod = selectedPayment || paymentMethod;
@@ -41,15 +157,13 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
     const targetCat = categories.find(c => c.id === parsedExpense.categoryId);
 
     if (targetCat && targetCat.budgetLimit && targetCat.budgetLimit > 0) {
-      // Calculate current month's total spend for this category
-      const currentMonthKey = new Date().toISOString().substring(0, 7); // YYYY-MM
+      const currentMonthKey = new Date().toISOString().substring(0, 7);
       const currentSpent = transactions
         .filter(t => t.categoryId === targetCat.id && t.date.startsWith(currentMonthKey))
         .reduce((sum, t) => sum + t.amount, 0);
 
       const projectedTotal = currentSpent + parsedExpense.amount;
       if (projectedTotal > targetCat.budgetLimit) {
-        // Trigger Proactive Warning Modal
         setBudgetWarning({
           categoryName: targetCat.name,
           currentSpent,
@@ -61,7 +175,6 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
       }
     }
 
-    // No warning needed -> Proceed to log
     handleConfirmLog(finalMethod);
   };
 
@@ -104,7 +217,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
             type="text"
             value={inputPrompt}
             onChange={e => setInputPrompt(e.target.value)}
-            placeholder="Quick Log: e.g. 300Rs spent on Burger at McD on Wednesday afternoon"
+            placeholder="Quick Log: 300Rs spent on Burger..."
             className="w-full bg-surface-soft border border-hairline rounded-2xl pl-12 pr-4 py-3.5 text-sm sm:text-base font-sans-custom text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[54px]"
           />
           <Sparkles className="w-4 h-4 text-brand-yellow absolute left-4.5 top-1/2 -translate-y-1/2" />
@@ -119,6 +232,169 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
           <ArrowRight className="w-5 h-5 stroke-[2.5]" />
         </button>
       </form>
+
+      {/* Multi-Log Toggle Chip Button */}
+      <div className="flex items-center justify-between pt-0.5">
+        <button
+          type="button"
+          onClick={() => setIsMultiLogOpen(!isMultiLogOpen)}
+          className={`px-3 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            isMultiLogOpen || stagedItems.length > 0
+              ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
+              : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+          }`}
+          title="Log multiple expenses for a single date"
+        >
+          <ListPlus className="w-3.5 h-3.5 text-brand-purple shrink-0" />
+          <span>Multi-Log</span>
+          {stagedItems.length > 0 && (
+            <span className="bg-brand-purple text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+              {stagedItems.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* EXPANDABLE MULTI-LOG BATCH CANVAS DRAWER */}
+      {isMultiLogOpen && (
+        <div className="bg-surface-soft border border-hairline p-4 rounded-xl space-y-4 animate-in fade-in zoom-in-95 duration-150 relative shadow-inner">
+          
+          {/* Header & Date Selector */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline pb-3">
+            <div className="space-y-0.5">
+              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                <ListPlus className="w-4 h-4 text-brand-purple" /> Multi-Log Batch Session
+              </span>
+              <p className="text-[11px] font-mono text-muted-custom">
+                Set date once, add entries, edit/delete staged items, and click Save All.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs font-mono text-muted-custom shrink-0 font-semibold">Date:</span>
+              <CustomDatePicker
+                value={batchDate}
+                onChange={val => {
+                  setBatchDate(val);
+                  setStagedItems(prev => prev.map(item => ({ ...item, date: val })));
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Input Row */}
+          <form onSubmit={handleAddStagedItem} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={multiInputPrompt}
+              onChange={e => setMultiInputPrompt(e.target.value)}
+              placeholder="e.g. 450 cab to airport at 8pm"
+              className="flex-1 bg-surface-card border border-hairline rounded-xl px-3.5 py-2 text-xs sm:text-sm font-sans-custom text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom"
+            />
+            <button
+              type="submit"
+              disabled={!multiInputPrompt.trim()}
+              className="px-3.5 py-2 rounded-xl border border-brand-blue text-brand-blue hover:bg-brand-blue/10 disabled:opacity-40 text-xs font-mono font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1 shrink-0 bg-surface-card"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{editingStagedId ? 'Update' : 'Add'}</span>
+            </button>
+          </form>
+
+          {/* Staged Items List */}
+          {stagedItems.length > 0 && (
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {stagedItems.map((item) => {
+                const catObj = categories.find(c => c.id === item.categoryId);
+                const catColor = catObj?.color || '#8B5CF6';
+
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-surface-card border border-hairline p-3 rounded-xl flex items-center justify-between gap-3 text-xs font-mono"
+                  >
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-ink truncate">{item.description}</span>
+                        <span
+                          className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium shrink-0"
+                          style={{ backgroundColor: `${catColor}15`, color: catColor, border: `1px solid ${catColor}30` }}
+                        >
+                          {item.categoryName}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-muted-custom">
+                        <span className="font-bold text-ink">{formatCurrency(item.amount, item.currency)}</span>
+                        <span>•</span>
+                        <span>{item.time}</span>
+                        <span>•</span>
+                        {/* Payment Method selector pill per staged item */}
+                        <select
+                          value={item.paymentMethod}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setStagedItems(prev =>
+                              prev.map(i => i.id === item.id ? { ...i, paymentMethod: val } : i)
+                            );
+                          }}
+                          className="bg-surface-soft border border-hairline rounded px-1 py-0.5 text-[10px] text-ink font-mono font-semibold focus:outline-none cursor-pointer"
+                        >
+                          {paymentOptions.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Staged Item Controls: Save, Edit, Delete */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveSingleStagedItem(item.id)}
+                        className="p-1.5 rounded-lg border border-hairline hover:border-brand-mint text-brand-mint hover:bg-surface-soft transition-colors cursor-pointer"
+                        title="Save single item"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleEditStagedItem(item.id)}
+                        className="p-1.5 rounded-lg border border-hairline hover:border-brand-blue text-brand-blue hover:bg-surface-soft transition-colors cursor-pointer"
+                        title="Edit item prompt"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteStagedItem(item.id)}
+                        className="p-1.5 rounded-lg border border-hairline hover:border-brand-coral text-brand-coral hover:bg-surface-soft transition-colors cursor-pointer"
+                        title="Delete item"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Save All Button */}
+          {stagedItems.length > 0 && (
+            <div className="pt-2 border-t border-hairline flex justify-end">
+              <button
+                type="button"
+                onClick={handleSaveAllStaged}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-brand-mint text-brand-mint hover:bg-surface-card text-xs font-mono font-bold transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2 active:scale-95"
+              >
+                <Check className="w-4 h-4" />
+                <span>Save All</span>
+              </button>
+            </div>
+          )}
+
+        </div>
+      )}
 
       {/* Success Notification */}
       {isSuccess && (
