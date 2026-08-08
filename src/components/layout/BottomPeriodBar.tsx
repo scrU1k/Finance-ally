@@ -45,6 +45,16 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
 
   const currentPeriodLabel = periods.find(p => p.key === period)?.label || 'Month';
 
+  const formattedTotal = formatCurrency(periodTotalSpent, baseCurrency);
+
+  // Dynamic font sizing to fit large amounts (e.g. ₹100,074.00) on all screen sizes
+  const getAmountFontSize = (str: string) => {
+    if (str.length > 12) return 'text-xs sm:text-sm';
+    if (str.length > 9) return 'text-sm sm:text-base';
+    if (str.length > 7) return 'text-base sm:text-lg';
+    return 'text-lg sm:text-2xl';
+  };
+
   // 1. MINIMIZED GLASSMORPHIC PILL VIEW
   if (isMinimized) {
     return (
@@ -55,7 +65,7 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
           title="Tap to Expand Spending Bar"
         >
           <ChevronUp className="w-5 h-5 text-brand-mint group-hover:-translate-y-0.5 transition-transform shrink-0" />
-          <span className="whitespace-nowrap font-bold">{formatCurrency(periodTotalSpent, baseCurrency)} <span className="font-normal text-muted-custom">({period})</span></span>
+          <span className="whitespace-nowrap font-bold truncate">{formattedTotal} <span className="font-normal text-muted-custom">({period})</span></span>
         </button>
 
         {/* Border Highlighted + Button */}
@@ -76,31 +86,31 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="fixed bottom-0 left-0 right-0 z-40 dotgui-glass border-t border-hairline px-3 py-4 sm:px-6 sm:py-5 shadow-2xl max-w-full overflow-hidden bg-surface-card/90 backdrop-blur-xl"
+      className="fixed bottom-0 left-0 right-0 z-40 dotgui-glass border-t border-hairline px-3 py-3.5 sm:px-6 sm:py-4 shadow-2xl max-w-full overflow-hidden bg-surface-card/90 backdrop-blur-xl"
     >
-      <div className={`max-w-5xl mx-auto flex items-center justify-between gap-2.5 ${isPeriodSelectorOpen ? 'overflow-x-auto no-scrollbar' : 'overflow-hidden'}`}>
+      <div className={`max-w-5xl mx-auto flex items-center justify-between gap-2 sm:gap-3 ${isPeriodSelectorOpen ? 'overflow-x-auto no-scrollbar' : 'overflow-hidden'}`}>
         
-        {/* Real-time Spending Total Display */}
-        <div className="flex items-center gap-2.5 min-w-0 shrink-0">
-          <div className="w-10 h-10 rounded-xl border border-brand-blue/30 text-brand-blue flex items-center justify-center shrink-0 bg-surface-soft/60">
-            <TrendingDown className="w-5 h-5" />
+        {/* Real-time Spending Total Display (Dynamic Auto-Sizing) */}
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border border-brand-blue/30 text-brand-blue flex items-center justify-center shrink-0 bg-surface-soft/60">
+            <TrendingDown className="w-4 h-4" />
           </div>
-          <div className="min-w-0">
-            <div className="text-xs sm:text-sm font-mono text-muted-custom uppercase tracking-wider truncate font-semibold">
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] sm:text-xs font-mono text-muted-custom uppercase tracking-wider truncate font-semibold">
               Spent ({period})
             </div>
-            <div className="text-xl sm:text-2xl font-display font-bold text-ink tracking-tight truncate">
-              {formatCurrency(periodTotalSpent, baseCurrency)}
+            <div className={`font-display font-bold text-ink tracking-tight truncate leading-tight ${getAmountFontSize(formattedTotal)}`}>
+              {formattedTotal}
             </div>
           </div>
 
-          <div className="hidden sm:inline-block text-[10px] font-mono text-muted-custom bg-surface-soft px-2 py-0.5 rounded-full border border-hairline shrink-0 ml-1">
+          <div className="hidden lg:inline-block text-[10px] font-mono text-muted-custom bg-surface-soft px-2 py-0.5 rounded-full border border-hairline shrink-0 ml-1">
             {filteredTransactions.length} items
           </div>
         </div>
 
-        {/* Period Selector & Large + Log Button */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Period Selector & Large + Log Button (Shrink-0 to prevent clipping) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           
           {/* Dropdown / Expanded Row Period Selector */}
           <div className="relative shrink-0">
@@ -108,12 +118,12 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
               <button
                 type="button"
                 onClick={() => setIsPeriodSelectorOpen(true)}
-                className="flex items-center justify-center bg-surface-soft hover:border-ink border border-hairline px-3.5 py-1.5 rounded-full text-xs font-mono font-bold text-ink transition-all cursor-pointer shadow-sm shrink-0"
+                className="flex items-center justify-center bg-surface-soft hover:border-ink border border-hairline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-mono font-bold text-ink transition-all cursor-pointer shadow-sm shrink-0"
               >
                 <span>{currentPeriodLabel}</span>
               </button>
             ) : (
-              /* Expanded Horizontal Selection Row (Scrollable ONLY in expanded state) */
+              /* Expanded Horizontal Selection Row */
               <div className="flex items-center bg-surface-soft p-1 rounded-full border border-hairline gap-1 animate-in fade-in zoom-in-95 duration-150 shadow-md shrink-0 overflow-x-auto no-scrollbar">
                 {periods.map(p => (
                   <button
@@ -123,7 +133,7 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
                       setPeriod(p.key);
                       setIsPeriodSelectorOpen(false);
                     }}
-                    className={`px-2.5 py-1 rounded-full text-xs font-mono font-medium transition-all cursor-pointer whitespace-nowrap ${
+                    className={`px-2 py-1 rounded-full text-xs font-mono font-medium transition-all cursor-pointer whitespace-nowrap ${
                       period === p.key
                         ? 'border border-ink text-ink font-bold bg-surface-card shadow-sm'
                         : 'text-body-custom hover:text-ink'
@@ -139,10 +149,10 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
           {/* Large Easy-to-Tap + Log Button */}
           <button
             onClick={onOpenQuickAdd}
-            className="flex items-center gap-1 border border-brand-blue text-brand-blue bg-surface-card/90 hover:bg-surface-soft px-3.5 py-1.5 rounded-full text-xs font-mono font-bold shadow-md active:scale-95 transition-all cursor-pointer shrink-0"
+            className="flex items-center gap-1 border border-brand-blue text-brand-blue bg-surface-card/90 hover:bg-surface-soft px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs font-mono font-bold shadow-md active:scale-95 transition-all cursor-pointer shrink-0"
             title="Log New Expense"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Log</span>
           </button>
 

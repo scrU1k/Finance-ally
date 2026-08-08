@@ -178,7 +178,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
           isSelected ? 'scale-[1.02]' : ''
         }`}
       >
-        {/* Top row: Icon + Tag sitting right next to each other on the left */}
+        {/* Top row: Icon + Tag sitting right next to each other on the left (No premature truncation) */}
         <div className="flex items-center gap-1.5 min-w-0">
           <div
             className="w-5 h-5 rounded-md flex items-center justify-center text-white shrink-0 shadow-sm"
@@ -188,7 +188,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
           </div>
 
           <span
-            className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate max-w-[90px]"
+            className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate max-w-[130px]"
             style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
           >
             {(category.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : category.name}
@@ -269,7 +269,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
     );
   }
 
-  /* ---------------- Compact View (Default View) ---------------- */
+  /* ---------------- Compact View (Structured 3-Line Layout) ---------------- */
   return (
     <div
       onMouseDown={handleMouseDown}
@@ -279,47 +279,76 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={commonStyle}
-      className={`dotgui-card p-2.5 sm:p-3 flex items-center justify-between gap-3 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${
+      className={`dotgui-card p-2.5 sm:p-3 flex items-start justify-between gap-2.5 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${
         isSelected ? 'scale-[1.005]' : ''
       }`}
     >
-      {/* Icon & Details */}
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        {/* Category Color Badge */}
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 shadow-sm"
-          style={{ backgroundColor: category.color }}
-        >
-          <IconComponent className="w-4 h-4" />
+      {/* Category Icon Badge */}
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 shadow-sm mt-0.5"
+        style={{ backgroundColor: category.color }}
+      >
+        <IconComponent className="w-4 h-4" />
+      </div>
+
+      {/* Main Content Area */}
+      <div className="min-w-0 flex-1 space-y-1">
+        
+        {/* LINE 1: Name (left) & Category Tag (right) */}
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <h4 className="text-xs sm:text-sm font-semibold text-ink truncate font-sans-custom min-w-0 flex-1">
+            {transaction.note || category.name}
+          </h4>
+
+          {/* Category Tag Pill */}
+          <span
+            className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate whitespace-nowrap shrink-0 max-w-[120px]"
+            style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
+          >
+            {(category.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : category.name}
+          </span>
         </div>
 
-        {/* Note & Subtitle Metadata */}
-        <div className="min-w-0 space-y-0.5 flex-1">
-          {/* Main Line: Note Name taking max width on left */}
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <h4 className="text-xs sm:text-sm font-semibold text-ink truncate font-sans-custom min-w-0 flex-1">
-              {transaction.note || category.name}
-            </h4>
-
-            {/* Category Tag Pill moved towards right side above amount */}
-            <span
-              className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate whitespace-nowrap shrink-0 max-w-[100px]"
-              style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
-            >
-              {(category.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : category.name}
+        {/* LINE 2: Trip Tag (left) & Amount (right) OR Time/Payment (left) & Amount (right) */}
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          {trip ? (
+            /* LINE 2 (With Trip): Trip Tag on Left */
+            <span className="text-[9px] font-mono bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 truncate whitespace-nowrap shrink-0 max-w-[120px]">
+              <Plane className="w-2.5 h-2.5 shrink-0" />
+              <span className="truncate">{trip.name}</span>
             </span>
-          </div>
+          ) : (
+            /* LINE 2 (No Trip): Time & Payment Mode on Left */
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-custom truncate">
+              <span>{transaction.time || '12:00'}</span>
+              {transaction.paymentMethod && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 truncate">
+                    <CreditCard className="w-2.5 h-2.5 text-muted-custom shrink-0" />
+                    <span className="truncate">{transaction.paymentMethod}</span>
+                  </span>
+                </>
+              )}
+            </div>
+          )}
 
-          {/* Subtitle line: Trip Tag Pill + Time + Payment Method */}
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-custom flex-wrap">
-            {/* Trip Tag Pill */}
-            {trip && (
-              <span className="text-[9px] font-mono bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 truncate whitespace-nowrap max-w-[110px] shrink-0">
-                <Plane className="w-2.5 h-2.5 shrink-0" />
-                <span className="truncate">{trip.name}</span>
-              </span>
+          {/* Amount on Right of Line 2 */}
+          <div className="text-right shrink-0">
+            <div className="text-xs sm:text-sm font-display font-bold text-ink tracking-tight">
+              -{formatCurrency(transaction.amount, transaction.currency)}
+            </div>
+            {transaction.originalAmount && (
+              <div className="text-[9px] font-mono text-muted-custom">
+                Orig: {formatCurrency(transaction.originalAmount, transaction.originalCurrency || transaction.currency)}
+              </div>
             )}
+          </div>
+        </div>
 
+        {/* LINE 3: Time & Payment Mode (Only when Trip is present) */}
+        {trip && (
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-custom truncate pt-0.5">
             <span>{transaction.time || '12:00'}</span>
             {transaction.paymentMethod && (
               <>
@@ -331,48 +360,35 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
               </>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Amount & Actions */}
-      <div className="flex items-center gap-2.5 shrink-0">
-        <div className="text-right">
-          <div className="text-xs sm:text-sm font-display font-bold text-ink tracking-tight">
-            -{formatCurrency(transaction.amount, transaction.currency)}
-          </div>
-          {transaction.originalAmount && (
-            <div className="text-[9px] font-mono text-muted-custom">
-              Orig: {formatCurrency(transaction.originalAmount, transaction.originalCurrency || transaction.currency)}
-            </div>
-          )}
-        </div>
-
-        {/* Hover Action Buttons */}
-        {!isSelectMode && (
-          <div className="opacity-80 sm:opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(transaction);
-              }}
-              className="p-1 text-muted-custom hover:text-ink hover:bg-surface-soft rounded-lg transition-colors"
-              title="Edit Transaction"
-            >
-              <Edit2 className="w-3 h-3" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(transaction.id);
-              }}
-              className="p-1 text-muted-custom hover:text-brand-coral hover:bg-surface-soft rounded-lg transition-colors"
-              title="Delete Transaction"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </div>
         )}
+
       </div>
+
+      {/* Hover Action Buttons */}
+      {!isSelectMode && (
+        <div className="opacity-80 sm:opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity shrink-0 mt-0.5">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(transaction);
+            }}
+            className="p-1 text-muted-custom hover:text-ink hover:bg-surface-soft rounded-lg transition-colors"
+            title="Edit Transaction"
+          >
+            <Edit2 className="w-3 h-3" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(transaction.id);
+            }}
+            className="p-1 text-muted-custom hover:text-brand-coral hover:bg-surface-soft rounded-lg transition-colors"
+            title="Delete Transaction"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
