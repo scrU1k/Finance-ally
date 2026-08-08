@@ -132,9 +132,15 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
     }
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedTxIds.length === 0) return;
-    setShowDeleteConfirmModal(true);
+    if (selectedTxIds.length === 1) {
+      // Directly delete single selected transaction without modal prompt
+      await handleConfirmBulkDelete();
+    } else {
+      // Show confirmation modal prompt for > 1 transactions
+      setShowDeleteConfirmModal(true);
+    }
   };
 
   const handleConfirmBulkDelete = async () => {
