@@ -297,39 +297,27 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
                 return (
                   <div
                     key={item.id}
-                    className="bg-surface-card border border-hairline p-3 rounded-xl space-y-2.5 text-xs font-mono"
+                    className="bg-surface-card border border-hairline p-3 rounded-xl space-y-2 text-xs font-mono"
                   >
-                    {/* Line 1: Registered Expense Details */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
-                      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-                        <span className="font-bold text-ink truncate max-w-[130px] sm:max-w-none text-sm">{item.description}</span>
-                        <span className="font-bold text-brand-mint shrink-0 bg-surface-soft px-2 py-0.5 rounded-lg border border-hairline">
-                          {formatCurrency(item.amount, item.currency)}
-                        </span>
-                        <span className="text-muted-custom text-[11px] shrink-0">{item.time}</span>
-                        
-                        {/* Properly Formatted Payment Mode Dropdown Pill */}
-                        <select
-                          value={item.paymentMethod}
-                          onChange={e => {
-                            const val = e.target.value;
-                            setStagedItems(prev =>
-                              prev.map(i => i.id === item.id ? { ...i, paymentMethod: val } : i)
-                            );
-                          }}
-                          className="bg-surface-soft border border-hairline rounded-lg px-2 py-1 text-xs text-ink font-mono font-semibold focus:outline-none focus:border-brand-blue cursor-pointer transition-all shrink-0 min-w-[90px]"
-                        >
-                          {paymentOptions.map(p => (
-                            <option key={p} value={p} className="bg-surface-card text-ink">{p}</option>
-                          ))}
-                        </select>
-                      </div>
+                    {/* Line 1: Name (Left, truncated) & Amount (Right, no wrap) */}
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="font-bold text-ink truncate text-sm flex-1 min-w-0">
+                        {item.description}
+                      </span>
+                      <span className="font-bold text-brand-mint text-sm shrink-0 whitespace-nowrap">
+                        {formatCurrency(item.amount, item.currency)}
+                      </span>
+                    </div>
 
-                      {/* Clickable Category Tag Badge */}
+                    {/* Line 2: Time (Left) & Category Tag (Right) */}
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="text-muted-custom text-xs font-mono shrink-0">
+                        {item.time}
+                      </span>
                       <button
                         type="button"
                         onClick={() => setChangingTagStagedId(item.id)}
-                        className="text-[10px] font-mono px-2 py-1 rounded-lg font-bold shrink-0 flex items-center gap-1 hover:opacity-80 active:scale-95 transition-all cursor-pointer shadow-2xs"
+                        className="text-[10px] font-mono px-2 py-0.5 rounded-lg font-bold shrink-0 flex items-center gap-1 hover:opacity-80 active:scale-95 transition-all cursor-pointer shadow-2xs"
                         style={{ backgroundColor: `${catColor}18`, color: catColor, border: `1px solid ${catColor}40` }}
                         title="Click to change category tag"
                       >
@@ -338,35 +326,50 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
                       </button>
                     </div>
 
-                    {/* Line 2: The Three Action Buttons */}
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-hairline/50">
-                      <button
-                        type="button"
-                        onClick={() => handleSaveSingleStagedItem(item.id)}
-                        className="px-2.5 py-1 rounded-lg border border-brand-mint text-brand-mint hover:bg-brand-mint/10 font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
-                        title="Save expense"
+                    {/* Line 3: Compact Payment Dropdown (Left) & Segmented Icon Action Pill (Right) */}
+                    <div className="flex items-center justify-between gap-2 min-w-0 pt-0.5">
+                      <select
+                        value={item.paymentMethod}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setStagedItems(prev =>
+                            prev.map(i => i.id === item.id ? { ...i, paymentMethod: val } : i)
+                          );
+                        }}
+                        className="bg-surface-soft border border-hairline rounded-lg px-2 py-1 text-xs text-ink font-mono font-semibold focus:outline-none focus:border-brand-blue cursor-pointer transition-all shrink-0 w-24"
                       >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Save</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleEditStagedItem(item.id)}
-                        className="px-2.5 py-1 rounded-lg border border-brand-blue text-brand-blue hover:bg-brand-blue/10 font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
-                        title="Edit expense"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        <span>Edit</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteStagedItem(item.id)}
-                        className="px-2.5 py-1 rounded-lg border border-brand-coral text-brand-coral hover:bg-brand-coral/10 font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
-                        title="Delete expense"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Delete</span>
-                      </button>
+                        {paymentOptions.map(p => (
+                          <option key={p} value={p} className="bg-surface-card text-ink">{p}</option>
+                        ))}
+                      </select>
+
+                      {/* Single segmented pill parted by vertical lines for action icons */}
+                      <div className="border border-hairline bg-surface-soft rounded-lg flex items-center divide-x divide-hairline overflow-hidden shrink-0 shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSingleStagedItem(item.id)}
+                          className="p-1.5 hover:bg-brand-mint/15 transition-colors cursor-pointer"
+                          title="Save expense"
+                        >
+                          <Check className="w-3.5 h-3.5 text-brand-mint" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEditStagedItem(item.id)}
+                          className="p-1.5 hover:bg-brand-blue/15 transition-colors cursor-pointer"
+                          title="Edit expense"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-brand-blue" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteStagedItem(item.id)}
+                          className="p-1.5 hover:bg-brand-coral/15 transition-colors cursor-pointer"
+                          title="Delete expense"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-brand-coral" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -586,6 +589,8 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
             </div>
           </div>
         </div>
+      )}
+
       {/* Staged Item Category Tag Selection Popup */}
       {changingTagStagedId && (
         <div
