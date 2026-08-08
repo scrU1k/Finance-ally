@@ -232,10 +232,10 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
           <button
             type="button"
             onClick={() => setShowSearchInput(!showSearchInput)}
-            className={`shrink px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`shrink px-2.5 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
               showSearchInput || searchQuery || selectedCatFilter !== 'all'
                 ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
-                : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+                : 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
             }`}
             title="Search & filter logs"
           >
@@ -250,10 +250,10 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
           <button
             type="button"
             onClick={handleToggleMultiLog}
-            className={`shrink px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`shrink px-2.5 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
               isMultiLogActive
                 ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
-                : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+                : 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
             }`}
             title={isMultiLogActive ? "Click to exit Multi-Log mode" : "Click to select a date for Multi-Log session"}
           >
@@ -265,10 +265,10 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
           <button
             type="button"
             onClick={() => handleSetViewMode(viewMode === 'compact' ? 'list' : viewMode === 'list' ? 'grid' : 'compact')}
-            className={`shrink px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`shrink px-2.5 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
               viewMode !== 'compact'
                 ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
-                : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+                : 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
             }`}
             title="Tap to cycle view mode (Compact -> List -> Grid)"
           >
