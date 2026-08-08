@@ -144,6 +144,28 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
     } catch {}
   };
 
+  // Step-back navigation handler when clicking the View: <Label> banner text
+  const handleStepBackFromBanner = () => {
+    if (!drilledFilter) return;
+    if (drilledFilter.type === 'month') {
+      setDrilledFilter(null);
+      handleSetPeriodMode('month');
+    } else if (drilledFilter.type === 'year') {
+      setDrilledFilter(null);
+      handleSetPeriodMode('year');
+    } else if (drilledFilter.type === 'week') {
+      setDrilledFilter(null);
+      handleSetPeriodMode('week');
+    } else {
+      setDrilledFilter(null);
+    }
+  };
+
+  const handleSelectPeriodFromMenu = (mode: PeriodMode) => {
+    setDrilledFilter(null);
+    handleSetPeriodMode(mode);
+  };
+
   // Drill-down handlers
   const handleDrillDownYear = (yearKey: string) => {
     setDrilledFilter({
@@ -503,7 +525,13 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
       {/* Active Drill-Down Filter Banner */}
       {drilledFilter && (
         <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-brand-purple/10 border border-brand-purple/30 text-xs font-mono text-brand-purple font-bold animate-in fade-in duration-150 shadow-sm">
-          <span>View: {drilledFilter.label}</span>
+          <span
+            onClick={handleStepBackFromBanner}
+            className="cursor-pointer hover:underline flex items-center gap-1.5"
+            title="Click to go back to parent period view"
+          >
+            <span>View: {drilledFilter.label}</span>
+          </span>
           <button
             type="button"
             onClick={() => setDrilledFilter(null)}
@@ -621,7 +649,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                     <button
                       key={mode}
                       type="button"
-                      onClick={() => handleSetPeriodMode(mode)}
+                      onClick={() => handleSelectPeriodFromMenu(mode)}
                       className={`py-1 rounded-lg text-xs font-mono capitalize transition-all cursor-pointer font-bold ${
                         periodMode === mode
                           ? 'bg-brand-purple text-white shadow-sm'
