@@ -3,6 +3,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { parseNaturalLanguageExpense, ParsedNaturalExpense } from '../../services/naturalLanguageParser';
 import { formatCurrency } from '../../services/currency';
 import { CustomDatePicker } from '../common/CustomDatePicker';
+import { isFutureDateTime } from '../../utils/scheduledUtils';
 import { ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus } from 'lucide-react';
 
 interface QuickLogBarProps {
@@ -275,6 +276,13 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
                 </button>
               ))}
             </div>
+
+            {isFutureDateTime(parsedExpense.date, parsedExpense.time) && (
+              <div className="flex items-center gap-1.5 text-xs font-mono text-brand-yellow font-bold pt-1">
+                <Clock className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
+                <span>Schedule</span>
+              </div>
+            )}
           </div>
 
         </div>

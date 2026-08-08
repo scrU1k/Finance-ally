@@ -4,7 +4,7 @@ import { loadTransactions, saveTransaction, deleteTransaction, loadCategories, s
 import { getStoredForexRates, fetchLiveExchangeRates, switchAppBaseCurrency, convertCurrencyAmount } from '../services/currency';
 import { useAuth } from './AuthContext';
 import { isPendingScheduledTx, isFutureDateTime } from '../utils/scheduledUtils';
-import { requestNotificationPermission, triggerScheduledPaymentNotification } from '../services/notificationService';
+import { requestNotificationPermission, triggerScheduledPaymentNotification, scheduleFutureNativeNotification } from '../services/notificationService';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -197,6 +197,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
     await saveTransaction(newTx);
     setTransactions(prev => [newTx, ...prev]);
+
+    if (newTx.isScheduled) {
+      scheduleFutureNativeNotification(newTx, baseCurrency);
+    }
   };
 
   const editTransaction = async (tx: Transaction) => {
@@ -207,6 +211,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
     await saveTransaction(updatedTx);
     setTransactions(prev => prev.map(t => (t.id === updatedTx.id ? updatedTx : t)));
+
+    if (updatedTx.isScheduled) {
+      scheduleFutureNativeNotification(updatedTx, baseCurrency);
+    }
   };
 
   const deleteTx = async (id: string) => {
