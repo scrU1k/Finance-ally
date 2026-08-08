@@ -174,30 +174,33 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={commonStyle}
-        className={`dotgui-card p-2.5 flex flex-col justify-between aspect-[1.3/1] min-h-[85px] group transition-all cursor-pointer active:scale-[0.98] ${
+        className={`dotgui-card p-2.5 flex flex-col justify-between min-h-[75px] group transition-all cursor-pointer active:scale-[0.98] ${
           isSelected ? 'scale-[1.02]' : ''
         }`}
       >
-        <div className="flex items-center justify-between gap-1 min-w-0">
+        {/* Top row: Icon + Tag sitting right next to each other on the left */}
+        <div className="flex items-center gap-1.5 min-w-0">
           <div
-            className="w-6 h-6 rounded-md flex items-center justify-center text-white shrink-0 shadow-sm"
+            className="w-5 h-5 rounded-md flex items-center justify-center text-white shrink-0 shadow-sm"
             style={{ backgroundColor: category.color }}
           >
             <IconComponent className="w-3 h-3" />
           </div>
 
           <span
-            className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate max-w-[70px]"
+            className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate max-w-[90px]"
             style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
           >
             {(category.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : category.name}
           </span>
         </div>
 
+        {/* Note title */}
         <h4 className="text-xs font-semibold text-ink truncate font-sans-custom my-1">
           {transaction.note || category.name}
         </h4>
 
+        {/* Bottom row: Trip & Amount */}
         <div className="flex items-center justify-between text-right border-t border-hairline/40 pt-1 mt-auto">
           <span className="text-[9px] font-mono text-muted-custom truncate max-w-[60px]">
             {trip ? trip.name : ''}
@@ -225,20 +228,29 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
           isSelected ? 'scale-[1.005]' : ''
         }`}
       >
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <div
-            className="w-6 h-6 rounded-md flex items-center justify-center text-white shrink-0 shadow-sm"
+            className="w-5 h-5 rounded-md flex items-center justify-center text-white shrink-0 shadow-sm"
             style={{ backgroundColor: category.color }}
           >
             <IconComponent className="w-3 h-3" />
           </div>
 
-          <h4 className="text-xs font-semibold text-ink truncate font-sans-custom min-w-0">
+          <h4 className="text-xs font-semibold text-ink truncate font-sans-custom min-w-0 flex-1">
             {transaction.note || category.name}
           </h4>
 
+          {/* Trip Tag in List View */}
+          {trip && (
+            <span className="text-[9px] font-mono bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 truncate whitespace-nowrap shrink-0 max-w-[90px]">
+              <Plane className="w-2.5 h-2.5 shrink-0" />
+              <span className="truncate">{trip.name}</span>
+            </span>
+          )}
+
+          {/* Category Tag in List View */}
           <span
-            className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate shrink-0 hidden sm:inline-block"
+            className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate shrink-0 hidden sm:inline-block max-w-[85px]"
             style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
           >
             {category.name}
@@ -281,28 +293,28 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
           <IconComponent className="w-4 h-4" />
         </div>
 
-        {/* Note & Tag metadata */}
+        {/* Note & Subtitle Metadata */}
         <div className="min-w-0 space-y-0.5 flex-1">
-          {/* Main line: Name (left, truncated) + Category Tag Pill (right, shrink-0) */}
-          <div className="flex items-center justify-between gap-1.5 min-w-0">
+          {/* Main Line: Note Name taking max width on left */}
+          <div className="flex items-center justify-between gap-2 min-w-0">
             <h4 className="text-xs sm:text-sm font-semibold text-ink truncate font-sans-custom min-w-0 flex-1">
               {transaction.note || category.name}
             </h4>
 
-            {/* Category Tag Pill */}
+            {/* Category Tag Pill moved towards right side above amount */}
             <span
-              className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate whitespace-nowrap shrink-0 max-w-[95px]"
+              className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate whitespace-nowrap shrink-0 max-w-[100px]"
               style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
             >
               {(category.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : category.name}
             </span>
           </div>
 
-          {/* Subtitle line: Trip Tag Pill (below name) + Time + Payment Method */}
+          {/* Subtitle line: Trip Tag Pill + Time + Payment Method */}
           <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-custom flex-wrap">
             {/* Trip Tag Pill */}
             {trip && (
-              <span className="text-[9px] font-mono bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 truncate whitespace-nowrap max-w-[105px] shrink-0">
+              <span className="text-[9px] font-mono bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 truncate whitespace-nowrap max-w-[110px] shrink-0">
                 <Plane className="w-2.5 h-2.5 shrink-0" />
                 <span className="truncate">{trip.name}</span>
               </span>
