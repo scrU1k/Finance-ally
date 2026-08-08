@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useFinance } from '../../context/FinanceContext';
-import { Transaction } from '../../types';
+import { Transaction, TimelineViewMode } from '../../types';
 import { TransactionCard } from './TransactionCard';
 import { TransactionDetailModal } from './TransactionDetailModal';
 import { LiveSpendChart } from './LiveSpendChart';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { QuickLogBar } from './QuickLogBar';
-import { Search, Sparkles, Calendar, Tag, X, CheckSquare, Edit2, Trash2 } from 'lucide-react';
+import { Search, Sparkles, Calendar, Tag, X, CheckSquare, Edit2, Trash2, LayoutGrid, List, Grid } from 'lucide-react';
 import { BulkEditModal } from './BulkEditModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 
@@ -41,10 +41,30 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
   const [showTagFilterRow, setShowTagFilterRow] = useState(false);
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
 
-  // Multi-select bulk edit/delete states
+  // Multi-select bulk edit/delete states & custom delete modal
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+
+  // Persistent View Mode ('compact' | 'list' | 'grid')
+  const [viewMode, setViewMode] = useState<TimelineViewMode>(() => {
+    try {
+      const stored = localStorage.getItem('fa_timeline_view_mode');
+      if (stored === 'list' || stored === 'grid' || stored === 'compact') {
+        return stored;
+      }
+    } catch {}
+    return 'compact';
+  });
+  const [showViewMenu, setShowViewMenu] = useState(false);
+
+  const handleSetViewMode = (mode: TimelineViewMode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('fa_timeline_view_mode', mode);
+    } catch {}
+  };
 
   useEffect(() => {
     if (isSelectMode && selectedTxIds.length === 0) {
@@ -109,11 +129,13 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedTxIds.length === 0) return;
-    const confirm = window.confirm(`Are you sure you want to delete ${selectedTxIds.length} transactions?`);
-    if (!confirm) return;
+    setShowDeleteConfirmModal(true);
+  };
 
+  const handleConfirmBulkDelete = async () => {
+    setShowDeleteConfirmModal(false);
     for (const id of selectedTxIds) {
       await deleteTx(id);
     }
@@ -243,6 +265,58 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             <span>{showCharts ? 'Hide Charts' : 'Show Charts'}</span>
           </button>
 
+          {/* 5. View Mode Switcher Chip Button */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowViewMenu(!showViewMenu)}
+              className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                viewMode !== 'compact'
+                  ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
+                  : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+              }`}
+              title="Change timeline view layout"
+            >
+              <LayoutGrid className="w-3.5 h-3.5 text-brand-purple shrink-0" />
+              <span className="capitalize">{viewMode}</span>
+            </button>
+
+            {/* Dropdown Options */}
+            {showViewMenu && (
+              <div className="absolute top-full right-0 mt-1 z-40 bg-surface-card/95 backdrop-blur-2xl border border-hairline rounded-xl shadow-2xl p-1.5 space-y-1 w-32 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10">
+                <button
+                  onClick={() => { handleSetViewMode('compact'); setShowViewMenu(false); }}
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-colors cursor-pointer ${
+                    viewMode === 'compact' ? 'bg-brand-purple/15 text-brand-purple font-bold' : 'text-ink hover:bg-surface-soft'
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
+                  <span>Compact</span>
+                </button>
+
+                <button
+                  onClick={() => { handleSetViewMode('list'); setShowViewMenu(false); }}
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-colors cursor-pointer ${
+                    viewMode === 'list' ? 'bg-brand-purple/15 text-brand-purple font-bold' : 'text-ink hover:bg-surface-soft'
+                  }`}
+                >
+                  <List className="w-3.5 h-3.5 shrink-0" />
+                  <span>List</span>
+                </button>
+
+                <button
+                  onClick={() => { handleSetViewMode('grid'); setShowViewMenu(false); }}
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-colors cursor-pointer ${
+                    viewMode === 'grid' ? 'bg-brand-purple/15 text-brand-purple font-bold' : 'text-ink hover:bg-surface-soft'
+                  }`}
+                >
+                  <Grid className="w-3.5 h-3.5 shrink-0" />
+                  <span>Grid</span>
+                </button>
+              </div>
+            )}
+          </div>
+
 
 
         </div>
@@ -341,7 +415,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
               </div>
 
               {/* Transactions List */}
-              <div className="space-y-2">
+              <div className={viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 gap-2.5' : viewMode === 'list' ? 'space-y-1.5' : 'space-y-2'}>
                 {group.transactions.map(tx => {
                   const isSelected = selectedTxIds.includes(tx.id);
                   return (
@@ -356,6 +430,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
                       isSelectMode={isSelectMode}
                       isSelected={isSelected}
                       onToggleSelect={handleToggleSelect}
+                      viewMode={viewMode}
                     />
                   );
                 })}
@@ -442,6 +517,35 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
         trips={trips}
         onSave={handleBulkSave}
       />
+
+      {/* Custom Delete Confirmation Modal */}
+      {showDeleteConfirmModal && (
+        <div className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150" onClick={() => setShowDeleteConfirmModal(false)}>
+          <div className="bg-surface-card/90 backdrop-blur-2xl border border-hairline rounded-2xl shadow-2xl p-5 max-w-sm w-full space-y-4 text-center ring-1 ring-white/10 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-full bg-brand-coral/15 text-brand-coral flex items-center justify-center mx-auto border border-brand-coral/30">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-display font-bold text-ink">Delete {selectedTxIds.length} Transactions?</h3>
+              <p className="text-xs font-mono text-muted-custom">This action is permanent and cannot be undone.</p>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => setShowDeleteConfirmModal(false)}
+                className="flex-1 py-2 rounded-xl border border-hairline bg-surface-soft text-ink font-mono text-xs font-bold hover:border-ink transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmBulkDelete}
+                className="flex-1 py-2 rounded-xl bg-brand-coral text-white font-mono text-xs font-bold shadow-md hover:bg-brand-coral/90 transition-colors cursor-pointer"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

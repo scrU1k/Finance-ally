@@ -1,8 +1,8 @@
 import React from 'react';
-import { Transaction, Category, Trip } from '../../types';
+import { Transaction, Category, Trip, TimelineViewMode } from '../../types';
 import { formatCurrency } from '../../services/currency';
 import {
-  Sparkles, Trash2, Edit2, Plane, CreditCard,
+  Trash2, Edit2, Plane, CreditCard,
   // Category icons — explicit import so bundler can tree-shake unused Lucide icons
   Tag, Utensils, ShoppingCart, Car, Laptop, Shirt, Home, Film,
   Activity, TrendingUp, type LucideProps,
@@ -25,6 +25,7 @@ interface TransactionCardProps {
   isSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
+  viewMode?: TimelineViewMode;
 }
 
 export const TransactionCard: React.FC<TransactionCardProps> = ({
@@ -37,6 +38,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   isSelectMode = false,
   isSelected = false,
   onToggleSelect,
+  viewMode = 'compact',
 }) => {
   const category = categories.find(c => c.id === transaction.categoryId) || {
     id: 'unknown',
@@ -155,6 +157,107 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
     }
   };
 
+  const commonStyle: React.CSSProperties = {
+    borderColor: isSelected ? 'var(--brand-blue)' : undefined,
+    boxShadow: isSelected ? '0 0 0 2px var(--brand-blue), 0 8px 20px -4px rgba(0, 0, 0, 0.3)' : undefined,
+    backgroundColor: isSelected ? 'rgba(45, 212, 191, 0.12)' : undefined,
+  };
+
+  /* ---------------- Grid View ---------------- */
+  if (viewMode === 'grid') {
+    return (
+      <div
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={commonStyle}
+        className={`dotgui-card p-2.5 flex flex-col justify-between aspect-[1.3/1] min-h-[85px] group transition-all cursor-pointer active:scale-[0.98] ${
+          isSelected ? 'scale-[1.02]' : ''
+        }`}
+      >
+        <div className="flex items-center justify-between gap-1 min-w-0">
+          <div
+            className="w-6 h-6 rounded-md flex items-center justify-center text-white shrink-0 shadow-sm"
+            style={{ backgroundColor: category.color }}
+          >
+            <IconComponent className="w-3 h-3" />
+          </div>
+
+          <span
+            className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate max-w-[70px]"
+            style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
+          >
+            {(category.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : category.name}
+          </span>
+        </div>
+
+        <h4 className="text-xs font-semibold text-ink truncate font-sans-custom my-1">
+          {transaction.note || category.name}
+        </h4>
+
+        <div className="flex items-center justify-between text-right border-t border-hairline/40 pt-1 mt-auto">
+          <span className="text-[9px] font-mono text-muted-custom truncate max-w-[60px]">
+            {trip ? trip.name : ''}
+          </span>
+          <div className="text-xs font-display font-bold text-ink tracking-tight">
+            -{formatCurrency(transaction.amount, transaction.currency)}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------------- List View ---------------- */
+  if (viewMode === 'list') {
+    return (
+      <div
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={commonStyle}
+        className={`dotgui-card py-2 px-3 flex items-center justify-between gap-2.5 group transition-all cursor-pointer active:scale-[0.99] ${
+          isSelected ? 'scale-[1.005]' : ''
+        }`}
+      >
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div
+            className="w-6 h-6 rounded-md flex items-center justify-center text-white shrink-0 shadow-sm"
+            style={{ backgroundColor: category.color }}
+          >
+            <IconComponent className="w-3 h-3" />
+          </div>
+
+          <h4 className="text-xs font-semibold text-ink truncate font-sans-custom min-w-0">
+            {transaction.note || category.name}
+          </h4>
+
+          <span
+            className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate shrink-0 hidden sm:inline-block"
+            style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
+          >
+            {category.name}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          <span className="text-[10px] font-mono text-muted-custom hidden xs:inline-block">
+            {transaction.time}
+          </span>
+          <div className="text-xs font-display font-bold text-ink tracking-tight">
+            -{formatCurrency(transaction.amount, transaction.currency)}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------------- Compact View (Default View) ---------------- */
   return (
     <div
       onMouseDown={handleMouseDown}
@@ -163,37 +266,31 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      style={{
-        borderColor: isSelected ? 'var(--brand-blue)' : undefined,
-        boxShadow: isSelected ? '0 0 0 2px var(--brand-blue), 0 8px 20px -4px rgba(0, 0, 0, 0.3)' : undefined,
-        backgroundColor: isSelected ? 'rgba(45, 212, 191, 0.12)' : undefined,
-      }}
-      className={`dotgui-card p-4 flex items-center justify-between gap-3 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${
+      style={commonStyle}
+      className={`dotgui-card p-2.5 sm:p-3 flex items-center justify-between gap-3 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${
         isSelected ? 'scale-[1.005]' : ''
       }`}
     >
-      
       {/* Icon & Details */}
-      <div className="flex items-center gap-3.5 min-w-0 flex-1">
-        
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         {/* Category Color Badge */}
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 shadow-sm"
           style={{ backgroundColor: category.color }}
         >
-          <IconComponent className="w-5 h-5" />
+          <IconComponent className="w-4 h-4" />
         </div>
 
         {/* Note & Tag metadata */}
-        <div className="min-w-0 space-y-1 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="text-sm font-semibold text-ink truncate font-sans-custom">
+        <div className="min-w-0 space-y-0.5 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h4 className="text-xs sm:text-sm font-semibold text-ink truncate font-sans-custom">
               {transaction.note || category.name}
             </h4>
 
-            {/* Category Tag Pill (Truncate, No Wrap) */}
+            {/* Category Tag Pill */}
             <span
-              className="text-[10px] font-mono px-2 py-0.5 rounded-full font-medium truncate whitespace-nowrap max-w-[110px]"
+              className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate whitespace-nowrap max-w-[100px]"
               style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
             >
               {(category.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : category.name}
@@ -201,45 +298,36 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 
             {/* Trip Tag Pill */}
             {trip && (
-              <span className="text-[10px] font-mono bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-2 py-0.5 rounded-full flex items-center gap-1 truncate whitespace-nowrap max-w-[110px]">
+              <span className="text-[9px] font-mono bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 truncate whitespace-nowrap max-w-[100px]">
                 <Plane className="w-2.5 h-2.5 shrink-0" />
                 <span className="truncate">{trip.name}</span>
               </span>
             )}
-
-            {/* Auto-parsed Badge */}
-            {transaction.isAutoParsed && (
-              <span className="text-[9px] font-mono bg-brand-yellow/15 text-brand-yellow border border-brand-yellow/30 px-1.5 py-0.2 rounded-full flex items-center gap-1 truncate whitespace-nowrap" title="Auto-parsed from notification">
-                <Sparkles className="w-2.5 h-2.5 shrink-0" />
-                <span>{transaction.confidenceScore || 95}% accuracy</span>
-              </span>
-            )}
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] font-mono text-muted-custom">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-custom">
             <span>{transaction.time || '12:00'}</span>
             {transaction.paymentMethod && (
               <>
                 <span>•</span>
                 <span className="flex items-center gap-1 truncate">
-                  <CreditCard className="w-3 h-3 text-muted-custom shrink-0" />
+                  <CreditCard className="w-2.5 h-2.5 text-muted-custom shrink-0" />
                   <span className="truncate">{transaction.paymentMethod}</span>
                 </span>
               </>
             )}
           </div>
         </div>
-
       </div>
 
       {/* Amount & Actions */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-2.5 shrink-0">
         <div className="text-right">
-          <div className="text-sm sm:text-base font-display font-bold text-ink tracking-tight">
+          <div className="text-xs sm:text-sm font-display font-bold text-ink tracking-tight">
             -{formatCurrency(transaction.amount, transaction.currency)}
           </div>
           {transaction.originalAmount && (
-            <div className="text-[10px] font-mono text-muted-custom">
+            <div className="text-[9px] font-mono text-muted-custom">
               Orig: {formatCurrency(transaction.originalAmount, transaction.originalCurrency || transaction.currency)}
             </div>
           )}
@@ -253,25 +341,25 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
                 e.stopPropagation();
                 onEdit(transaction);
               }}
-              className="p-1.5 text-muted-custom hover:text-ink hover:bg-surface-soft rounded-lg transition-colors"
+              className="p-1 text-muted-custom hover:text-ink hover:bg-surface-soft rounded-lg transition-colors"
               title="Edit Transaction"
             >
-              <Edit2 className="w-3.5 h-3.5" />
+              <Edit2 className="w-3 h-3" />
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(transaction.id);
               }}
-              className="p-1.5 text-muted-custom hover:text-brand-coral hover:bg-surface-soft rounded-lg transition-colors"
+              className="p-1 text-muted-custom hover:text-brand-coral hover:bg-surface-soft rounded-lg transition-colors"
               title="Delete Transaction"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-3 h-3" />
             </button>
           </div>
         )}
       </div>
-
     </div>
   );
 };
+

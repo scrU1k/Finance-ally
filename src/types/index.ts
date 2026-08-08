@@ -9,6 +9,7 @@ export interface CurrencyConfig {
 }
 
 export type PeriodType = 'day' | 'week' | 'month' | 'year' | 'all';
+export type TimelineViewMode = 'compact' | 'list' | 'grid';
 
 export interface Category {
   id: string;
