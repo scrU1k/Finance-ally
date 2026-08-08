@@ -445,7 +445,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
           <button
             onClick={() => {
               setParsedExpense(null);
-              setPrompt('');
+              setInputPrompt('');
             }}
             className="absolute top-3 right-3 text-muted-custom hover:text-ink cursor-pointer"
             title="Clear quick log text box"
