@@ -502,17 +502,14 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
 
       {/* Active Drill-Down Filter Banner */}
       {drilledFilter && (
-        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-brand-purple/10 border border-brand-purple/30 text-xs font-mono text-brand-purple font-bold animate-in fade-in duration-150 shadow-sm">
-          <span className="flex items-center gap-1.5 truncate">
-            <Filter className="w-3.5 h-3.5 shrink-0" />
-            <span>Focused View: <strong className="text-ink">{drilledFilter.label}</strong> ({processedTransactions.length} logs)</span>
-          </span>
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-brand-purple/10 border border-brand-purple/30 text-xs font-mono text-brand-purple font-bold animate-in fade-in duration-150 shadow-sm">
+          <span>View: {drilledFilter.label}</span>
           <button
             type="button"
             onClick={() => setDrilledFilter(null)}
-            className="hover:text-brand-coral cursor-pointer flex items-center gap-1 bg-surface-card px-2 py-0.5 rounded-md border border-hairline shrink-0 transition-colors"
+            className="hover:text-brand-coral cursor-pointer flex items-center gap-1 bg-surface-card px-2 py-0.5 rounded-md border border-hairline shrink-0 transition-colors text-ink font-bold"
           >
-            <span>Reset View</span>
+            <span>Reset</span>
             <X className="w-3 h-3" />
           </button>
         </div>
@@ -897,7 +894,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                 <div
                   key={w.key}
                   onClick={() => handleDrillDownWeek(w.weekInfo)}
-                  className="bg-surface-card border border-hairline rounded-2xl p-3.5 space-y-2.5 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
+                  className="bg-surface-card border border-hairline rounded-2xl p-3.5 space-y-2 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
                   title="Click to view daily logs for this week"
                 >
                   <div className="flex items-center justify-between">
@@ -917,13 +914,6 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                       </div>
                     </div>
                   </div>
-
-                  {/* Drill-Down Prompt Hint */}
-                  <div className="flex items-center justify-end text-[10px] font-mono text-brand-purple font-bold pt-1 border-t border-hairline/40">
-                    <span className="flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                      View daily logs <ArrowRight className="w-3 h-3" />
-                    </span>
-                  </div>
                 </div>
               ))}
             </div>
@@ -942,7 +932,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                 <div
                   key={m.monthKey}
                   onClick={() => handleDrillDownMonth(m.monthKey, m.monthName)}
-                  className="bg-surface-card border border-hairline rounded-2xl p-4 space-y-3 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
+                  className="bg-surface-card border border-hairline rounded-2xl p-4 space-y-2.5 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
                   title="Click to view daily logs for this month"
                 >
                   <div className="flex items-center justify-between">
@@ -962,13 +952,6 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                         {formatCurrency(m.monthTotal, baseCurrency)}
                       </div>
                     </div>
-                  </div>
-
-                  {/* Drill-Down Prompt Hint */}
-                  <div className="flex items-center justify-end text-[10px] font-mono text-brand-purple font-bold pt-1 border-t border-hairline/40">
-                    <span className="flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                      View daily logs <ArrowRight className="w-3 h-3" />
-                    </span>
                   </div>
                 </div>
               ))}
@@ -1014,13 +997,6 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                       </span>
                     </div>
                   )}
-
-                  {/* Drill-Down Prompt Hint */}
-                  <div className="flex items-center justify-end text-[10px] font-mono text-brand-purple font-bold pt-1">
-                    <span className="flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                      View monthly breakdown <ArrowRight className="w-3 h-3" />
-                    </span>
-                  </div>
                 </div>
               ))}
             </div>
