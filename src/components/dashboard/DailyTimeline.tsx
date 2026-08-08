@@ -46,6 +46,12 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
 
+  useEffect(() => {
+    if (isSelectMode && selectedTxIds.length === 0) {
+      setIsSelectMode(false);
+    }
+  }, [selectedTxIds, isSelectMode]);
+
   const processedTransactions = useMemo(() => {
     return filteredTransactions.filter(tx => {
       const matchCat = selectedCatFilter === 'all' || tx.categoryId === selectedCatFilter;
@@ -87,6 +93,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
   const activeCategoryObj = categories.find(c => c.id === selectedCatFilter);
 
   const handleToggleSelect = (txId: string) => {
+    setIsSelectMode(true);
     setSelectedTxIds(prev =>
       prev.includes(txId) ? prev.filter(id => id !== txId) : [...prev, txId]
     );
@@ -229,22 +236,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             <span>{showCharts ? 'Hide Charts' : 'Show Charts'}</span>
           </button>
 
-          {/* 5. Select Mode Toggle Chip Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setIsSelectMode(!isSelectMode);
-              setSelectedTxIds([]);
-            }}
-            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              isSelectMode
-                ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
-                : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
-            }`}
-          >
-            <CheckSquare className="w-3.5 h-3.5 text-brand-blue shrink-0" />
-            <span>{isSelectMode ? 'Cancel Select' : 'Select Logs'}</span>
-          </button>
+
 
         </div>
 

@@ -50,15 +50,69 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   // Dynamic icon lookup — falls back to Tag for any unknown icon names
   const IconComponent = CATEGORY_ICON_MAP[category.icon] ?? Tag;
 
+  const timerRef = React.useRef<number | null>(null);
+  const [isLongPressActive, setIsLongPressActive] = React.useState(false);
+  const isTouchRef = React.useRef(false);
+
+  const startPress = (e: React.MouseEvent | React.TouchEvent) => {
+    const isTouch = 'touches' in e;
+    if (isTouch) {
+      isTouchRef.current = true;
+    } else if (isTouchRef.current) {
+      return;
+    }
+
+    if ('button' in e && e.button !== 0) return;
+    setIsLongPressActive(false);
+
+    timerRef.current = window.setTimeout(() => {
+      setIsLongPressActive(true);
+      onToggleSelect?.(transaction.id);
+      try {
+        navigator.vibrate?.(50);
+      } catch {}
+    }, 600);
+  };
+
+  const endPress = (e: React.MouseEvent | React.TouchEvent, action: 'click' | 'none') => {
+    const isTouch = 'touches' in e;
+    if (!isTouch && isTouchRef.current) {
+      return;
+    }
+
+    if (timerRef.current) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    if (action === 'click') {
+      if (isLongPressActive) {
+        setIsLongPressActive(false);
+        return;
+      }
+      if (isSelectMode) {
+        onToggleSelect?.(transaction.id);
+      } else {
+        onSelect?.(transaction);
+      }
+    }
+  };
+
+  const cancelPress = () => {
+    if (timerRef.current) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
   return (
     <div
-      onClick={() => {
-        if (isSelectMode) {
-          onToggleSelect?.(transaction.id);
-        } else {
-          onSelect?.(transaction);
-        }
-      }}
+      onMouseDown={startPress}
+      onMouseUp={e => endPress(e, 'click')}
+      onMouseLeave={() => cancelPress()}
+      onTouchStart={startPress}
+      onTouchEnd={e => endPress(e, 'click')}
+      onTouchMove={() => cancelPress()}
       className={`dotgui-card p-4 flex items-center justify-between gap-3 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${
         isSelected ? 'border-brand-blue ring-1 ring-brand-blue/30 bg-brand-blue/5' : ''
       }`}
@@ -66,16 +120,6 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
       
       {/* Icon & Details */}
       <div className="flex items-center gap-3.5 min-w-0 flex-1">
-        {isSelectMode && (
-          <div className="flex items-center shrink-0 pr-1" onClick={(e) => { e.stopPropagation(); onToggleSelect?.(transaction.id); }}>
-            <input
-              type="checkbox"
-              checked={isSelected}
-              readOnly
-              className="w-4 h-4 rounded border-hairline text-brand-blue focus:ring-brand-blue/30 bg-surface-soft cursor-pointer"
-            />
-          </div>
-        )}
         
         {/* Category Color Badge */}
         <div
