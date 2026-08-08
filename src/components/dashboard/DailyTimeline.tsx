@@ -226,13 +226,13 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
 
       {/* 2. Controls Toolbar: Search, Multi-Log & View Mode (Responsive Auto-Fitting Row) */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-1.5 sm:gap-2 py-0.5 w-full min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 py-0.5 w-full">
           
           {/* 1. Search Chip Button */}
           <button
             type="button"
             onClick={() => setShowSearchInput(!showSearchInput)}
-            className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-mono border transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer min-w-0 ${
+            className={`shrink px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
               showSearchInput || searchQuery || selectedCatFilter !== 'all'
                 ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
@@ -240,7 +240,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             title="Search & filter logs"
           >
             <Search className="w-3.5 h-3.5 text-brand-blue shrink-0" />
-            <span className="truncate">Search</span>
+            <span>Search</span>
             {(searchQuery || selectedCatFilter !== 'all') && (
               <span className="w-2 h-2 rounded-full bg-brand-blue animate-pulse shrink-0" />
             )}
@@ -250,7 +250,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
           <button
             type="button"
             onClick={handleToggleMultiLog}
-            className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-mono border transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer min-w-0 ${
+            className={`shrink px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
               isMultiLogActive
                 ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
@@ -258,14 +258,14 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             title={isMultiLogActive ? "Click to exit Multi-Log mode" : "Click to select a date for Multi-Log session"}
           >
             <ListPlus className="w-3.5 h-3.5 text-brand-purple shrink-0" />
-            <span className="truncate">Multi-Log</span>
+            <span>Multi-Log</span>
           </button>
 
           {/* 2. View Mode Switcher Chip Button */}
           <button
             type="button"
             onClick={() => handleSetViewMode(viewMode === 'compact' ? 'list' : viewMode === 'list' ? 'grid' : 'compact')}
-            className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-mono border transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer min-w-0 ${
+            className={`shrink px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
               viewMode !== 'compact'
                 ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
@@ -279,7 +279,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             ) : (
               <LayoutGrid className="w-3.5 h-3.5 text-brand-purple shrink-0" />
             )}
-            <span className="capitalize truncate">{viewMode}</span>
+            <span className="capitalize">{viewMode}</span>
           </button>
 
         </div>
