@@ -27,6 +27,8 @@ import {
   CalendarDays,
   TrendingUp,
   Flame,
+  Filter,
+  ArrowRight,
 } from 'lucide-react';
 import { BulkEditModal } from './BulkEditModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
@@ -37,6 +39,13 @@ interface DailyTimelineProps {
 }
 
 export type PeriodMode = 'day' | 'week' | 'month' | 'year';
+
+interface DrilledFilter {
+  type: 'year' | 'month' | 'week';
+  label: string;
+  datePrefix?: string;
+  dateRange?: [string, string];
+}
 
 function formatDayHeader(dateStr: string): string {
   const todayStr = new Date().toISOString().split('T')[0];
@@ -93,6 +102,12 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
   const [showTagFilterRow, setShowTagFilterRow] = useState(false);
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
 
+  // Drill-down filter state (e.g. clicking a Year, Month, or Week card filters down)
+  const [drilledFilter, setDrilledFilter] = useState<DrilledFilter | null>(null);
+
+  // 30-Day Window limit for Day view
+  const [dayWindowLimit, setDayWindowLimit] = useState(30);
+
   // Minimizable date groups state (set of collapsed date strings)
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
 
@@ -127,6 +142,45 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
     try {
       localStorage.setItem('fa_timeline_period_mode', mode);
     } catch {}
+  };
+
+  // Drill-down handlers
+  const handleDrillDownYear = (yearKey: string) => {
+    setDrilledFilter({
+      type: 'year',
+      label: `Year ${yearKey}`,
+      datePrefix: yearKey,
+    });
+    handleSetPeriodMode('month');
+  };
+
+  const handleDrillDownMonth = (monthKey: string, monthName: string) => {
+    setDrilledFilter({
+      type: 'month',
+      label: monthName,
+      datePrefix: monthKey,
+    });
+    handleSetPeriodMode('day');
+  };
+
+  const handleDrillDownWeek = (weekInfo: ReturnType<typeof getWeekInfo>) => {
+    const d = new Date(weekInfo.year, 0, 1);
+    const dayOffset = (weekInfo.weekNo - 1) * 7;
+    d.setDate(d.getDate() + dayOffset);
+    const day = d.getDay();
+    const diffToMon = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d.setDate(diffToMon));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const formatISO = (dt: Date) => dt.toISOString().split('T')[0];
+
+    setDrilledFilter({
+      type: 'week',
+      label: weekInfo.title,
+      dateRange: [formatISO(monday), formatISO(sunday)],
+    });
+    handleSetPeriodMode('day');
   };
 
   // Multi-select bulk edit/delete states
@@ -189,9 +243,19 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
         tx.amount.toString().includes(query) ||
         (tx.paymentMethod && tx.paymentMethod.toLowerCase().includes(query)) ||
         tx.date.includes(query);
-      return matchCat && matchQuery;
+
+      let matchDrilled = true;
+      if (drilledFilter) {
+        if (drilledFilter.datePrefix) {
+          matchDrilled = tx.date.startsWith(drilledFilter.datePrefix);
+        } else if (drilledFilter.dateRange) {
+          matchDrilled = tx.date >= drilledFilter.dateRange[0] && tx.date <= drilledFilter.dateRange[1];
+        }
+      }
+
+      return matchCat && matchQuery && matchDrilled;
     });
-  }, [filteredTransactions, selectedCatFilter, searchQuery]);
+  }, [filteredTransactions, selectedCatFilter, searchQuery, drilledFilter]);
 
   // 1. Grouped by Day
   const groupedByDate = useMemo(() => {
@@ -217,6 +281,16 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
       };
     });
   }, [processedTransactions, baseCurrency, forexRates]);
+
+  // Visible daily groups (limited to 30 days unless searching/filtering/drilled)
+  const visibleGroupedByDate = useMemo(() => {
+    if (drilledFilter || searchQuery || selectedCatFilter !== 'all') {
+      return groupedByDate;
+    }
+    return groupedByDate.slice(0, dayWindowLimit);
+  }, [groupedByDate, dayWindowLimit, drilledFilter, searchQuery, selectedCatFilter]);
+
+  const hasMoreDays = !drilledFilter && !searchQuery && selectedCatFilter === 'all' && groupedByDate.length > dayWindowLimit;
 
   // 2. Grouped by Week
   const groupedByWeek = useMemo(() => {
@@ -425,6 +499,24 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
         batchDate={batchDate}
         onBatchDateChange={setBatchDate}
       />
+
+      {/* Active Drill-Down Filter Banner */}
+      {drilledFilter && (
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-brand-purple/10 border border-brand-purple/30 text-xs font-mono text-brand-purple font-bold animate-in fade-in duration-150 shadow-sm">
+          <span className="flex items-center gap-1.5 truncate">
+            <Filter className="w-3.5 h-3.5 shrink-0" />
+            <span>Focused View: <strong className="text-ink">{drilledFilter.label}</strong> ({processedTransactions.length} logs)</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setDrilledFilter(null)}
+            className="hover:text-brand-coral cursor-pointer flex items-center gap-1 bg-surface-card px-2 py-0.5 rounded-md border border-hairline shrink-0 transition-colors"
+          >
+            <span>Reset View</span>
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
 
       {/* 2. Controls Toolbar: Search, Chart Jump, Multi-Log & View Mode */}
       <div className="space-y-3 relative">
@@ -696,13 +788,16 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
       {processedTransactions.length === 0 ? (
         <div className="dotgui-card p-12 text-center space-y-3 my-8">
           <div className="text-muted-custom text-sm font-mono">No matching transactions found</div>
-          {searchQuery && (
+          {(searchQuery || drilledFilter) && (
             <button
               type="button"
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                setDrilledFilter(null);
+              }}
               className="text-xs font-mono text-brand-blue underline cursor-pointer"
             >
-              Clear search filter
+              Clear filters
             </button>
           )}
         </div>
@@ -711,7 +806,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
           {/* DAY MODE */}
           {periodMode === 'day' && (
             <div className="space-y-6">
-              {groupedByDate.map(group => {
+              {visibleGroupedByDate.map(group => {
                 const isCollapsed = collapsedDates.has(group.date);
                 return (
                   <div key={group.date} className="space-y-2.5">
@@ -770,6 +865,22 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                   </div>
                 );
               })}
+
+              {/* 30-Day Window Pagination Banner */}
+              {hasMoreDays && (
+                <div className="text-center py-6 border-t border-hairline/40 space-y-2 animate-in fade-in duration-200">
+                  <p className="text-xs font-mono text-muted-custom">
+                    Showing last {dayWindowLimit} active days ({visibleGroupedByDate.reduce((sum, g) => sum + g.transactions.length, 0)} expenses) out of {groupedByDate.length} days total.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setDayWindowLimit(prev => prev + 30)}
+                    className="px-4 py-2 rounded-xl bg-surface-card border border-hairline hover:border-brand-purple text-brand-purple font-mono text-xs font-bold transition-all shadow-sm cursor-pointer hover:bg-surface-soft"
+                  >
+                    Load older history (+30 days)
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -785,13 +896,15 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
               {groupedByWeek.map(w => (
                 <div
                   key={w.key}
-                  className="bg-surface-card border border-hairline rounded-2xl p-3.5 space-y-2 shadow-sm hover:border-ink/40 transition-colors"
+                  onClick={() => handleDrillDownWeek(w.weekInfo)}
+                  className="bg-surface-card border border-hairline rounded-2xl p-3.5 space-y-2.5 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
+                  title="Click to view daily logs for this week"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <CalendarRange className="w-4 h-4 text-brand-purple shrink-0" />
+                      <CalendarRange className="w-4 h-4 text-brand-purple shrink-0 group-hover:scale-110 transition-transform" />
                       <div>
-                        <h4 className="text-xs font-mono font-bold text-ink uppercase">{w.weekInfo.title}</h4>
+                        <h4 className="text-xs font-mono font-bold text-ink uppercase group-hover:text-brand-purple transition-colors">{w.weekInfo.title}</h4>
                         <p className="text-[11px] font-mono text-muted-custom">{w.weekInfo.dateRangeStr}</p>
                       </div>
                     </div>
@@ -803,6 +916,13 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                         {w.txCount} logs ({w.daysWithSpend} active days)
                       </div>
                     </div>
+                  </div>
+
+                  {/* Drill-Down Prompt Hint */}
+                  <div className="flex items-center justify-end text-[10px] font-mono text-brand-purple font-bold pt-1 border-t border-hairline/40">
+                    <span className="flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                      View daily logs <ArrowRight className="w-3 h-3" />
+                    </span>
                   </div>
                 </div>
               ))}
@@ -821,15 +941,17 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
               {groupedByMonth.map(m => (
                 <div
                   key={m.monthKey}
-                  className="bg-surface-card border border-hairline rounded-2xl p-4 space-y-2.5 shadow-sm hover:border-ink/40 transition-colors"
+                  onClick={() => handleDrillDownMonth(m.monthKey, m.monthName)}
+                  className="bg-surface-card border border-hairline rounded-2xl p-4 space-y-3 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
+                  title="Click to view daily logs for this month"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-brand-purple/10 border border-brand-purple/20 text-brand-purple flex items-center justify-center font-mono font-bold text-xs shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-brand-purple/10 border border-brand-purple/20 text-brand-purple flex items-center justify-center font-mono font-bold text-xs shrink-0 group-hover:bg-brand-purple group-hover:text-white transition-colors">
                         <CalendarDays className="w-4 h-4" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-mono font-bold text-ink">{m.monthName}</h4>
+                        <h4 className="text-sm font-mono font-bold text-ink group-hover:text-brand-purple transition-colors">{m.monthName}</h4>
                         <p className="text-[11px] font-mono text-muted-custom">
                           {m.txCount} total logs • ~{formatCurrency(m.dailyAvg, baseCurrency)}/day
                         </p>
@@ -840,6 +962,13 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                         {formatCurrency(m.monthTotal, baseCurrency)}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Drill-Down Prompt Hint */}
+                  <div className="flex items-center justify-end text-[10px] font-mono text-brand-purple font-bold pt-1 border-t border-hairline/40">
+                    <span className="flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                      View daily logs <ArrowRight className="w-3 h-3" />
+                    </span>
                   </div>
                 </div>
               ))}
@@ -852,15 +981,17 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
               {groupedByYear.map(y => (
                 <div
                   key={y.yearKey}
-                  className="bg-surface-card border border-hairline rounded-2xl p-4 space-y-3 shadow-sm hover:border-ink/40 transition-colors"
+                  onClick={() => handleDrillDownYear(y.yearKey)}
+                  className="bg-surface-card border border-hairline rounded-2xl p-4 space-y-3 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
+                  title="Click to view monthly breakdown for this year"
                 >
                   <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
                     <div className="flex items-center gap-3">
-                      <div className="px-2.5 py-1.5 rounded-2xl bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow flex items-center justify-center font-mono font-bold text-xs shrink-0 tracking-wider">
+                      <div className="px-2.5 py-1.5 rounded-2xl bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow flex items-center justify-center font-mono font-bold text-xs shrink-0 tracking-wider group-hover:bg-brand-yellow group-hover:text-white transition-colors">
                         {y.yearKey}
                       </div>
                       <div>
-                        <h4 className="text-base font-display font-bold text-ink">Annual Summary</h4>
+                        <h4 className="text-base font-display font-bold text-ink group-hover:text-brand-purple transition-colors">Annual Summary</h4>
                         <p className="text-xs font-mono text-muted-custom">{y.txCount} total logged expenses</p>
                       </div>
                     </div>
@@ -883,6 +1014,13 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                       </span>
                     </div>
                   )}
+
+                  {/* Drill-Down Prompt Hint */}
+                  <div className="flex items-center justify-end text-[10px] font-mono text-brand-purple font-bold pt-1">
+                    <span className="flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                      View monthly breakdown <ArrowRight className="w-3 h-3" />
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
