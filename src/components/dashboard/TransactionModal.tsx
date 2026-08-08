@@ -5,6 +5,7 @@ import { TOP_CURRENCIES } from '../../services/currency';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { CustomTimePicker } from '../common/CustomTimePicker';
+import { isFutureDateTime } from '../../utils/scheduledUtils';
 import { X, Check, Calendar, Clock, CreditCard, Plane } from 'lucide-react';
 
 interface TransactionModalProps {
@@ -86,7 +87,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) return;
 
-    const payload = {
+    const isFuture = isFutureDateTime(date, time);
+    const payload: Omit<Transaction, 'id' | 'createdAt'> = {
       amount: numAmount,
       currency,
       categoryId,
@@ -96,6 +98,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
       note,
       paymentMethod,
       tripId: tripId || undefined,
+      isScheduled: isFuture,
     };
 
     if (initialData) {
@@ -308,6 +311,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
               />
             </div>
           </div>
+
+          {isFutureDateTime(date, time) && (
+            <div className="bg-brand-yellow/10 border border-brand-yellow/30 p-2.5 rounded-xl text-xs font-mono text-brand-yellow flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 shrink-0 text-brand-yellow" />
+              <span>Scheduled Payment — will activate on {date} at {time}</span>
+            </div>
+          )}
 
           <button
             type="submit"

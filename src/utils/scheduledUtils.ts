@@ -1,24 +1,27 @@
 import { Transaction } from '../types';
 
 /**
+ * Utility helper to determine if a date and time are in the future relative to right now.
+ */
+export function isFutureDateTime(dateStr: string, timeStr?: string): boolean {
+  if (!dateStr) return false;
+  const now = Date.now();
+  const timeFormatted = timeStr && timeStr.trim() ? timeStr.trim() : '00:00';
+  const targetDateTime = new Date(`${dateStr}T${timeFormatted}:00`);
+
+  if (isNaN(targetDateTime.getTime())) return false;
+  return targetDateTime.getTime() > now;
+}
+
+/**
  * Utility helper to determine if a transaction is a pending scheduled transaction.
- * A transaction is pending scheduled if its date and time are strictly in the future.
- * Pending scheduled transactions are marked with a loading icon and "Scheduled" tag,
- * and their amounts are excluded from total spending calculations until the target date/time arrives.
+ * A transaction is pending scheduled if:
+ * 1. tx.isScheduled is explicitly true AND target date+time is in the future.
+ * 2. tx.isScheduled is undefined BUT target date+time is strictly in the future.
  */
 export function isPendingScheduledTx(tx: Transaction): boolean {
-  if (!tx.isScheduled) return false;
-  if (!tx.date) return false;
-
-  const txDateStr = tx.date; // YYYY-MM-DD
-  const txTimeStr = tx.time && tx.time.trim() ? tx.time.trim() : '00:00';
-
-  // Construct target timestamp
-  const txDateTime = new Date(`${txDateStr}T${txTimeStr}:00`);
-
-  if (isNaN(txDateTime.getTime())) return false;
-
-  return txDateTime.getTime() > Date.now();
+  if (tx.isScheduled === false) return false;
+  return isFutureDateTime(tx.date, tx.time);
 }
 
 /**

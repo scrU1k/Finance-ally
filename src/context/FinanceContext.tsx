@@ -3,7 +3,7 @@ import { Transaction, Category, Trip, CurrencyCode, PeriodType } from '../types'
 import { loadTransactions, saveTransaction, deleteTransaction, loadCategories, saveCategory, deleteCategory, loadTrips, saveTrip, deleteTrip } from '../services/db';
 import { getStoredForexRates, fetchLiveExchangeRates, switchAppBaseCurrency, convertCurrencyAmount } from '../services/currency';
 import { useAuth } from './AuthContext';
-import { isPendingScheduledTx } from '../utils/scheduledUtils';
+import { isPendingScheduledTx, isFutureDateTime } from '../utils/scheduledUtils';
 import { requestNotificationPermission, triggerScheduledPaymentNotification } from '../services/notificationService';
 
 interface FinanceContextType {
@@ -187,7 +187,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [transactions, baseCurrency]);
 
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt'>) => {
-    const isFuture = isPendingScheduledTx(txData as Transaction);
+    const isFuture = isFutureDateTime(txData.date, txData.time);
     const newTx: Transaction = {
       ...txData,
       isScheduled: txData.isScheduled !== undefined ? txData.isScheduled : isFuture,
@@ -200,7 +200,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const editTransaction = async (tx: Transaction) => {
-    const isFuture = isPendingScheduledTx(tx);
+    const isFuture = isFutureDateTime(tx.date, tx.time);
     const updatedTx: Transaction = {
       ...tx,
       isScheduled: tx.isScheduled !== undefined ? tx.isScheduled : isFuture,
