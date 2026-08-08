@@ -18,10 +18,20 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file('release.keystore')
-            storePassword 'password123'
-            keyAlias 'financeally'
-            keyPassword 'password123'
+            // Credentials are read from android/keystore.properties (NOT committed to git).
+            // See android/.gitignore — keystore.properties and *.keystore are excluded.
+            def keystorePropsFile = rootProject.file('keystore.properties')
+            if (keystorePropsFile.exists()) {
+                def keystoreProps = new Properties()
+                keystoreProps.load(new FileInputStream(keystorePropsFile))
+                storeFile     file(keystoreProps['RELEASE_STORE_FILE'])
+                storePassword keystoreProps['RELEASE_STORE_PASSWORD']
+                keyAlias      keystoreProps['RELEASE_KEY_ALIAS']
+                keyPassword   keystoreProps['RELEASE_KEY_PASSWORD']
+            } else {
+                // Fallback: unsigned (safe for CI/open-source clones without the keystore)
+                storeFile null
+            }
         }
     }
     buildTypes {

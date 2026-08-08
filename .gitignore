@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Security — never commit credentials or keys
+.env
+.env.*
+*.local
+*.keystore
+*.jks
+keystore.properties
+google-services.json
