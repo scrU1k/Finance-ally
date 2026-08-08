@@ -177,7 +177,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={commonStyle}
-        className={`dotgui-card p-2.5 flex flex-col justify-between min-h-[75px] group transition-all cursor-pointer active:scale-[0.98] ${
+        className={`dotgui-card p-2.5 flex flex-col justify-between min-h-[75px] group transition-all cursor-pointer active:scale-[0.98] select-none ${
           isSelected ? 'scale-[1.02]' : ''
         } ${isScheduled ? 'border-brand-yellow/50 bg-brand-yellow/5' : ''}`}
       >
@@ -235,7 +235,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={commonStyle}
-        className={`dotgui-card py-2 px-3 flex items-center justify-between gap-2.5 group transition-all cursor-pointer active:scale-[0.99] ${
+        className={`dotgui-card py-2 px-3 flex items-center justify-between gap-2.5 group transition-all cursor-pointer active:scale-[0.99] select-none ${
           isSelected ? 'scale-[1.005]' : ''
         } ${isScheduled ? 'border-brand-yellow/50 bg-brand-yellow/5' : ''}`}
       >
@@ -297,7 +297,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={commonStyle}
-      className={`dotgui-card p-2.5 sm:p-3 flex items-start justify-between gap-2.5 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${
+      className={`dotgui-card p-2.5 sm:p-3 flex items-start justify-between gap-2.5 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] select-none ${
         isSelected ? 'scale-[1.005]' : ''
       } ${isScheduled ? 'border-brand-yellow/50 bg-brand-yellow/5' : ''}`}
     >
