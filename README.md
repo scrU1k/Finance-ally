@@ -103,13 +103,18 @@ Managing shared expenses with friends made simple:
 
 ### 7. Interactive Timeline & Multi-Period View Engine
 
-- **Single-Line Controls Toolbar**: Built with icon-only **Search**, direct **Chart Jump**, **Multi-Log**, and **View** pill buttons — guaranteed to sit on a single line on any screen width without wrapping or truncation.
-- **Collapsible Daily Headers**: Click any date header or calendar icon to collapse/expand that day's logs into a single compact line showing the date and total daily spend.
+- **Single-Line Controls Toolbar**: Built with icon-only **Search**, direct **Chart Jump**, **Multi-Log**, and **View** pill buttons — guaranteed to sit on a single line on any mobile screen without wrapping or truncation.
+- **Collapsible Daily Headers**: Click the cyan calendar icon or date text to collapse/expand that day's logs into a single compact line showing the date and total daily spend. When collapsed, the icon dynamically switches to a grey chevron down icon.
 - **Multi-Period Aggregated Views**: Tap the **View** button to open a floating glassmorphic popover menu offering 4 time grouping modes:
-  - **Day** (Default): Daily timeline logs with `Compact`, `List`, or `Grid` card layouts.
+  - **Day** (Default): Daily timeline logs with `Compact`, `List`, or `Grid` card layout options. Loads the last 30 active days by default with a `Load older history` button to prevent performance lag.
   - **Week**: Aggregated weekly spending cards displaying Week Number, Date Range (e.g. `Aug 3 – Aug 9, 2026`), active spending days, and total spend — no individual item clutter.
   - **Month**: Aggregated monthly cards showing Month Name (e.g. `August 2026`), total monthly spend, and daily average.
   - **Year**: Clean annual overview cards showing Year (e.g. `2026`), total yearly spend, total logs, and the **Highest Spending Month** highlight (e.g. `Highest: August (₹45,200)`).
+- **Hierarchical Card Drill-Down**: Tapping any card in high-level views seamlessly drills down into deeper detail:
+  - **Year Card Click** → Drills into **Month View** filtered to that year.
+  - **Month Card Click** → Drills into **Day View** filtered to that month.
+  - **Week Card Click** → Drills into **Day View** filtered to that week.
+- **Step-Back & Reset Navigation Banner**: Active drill-downs display a minimal banner (`View: August 2026 [ Reset ]`). Tapping the `View: <Label>` text steps back **one level up** to the parent period view; tapping `Reset` restores the all-time view.
 - **Direct Chart Jump**: Tap the Chart icon pill to instantly scroll smoothly to the Spending Trend interactive chart at the bottom of the feed.
 - **Minimized Floating Pill**: Collapse the summary bar into a compact floating pill showing your total spend without consuming screen space.
 
@@ -143,8 +148,19 @@ Managing shared expenses with friends made simple:
 
 Finance-Ally's Android build is a first-class native experience, not just a web wrapper:
 
-- **Native Notification Channel**: A dedicated Android notification channel is created on first launch.
+- **Native Notification Channel**: A dedicated Android notification channel is created on first launch with high-priority heads-up alerts.
 - **Runtime Permission Prompt**: The app requests `POST_NOTIFICATIONS` permission natively on Android 13+ devices, ensuring the system dialog appears immediately on first open.
+- **AlarmManager Background Scheduling**: Future scheduled payments register exact OS-level alarms via `AlarmManager.setExactAndAllowWhileIdle()`, firing system notifications even when the app is completely closed.
+
+---
+
+## Version History
+
+| Version | Highlights |
+|---------|-----------|
+| **v1.2** | Multi-Period View Engine (Day/Week/Month/Year), Hierarchical Card Drill-Down (Year → Month → Day, Week → Day), Step-Back Banner Navigation (`View: <Label>`), 30-Day Active Window Pagination, Collapsible Daily Headers with Cyan/Chevron Icon toggles, Single-Line Controls Toolbar with icon-only Search & Chart Jump buttons, `select-none` long-press selection prevention |
+| **v1.1** | Native AlarmManager background notifications (`ScheduledNotificationPlugin` + `NotificationReceiver`), Multi-Log mode with direct calendar popup, typo-tolerant time parsing (`8pn`, `8a.`, `8.30an`), contextual time inference, clean note extraction |
+| **v1.0** | Initial release — Quick Log NLP, Trip Vaults, Split Bills, Monthly Audit, Clipboard Detection, Glassmorphic UI |
 
 ---
 
