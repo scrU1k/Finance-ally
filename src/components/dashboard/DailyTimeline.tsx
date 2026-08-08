@@ -224,15 +224,15 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
         onBatchDateChange={setBatchDate}
       />
 
-      {/* 2. Controls Toolbar: Search & View Mode (Main Row) */}
+      {/* 2. Controls Toolbar: Search, Multi-Log & View Mode (Responsive Auto-Fitting Row) */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2 py-0.5">
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2 py-0.5 w-full min-w-0">
           
           {/* 1. Search Chip Button */}
           <button
             type="button"
             onClick={() => setShowSearchInput(!showSearchInput)}
-            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-mono border transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer min-w-0 ${
               showSearchInput || searchQuery || selectedCatFilter !== 'all'
                 ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
@@ -240,9 +240,9 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             title="Search & filter logs"
           >
             <Search className="w-3.5 h-3.5 text-brand-blue shrink-0" />
-            <span>Search</span>
+            <span className="truncate">Search</span>
             {(searchQuery || selectedCatFilter !== 'all') && (
-              <span className="w-2 h-2 rounded-full bg-brand-blue animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-brand-blue animate-pulse shrink-0" />
             )}
           </button>
 
@@ -250,7 +250,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
           <button
             type="button"
             onClick={handleToggleMultiLog}
-            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-mono border transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer min-w-0 ${
               isMultiLogActive
                 ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
@@ -258,14 +258,14 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             title={isMultiLogActive ? "Click to exit Multi-Log mode" : "Click to select a date for Multi-Log session"}
           >
             <ListPlus className="w-3.5 h-3.5 text-brand-purple shrink-0" />
-            <span>Multi-Log</span>
+            <span className="truncate">Multi-Log</span>
           </button>
 
-          {/* 2. View Mode Switcher Chip Button (Cycles Compact -> List -> Grid -> Compact) */}
+          {/* 2. View Mode Switcher Chip Button */}
           <button
             type="button"
             onClick={() => handleSetViewMode(viewMode === 'compact' ? 'list' : viewMode === 'list' ? 'grid' : 'compact')}
-            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+            className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-mono border transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer min-w-0 ${
               viewMode !== 'compact'
                 ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
@@ -279,7 +279,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
             ) : (
               <LayoutGrid className="w-3.5 h-3.5 text-brand-purple shrink-0" />
             )}
-            <span className="capitalize">{viewMode}</span>
+            <span className="capitalize truncate">{viewMode}</span>
           </button>
 
         </div>

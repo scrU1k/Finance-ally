@@ -28,40 +28,63 @@ export interface ParsedNaturalExpense {
  *  AM/am/Am, PM/pm/Pm
  */
 function parseExhaustiveTime(lower: string): { h24: string; label: string; matchText: string } | null {
-  // Build a comprehensive regex:
-  // Groups:
-  //  1: hour (1-2 digits)
-  //  2: separator character (. : -)  [optional]
-  //  3: minutes (2 digits)           [optional, only when separator present]
-  //  4: am/pm (always required here for these patterns)
-  //
-  // Pattern: \b(\d{1,2})(?:([\.\:\-])(\d{2}))?\s*(am|pm)\b
-  const ampmRegex = /\b(\d{1,2})(?:([\.\:\-])(\d{2}))?\s*(am|pm)\b/i;
+  // Pattern 1: Match explicit time with AM/PM or typo variants (p, p., pn, pmn, a, a., an, amn, etc.)
+  const ampmRegex = /\b(\d{1,2})(?:([\.\:\-\/])(\d{2}))?\s*(pm|p\.m\.?|p\.|pn|pmn|p,|p;|am|a\.m\.?|a\.|an|amn|a,|a;|p|a)\b/i;
 
   const m = lower.match(ampmRegex);
   if (m) {
     let h = parseInt(m[1], 10);
-    const sep = m[2] || '';
     const minStr = m[3];
-    const ampm = m[4].toLowerCase();
+    const rawAmPm = m[4].toLowerCase().replace(/[\.\,\;\s]/g, '');
 
-    // Special: "8-pm" means 8:00 pm (hyphen + no minutes)
-    // "8-30pm" means 8:30pm
-    let mins = 0;
-    if (minStr) {
-      mins = parseInt(minStr, 10);
+    // Normalize typo token to 'pm' or 'am'
+    const isPM = ['pm', 'p', 'pn', 'pmn'].includes(rawAmPm);
+    const isAM = ['am', 'a', 'an', 'amn'].includes(rawAmPm);
+
+    if (isPM || isAM) {
+      const ampm = isPM ? 'pm' : 'am';
+      let mins = 0;
+      if (minStr) {
+        mins = parseInt(minStr, 10);
+      }
+
+      if (h <= 12 && mins < 60) {
+        if (ampm === 'pm' && h < 12) h += 12;
+        if (ampm === 'am' && h === 12) h = 0;
+
+        const h24 = `${h.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+        const displayH = h % 12 || 12;
+        const label = `${displayH}:${mins.toString().padStart(2, '0')} ${ampm.toUpperCase()}`;
+        return { h24, label, matchText: m[0] };
+      }
     }
-
-    if (ampm === 'pm' && h < 12) h += 12;
-    if (ampm === 'am' && h === 12) h = 0;
-
-    const h24 = `${h.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
-    const displayH = h % 12 || 12;
-    const label = `${displayH}:${mins.toString().padStart(2, '0')} ${ampm.toUpperCase()}`;
-    return { h24, label, matchText: m[0] };
   }
 
-  // 24-hour explicit: "at 14:30" or "at 1430"
+  // Pattern 2: Contextual time detection without AM/PM suffix (e.g. "at 8 for dinner", "at 8 in morning")
+  const contextMatch = lower.match(/\bat\s+(\d{1,2})(?:([\.\:\-\/])(\d{2}))?\b/i);
+  if (contextMatch) {
+    let h = parseInt(contextMatch[1], 10);
+    const mins = contextMatch[3] ? parseInt(contextMatch[3], 10) : 0;
+
+    if (h >= 1 && h <= 24 && mins < 60) {
+      const isEvening = /dinner|evening|night|supper/.test(lower);
+      const isMorning = /breakfast|morning|lunch/.test(lower);
+
+      if (isEvening && h < 12) {
+        h += 12;
+      } else if (isMorning && h === 12) {
+        h = 0;
+      }
+
+      const h24 = `${h.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+      const displayH = h % 12 || 12;
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const label = `${displayH}:${mins.toString().padStart(2, '0')} ${ampm}`;
+      return { h24, label, matchText: contextMatch[0] };
+    }
+  }
+
+  // Pattern 3: 24-hour explicit: "at 14:30" or "at 1430"
   const at24 = lower.match(/\bat\s+(\d{1,2}):(\d{2})\b/) ||
                lower.match(/\bat\s+(\d{2})(\d{2})\b/);
   if (at24) {
