@@ -64,46 +64,55 @@ export const SubscriptionManagerModal: React.FC<SubscriptionManagerModalProps> =
     setSubscriptions(prev => prev.filter(s => s.id !== id));
   };
 
+  const [isProcessingDue, setIsProcessingDue] = useState(false);
+
   const handleProcessDueSubscriptions = async () => {
-    const today = new Date().toISOString().split('T')[0];
-    let loggedCount = 0;
+    if (isProcessingDue) return;
+    setIsProcessingDue(true);
 
-    const updatedSubs = [...subscriptions];
-    for (let i = 0; i < updatedSubs.length; i++) {
-      const sub = updatedSubs[i];
-      if (sub.nextDueDate <= today) {
-        // Auto log transaction
-        await addTransaction({
-          amount: sub.amount,
-          currency: sub.currency,
-          categoryId: sub.categoryId,
-          date: today,
-          time: '09:00',
-          note: `${sub.name} (Recurring Subscription)`,
-          paymentMethod: sub.paymentMethod,
-          isAutoParsed: true,
-        });
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      let loggedCount = 0;
 
-        // Advance next due date
-        const d = new Date(sub.nextDueDate);
-        if (sub.billingCycle === 'monthly') d.setMonth(d.getMonth() + 1);
-        else if (sub.billingCycle === 'bi-monthly') d.setMonth(d.getMonth() + 2);
-        else if (sub.billingCycle === 'tri-monthly') d.setMonth(d.getMonth() + 3);
-        else if (sub.billingCycle === 'annually') d.setFullYear(d.getFullYear() + 1);
+      const updatedSubs = [...subscriptions];
+      for (let i = 0; i < updatedSubs.length; i++) {
+        const sub = updatedSubs[i];
+        if (sub.nextDueDate <= today && sub.lastProcessedDate !== today) {
+          // Auto log transaction
+          await addTransaction({
+            amount: sub.amount,
+            currency: sub.currency,
+            categoryId: sub.categoryId,
+            date: today,
+            time: '09:00',
+            note: `${sub.name} (Recurring Subscription)`,
+            paymentMethod: sub.paymentMethod,
+            isAutoParsed: true,
+          });
 
-        const newDateStr = d.toISOString().split('T')[0];
-        const updatedSub = { ...sub, nextDueDate: newDateStr };
-        await saveSubscription(updatedSub);
-        updatedSubs[i] = updatedSub;
-        loggedCount++;
+          // Advance next due date
+          const d = new Date(sub.nextDueDate);
+          if (sub.billingCycle === 'monthly') d.setMonth(d.getMonth() + 1);
+          else if (sub.billingCycle === 'bi-monthly') d.setMonth(d.getMonth() + 2);
+          else if (sub.billingCycle === 'tri-monthly') d.setMonth(d.getMonth() + 3);
+          else if (sub.billingCycle === 'annually') d.setFullYear(d.getFullYear() + 1);
+
+          const newDateStr = d.toISOString().split('T')[0];
+          const updatedSub = { ...sub, nextDueDate: newDateStr, lastProcessedDate: today };
+          await saveSubscription(updatedSub);
+          updatedSubs[i] = updatedSub;
+          loggedCount++;
+        }
       }
-    }
 
-    setSubscriptions(updatedSubs);
-    if (loggedCount > 0) {
-      setLogStatus(`Auto-logged ${loggedCount} due subscription(s)! System notification dispatched.`);
-    } else {
-      setLogStatus('No subscriptions due today.');
+      setSubscriptions(updatedSubs);
+      if (loggedCount > 0) {
+        setLogStatus(`Auto-logged ${loggedCount} due subscription(s)! System notification dispatched.`);
+      } else {
+        setLogStatus('No subscriptions due today.');
+      }
+    } finally {
+      setIsProcessingDue(false);
     }
   };
 

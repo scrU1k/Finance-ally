@@ -67,49 +67,58 @@ export const SubscriptionPage: React.FC = () => {
     setSubscriptions(prev => prev.filter(s => s.id !== id));
   };
 
+  const [isProcessingDue, setIsProcessingDue] = useState(false);
+
   const handleProcessDueSubscriptions = async () => {
-    const today = new Date().toISOString().split('T')[0];
-    let loggedCount = 0;
+    if (isProcessingDue) return;
+    setIsProcessingDue(true);
 
-    const updatedSubs = [...subscriptions];
-    for (let i = 0; i < updatedSubs.length; i++) {
-      const sub = updatedSubs[i];
-      if (sub.nextDueDate <= today && sub.lastProcessedDate !== today) {
-        // Auto log expense transaction
-        await addTransaction({
-          amount: sub.amount,
-          currency: sub.currency,
-          categoryId: sub.categoryId,
-          date: today,
-          time: '09:00',
-          note: `${sub.name} (Recurring Subscription)`,
-          paymentMethod: sub.paymentMethod,
-          isAutoParsed: true,
-        });
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      let loggedCount = 0;
 
-        // Advance next due date based on selected cycle
-        const d = new Date(sub.nextDueDate);
-        if (sub.billingCycle === 'monthly') d.setMonth(d.getMonth() + 1);
-        else if (sub.billingCycle === 'bi-monthly') d.setMonth(d.getMonth() + 2);
-        else if (sub.billingCycle === 'tri-monthly') d.setMonth(d.getMonth() + 3);
-        else if (sub.billingCycle === 'annually') d.setFullYear(d.getFullYear() + 1);
+      const updatedSubs = [...subscriptions];
+      for (let i = 0; i < updatedSubs.length; i++) {
+        const sub = updatedSubs[i];
+        if (sub.nextDueDate <= today && sub.lastProcessedDate !== today) {
+          // Auto log expense transaction
+          await addTransaction({
+            amount: sub.amount,
+            currency: sub.currency,
+            categoryId: sub.categoryId,
+            date: today,
+            time: '09:00',
+            note: `${sub.name} (Recurring Subscription)`,
+            paymentMethod: sub.paymentMethod,
+            isAutoParsed: true,
+          });
 
-        const newDateStr = d.toISOString().split('T')[0];
-        const updatedSub = { ...sub, nextDueDate: newDateStr, lastProcessedDate: today };
-        await saveSubscription(updatedSub);
-        updatedSubs[i] = updatedSub;
-        loggedCount++;
+          // Advance next due date based on selected cycle
+          const d = new Date(sub.nextDueDate);
+          if (sub.billingCycle === 'monthly') d.setMonth(d.getMonth() + 1);
+          else if (sub.billingCycle === 'bi-monthly') d.setMonth(d.getMonth() + 2);
+          else if (sub.billingCycle === 'tri-monthly') d.setMonth(d.getMonth() + 3);
+          else if (sub.billingCycle === 'annually') d.setFullYear(d.getFullYear() + 1);
+
+          const newDateStr = d.toISOString().split('T')[0];
+          const updatedSub = { ...sub, nextDueDate: newDateStr, lastProcessedDate: today };
+          await saveSubscription(updatedSub);
+          updatedSubs[i] = updatedSub;
+          loggedCount++;
+        }
       }
-    }
 
-    setSubscriptions(updatedSubs);
-    if (loggedCount > 0) {
-      setLogStatus(`✅ Auto-logged ${loggedCount} due subscription expense(s) into your timeline!`);
-    } else {
-      setLogStatus('✨ All subscriptions are up to date! None due today.');
-    }
+      setSubscriptions(updatedSubs);
+      if (loggedCount > 0) {
+        setLogStatus(`✅ Auto-logged ${loggedCount} due subscription expense(s) into your timeline!`);
+      } else {
+        setLogStatus('✨ All subscriptions are up to date! None due today.');
+      }
 
-    setTimeout(() => setLogStatus(''), 4000);
+      setTimeout(() => setLogStatus(''), 4000);
+    } finally {
+      setIsProcessingDue(false);
+    }
   };
 
   // Monthly Equivalent Total Calculation
@@ -179,11 +188,12 @@ export const SubscriptionPage: React.FC = () => {
         <div className="flex items-center gap-2 pt-2 border-t border-hairline/60 flex-wrap">
           <button
             type="button"
+            disabled={isProcessingDue}
             onClick={handleProcessDueSubscriptions}
-            className="px-4 py-2 rounded-xl border border-brand-mint text-brand-mint hover:bg-surface-soft text-xs font-mono font-bold transition-all cursor-pointer shadow-sm flex items-center gap-2 active:scale-95"
+            className="px-4 py-2 rounded-xl border border-brand-mint text-brand-mint hover:bg-surface-soft disabled:opacity-50 text-xs font-mono font-bold transition-all cursor-pointer shadow-sm flex items-center gap-2 active:scale-95"
           >
-            <RefreshCw className="w-4 h-4" />
-            <span>Process & Check Due Bills</span>
+            <RefreshCw className={`w-4 h-4 ${isProcessingDue ? 'animate-spin' : ''}`} />
+            <span>{isProcessingDue ? 'Processing...' : 'Process & Check Due Bills'}</span>
           </button>
 
           <button
