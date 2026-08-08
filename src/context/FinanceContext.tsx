@@ -29,8 +29,9 @@ interface FinanceContextType {
   reloadAllData: () => Promise<void>;
   filteredTransactions: Transaction[];
   periodTotalSpent: number;
-  scheduledToast: { id: string; note: string; amount: number; currency: CurrencyCode } | null;
+  scheduledToast: { id: string; note: string; amount: number; currency: CurrencyCode; transaction: Transaction } | null;
   dismissScheduledToast: () => void;
+  undoScheduledActivation: (id: string) => Promise<Transaction | null>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -105,59 +106,85 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const [scheduledToast, setScheduledToast] = useState<{ id: string; note: string; amount: number; currency: CurrencyCode } | null>(null);
+  const [scheduledToast, setScheduledToast] = useState<{ id: string; note: string; amount: number; currency: CurrencyCode; transaction: Transaction } | null>(null);
 
   const dismissScheduledToast = () => setScheduledToast(null);
 
-  // Auto-request notification permissions & background ticker for scheduled payments
+  const undoScheduledActivation = async (id: string): Promise<Transaction | null> => {
+    const tx = transactions.find(t => t.id === id);
+    if (!tx) return null;
+
+    const revertedTx: Transaction = { ...tx, isScheduled: true };
+    await saveTransaction(revertedTx);
+    setTransactions(prev => prev.map(t => (t.id === id ? revertedTx : t)));
+    setScheduledToast(null);
+    return revertedTx;
+  };
+
+  // Targeted event-driven scheduler for scheduled payments (Zero 3s polling!)
   useEffect(() => {
     requestNotificationPermission();
 
-    const checkScheduledPayments = async () => {
-      const now = new Date();
-      let hasUpdates = false;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
 
-      // Check transactions in state
+    const runScheduledCheck = () => {
+      const now = Date.now();
+
+      // 1. Process any pending scheduled payments that are due now
       setTransactions(prevTxs => {
         let changed = false;
         const updatedList = prevTxs.map(t => {
-          // Check if this transaction is scheduled or has a future datetime
-          const tDateStr = t.date;
-          const tTimeStr = t.time && t.time.trim() ? t.time.trim() : '00:00';
-          const targetDateTime = new Date(`${tDateStr}T${tTimeStr}:00`);
-          const isTargetReached = !isNaN(targetDateTime.getTime()) && targetDateTime.getTime() <= now.getTime();
+          if (t.isScheduled) {
+            const tDateStr = t.date;
+            const tTimeStr = t.time && t.time.trim() ? t.time.trim() : '00:00';
+            const targetDateTime = new Date(`${tDateStr}T${tTimeStr}:00`);
+            const isDue = !isNaN(targetDateTime.getTime()) && targetDateTime.getTime() <= now;
 
-          if (t.isScheduled && isTargetReached) {
-            // 1. Trigger Native System Notification
-            triggerScheduledPaymentNotification(t, baseCurrency);
-
-            // 2. Set In-App Banner Notification Toast
-            setScheduledToast({
-              id: t.id,
-              note: t.note || 'Scheduled Payment',
-              amount: t.amount,
-              currency: t.currency || baseCurrency,
-            });
-
-            // 3. Mark as no longer pending scheduled (activates in totals!)
-            changed = true;
-            hasUpdates = true;
-            const updatedTx = { ...t, isScheduled: false };
-            saveTransaction(updatedTx);
-            return updatedTx;
+            if (isDue) {
+              triggerScheduledPaymentNotification(t, baseCurrency);
+              setScheduledToast({
+                id: t.id,
+                note: t.note || 'Scheduled Payment',
+                amount: t.amount,
+                currency: t.currency || baseCurrency,
+                transaction: t,
+              });
+              changed = true;
+              const updatedTx = { ...t, isScheduled: false };
+              saveTransaction(updatedTx);
+              return updatedTx;
+            }
           }
           return t;
         });
 
         return changed ? updatedList : prevTxs;
       });
+
+      // 2. Find the earliest upcoming scheduled payment timestamp
+      const upcomingTimestamps = transactions
+        .filter(t => t.isScheduled)
+        .map(t => {
+          const tDateStr = t.date;
+          const tTimeStr = t.time && t.time.trim() ? t.time.trim() : '00:00';
+          return new Date(`${tDateStr}T${tTimeStr}:00`).getTime();
+        })
+        .filter(ts => !isNaN(ts) && ts > now)
+        .sort((a, b) => a - b);
+
+      if (upcomingTimestamps.length > 0) {
+        const nextDueTime = upcomingTimestamps[0];
+        const msUntilDue = Math.max(1000, nextDueTime - now + 1000); // 1 sec buffer past due time
+        timerId = setTimeout(runScheduledCheck, msUntilDue);
+      }
     };
 
-    checkScheduledPayments();
-    const interval = setInterval(checkScheduledPayments, 3000); // Check every 3 seconds
+    runScheduledCheck();
 
-    return () => clearInterval(interval);
-  }, [baseCurrency]);
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [transactions, baseCurrency]);
 
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt'>) => {
     const isFuture = isPendingScheduledTx(txData as Transaction);
@@ -305,6 +332,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         periodTotalSpent,
         scheduledToast,
         dismissScheduledToast,
+        undoScheduledActivation,
       }}
     >
       {children}

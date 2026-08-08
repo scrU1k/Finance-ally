@@ -201,7 +201,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 
           {isScheduled && (
             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full font-bold bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow shrink-0 flex items-center gap-1">
-              <Clock className="w-2.5 h-2.5 text-brand-yellow animate-spin" />
+              <Clock className="w-2.5 h-2.5 text-brand-yellow" />
             </span>
           )}
         </div>
@@ -253,7 +253,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 
           {isScheduled && (
             <span className="text-[9px] font-mono bg-brand-yellow/15 text-brand-yellow border border-brand-yellow/30 px-1.5 py-0.5 rounded-full flex items-center gap-1 font-bold shrink-0">
-              <Clock className="w-2.5 h-2.5 text-brand-yellow animate-spin" />
+              <Clock className="w-2.5 h-2.5 text-brand-yellow" />
               <span>Scheduled ({getScheduledCountdownText(transaction.date, transaction.time)})</span>
             </span>
           )}
@@ -321,7 +321,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
           <div className="flex items-center gap-1 shrink-0">
             {isScheduled && (
               <span className="text-[9px] font-mono bg-brand-yellow/15 text-brand-yellow border border-brand-yellow/30 px-1.5 py-0.5 rounded-full flex items-center gap-1 font-bold shrink-0">
-                <Clock className="w-2.5 h-2.5 text-brand-yellow animate-spin" />
+                <Clock className="w-2.5 h-2.5 text-brand-yellow" />
                 <span>Scheduled</span>
               </span>
             )}

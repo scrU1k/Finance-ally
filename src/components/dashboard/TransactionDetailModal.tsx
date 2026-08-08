@@ -70,7 +70,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
             </span>
             {isPendingScheduledTx(transaction) && (
               <span className="text-[10px] font-mono text-brand-yellow bg-brand-yellow/15 border border-brand-yellow/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                <Clock className="w-3 h-3 text-brand-yellow animate-spin" />
+                <Clock className="w-3 h-3 text-brand-yellow" />
                 Scheduled ({getScheduledCountdownText(transaction.date, transaction.time)})
               </span>
             )}

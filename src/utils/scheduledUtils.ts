@@ -7,9 +7,9 @@ import { Transaction } from '../types';
  * and their amounts are excluded from total spending calculations until the target date/time arrives.
  */
 export function isPendingScheduledTx(tx: Transaction): boolean {
+  if (!tx.isScheduled) return false;
   if (!tx.date) return false;
 
-  const now = new Date();
   const txDateStr = tx.date; // YYYY-MM-DD
   const txTimeStr = tx.time && tx.time.trim() ? tx.time.trim() : '00:00';
 
@@ -18,12 +18,7 @@ export function isPendingScheduledTx(tx: Transaction): boolean {
 
   if (isNaN(txDateTime.getTime())) return false;
 
-  // If explicitly flagged or date/time is strictly in the future
-  if (tx.isScheduled) {
-    return txDateTime.getTime() > now.getTime();
-  }
-
-  return txDateTime.getTime() > now.getTime();
+  return txDateTime.getTime() > Date.now();
 }
 
 /**
