@@ -160,6 +160,22 @@ function parseExhaustiveDate(lower: string): { dateStr: string; label: string; m
   return null;
 }
 
+/**
+ * Safely adds or subtracts months from a date while preserving the day of month.
+ * Handles month length mismatch edge cases:
+ * e.g., 31 July - 1 month -> 30 June
+ * e.g., 30 Sept - 1 month -> 31 August
+ */
+function addMonths(date: Date, months: number): Date {
+  const result = new Date(date);
+  const originalDay = result.getDate();
+  result.setMonth(result.getMonth() + months);
+  if (result.getDate() !== originalDay) {
+    result.setDate(0); // Sets to last day of target month
+  }
+  return result;
+}
+
 export function parseNaturalLanguageExpense(
   inputText: string,
   baseCurrency: CurrencyCode = 'INR',
@@ -192,6 +208,7 @@ export function parseNaturalLanguageExpense(
   const now = new Date();
   let targetDate = new Date();
   let dateLabel = 'Today';
+  let matchedRelativeDateText = '';
 
   let currentHour = now.getHours().toString().padStart(2, '0');
   let currentMin = now.getMinutes().toString().padStart(2, '0');
@@ -205,14 +222,41 @@ export function parseNaturalLanguageExpense(
   if (parsedDate) {
     dateLabel = parsedDate.label;
     targetDate = new Date(parsedDate.dateStr + 'T12:00:00');
+  } else if (lower.includes('day after tomorrow') || lower.includes('day after')) {
+    targetDate.setDate(targetDate.getDate() + 2);
+    dateLabel = 'Day after tomorrow';
+    matchedRelativeDateText = lower.includes('day after tomorrow') ? 'day after tomorrow' : 'day after';
+  } else if (lower.includes('tomorrow')) {
+    targetDate.setDate(targetDate.getDate() + 1);
+    dateLabel = 'Tomorrow';
+    matchedRelativeDateText = 'tomorrow';
   } else if (lower.includes('yesterday')) {
     targetDate.setDate(targetDate.getDate() - 1);
     dateLabel = 'Yesterday';
+    matchedRelativeDateText = 'yesterday';
   } else if (lower.includes('2 days ago')) {
     targetDate.setDate(targetDate.getDate() - 2);
     dateLabel = '2 days ago';
+    matchedRelativeDateText = '2 days ago';
+  } else if (lower.includes('next week')) {
+    targetDate.setDate(targetDate.getDate() + 7);
+    dateLabel = 'Next week';
+    matchedRelativeDateText = 'next week';
+  } else if (lower.includes('last week')) {
+    targetDate.setDate(targetDate.getDate() - 7);
+    dateLabel = 'Last week';
+    matchedRelativeDateText = 'last week';
+  } else if (lower.includes('next month')) {
+    targetDate = addMonths(targetDate, 1);
+    dateLabel = 'Next month';
+    matchedRelativeDateText = 'next month';
+  } else if (lower.includes('last month')) {
+    targetDate = addMonths(targetDate, -1);
+    dateLabel = 'Last month';
+    matchedRelativeDateText = 'last month';
   } else if (lower.includes('now') || lower.includes('today')) {
     dateLabel = 'Today';
+    matchedRelativeDateText = lower.includes('now') ? 'now' : 'today';
   } else {
     let foundDay = false;
     for (let i = 0; i < dayNames.length; i++) {
@@ -225,6 +269,7 @@ export function parseNaturalLanguageExpense(
         targetDate.setDate(targetDate.getDate() - diff);
         dateLabel = dayName.charAt(0).toUpperCase() + dayName.slice(1);
         foundDay = true;
+        matchedRelativeDateText = dayName;
         break;
       }
     }
@@ -233,7 +278,10 @@ export function parseNaturalLanguageExpense(
     }
   }
 
-  const dateStr = targetDate.toISOString().split('T')[0];
+  const yearStr = targetDate.getFullYear();
+  const monthStr = (targetDate.getMonth() + 1).toString().padStart(2, '0');
+  const dayNumStr = targetDate.getDate().toString().padStart(2, '0');
+  const dateStr = `${yearStr}-${monthStr}-${dayNumStr}`;
 
   // Time parsing
   if (!lower.includes('now')) {
@@ -295,6 +343,9 @@ export function parseNaturalLanguageExpense(
   let amountText = lower;
   if (parsedDate) {
     amountText = amountText.replace(parsedDate.matchText.toLowerCase(), ' ');
+  }
+  if (matchedRelativeDateText) {
+    amountText = amountText.replace(matchedRelativeDateText.toLowerCase(), ' ');
   }
   const timeMatch = parseExhaustiveTime(lower);
   if (timeMatch) {

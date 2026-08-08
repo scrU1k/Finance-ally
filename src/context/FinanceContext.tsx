@@ -29,6 +29,8 @@ interface FinanceContextType {
   reloadAllData: () => Promise<void>;
   filteredTransactions: Transaction[];
   periodTotalSpent: number;
+  scheduledToast: { id: string; note: string; amount: number; currency: CurrencyCode } | null;
+  dismissScheduledToast: () => void;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -103,31 +105,59 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  // Auto-request notification permissions & background ticker for scheduled payments
-  const [, setTick] = useState(0);
+  const [scheduledToast, setScheduledToast] = useState<{ id: string; note: string; amount: number; currency: CurrencyCode } | null>(null);
 
+  const dismissScheduledToast = () => setScheduledToast(null);
+
+  // Auto-request notification permissions & background ticker for scheduled payments
   useEffect(() => {
     requestNotificationPermission();
 
-    const interval = setInterval(() => {
-      // Check if any scheduled transaction has arrived at its execution date/time
+    const checkScheduledPayments = async () => {
       const now = new Date();
-      transactions.forEach(t => {
-        if (t.isScheduled || isPendingScheduledTx(t)) {
+      let hasUpdates = false;
+
+      // Check transactions in state
+      setTransactions(prevTxs => {
+        let changed = false;
+        const updatedList = prevTxs.map(t => {
+          // Check if this transaction is scheduled or has a future datetime
           const tDateStr = t.date;
           const tTimeStr = t.time && t.time.trim() ? t.time.trim() : '00:00';
           const targetDateTime = new Date(`${tDateStr}T${tTimeStr}:00`);
+          const isTargetReached = !isNaN(targetDateTime.getTime()) && targetDateTime.getTime() <= now.getTime();
 
-          if (!isNaN(targetDateTime.getTime()) && targetDateTime.getTime() <= now.getTime()) {
+          if (t.isScheduled && isTargetReached) {
+            // 1. Trigger Native System Notification
             triggerScheduledPaymentNotification(t, baseCurrency);
+
+            // 2. Set In-App Banner Notification Toast
+            setScheduledToast({
+              id: t.id,
+              note: t.note || 'Scheduled Payment',
+              amount: t.amount,
+              currency: t.currency || baseCurrency,
+            });
+
+            // 3. Mark as no longer pending scheduled (activates in totals!)
+            changed = true;
+            hasUpdates = true;
+            const updatedTx = { ...t, isScheduled: false };
+            saveTransaction(updatedTx);
+            return updatedTx;
           }
-        }
+          return t;
+        });
+
+        return changed ? updatedList : prevTxs;
       });
-      setTick(prev => prev + 1);
-    }, 10000);
+    };
+
+    checkScheduledPayments();
+    const interval = setInterval(checkScheduledPayments, 3000); // Check every 3 seconds
 
     return () => clearInterval(interval);
-  }, [transactions, baseCurrency]);
+  }, [baseCurrency]);
 
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt'>) => {
     const isFuture = isPendingScheduledTx(txData as Transaction);
@@ -273,6 +303,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         reloadAllData,
         filteredTransactions,
         periodTotalSpent,
+        scheduledToast,
+        dismissScheduledToast,
       }}
     >
       {children}

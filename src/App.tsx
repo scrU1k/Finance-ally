@@ -11,6 +11,7 @@ import { BottomPeriodBar } from './components/layout/BottomPeriodBar';
 import { DailyTimeline } from './components/dashboard/DailyTimeline';
 import { TransactionModal } from './components/dashboard/TransactionModal';
 import { AutoSmsDetectorBanner } from './components/common/AutoSmsDetectorBanner';
+import { ScheduledPaymentToastBanner } from './components/common/ScheduledPaymentToastBanner';
 import { Transaction } from './types';
 import { checkAndPerformLocalAutoBackup } from './services/localAutoBackupService';
 
@@ -69,6 +70,9 @@ const MainAppContent: React.FC = () => {
           setIsQuickAddOpen(true);
         }}
       />
+
+      {/* Scheduled Payment Live Toast Banner */}
+      <ScheduledPaymentToastBanner />
 
       {/* Main Container */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-3">
