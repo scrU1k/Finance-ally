@@ -1,5 +1,12 @@
 export type CurrencyCode = 'USD' | 'EUR' | 'GBP' | 'INR' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'SGD';
 
+/** One of three scored audit dimensions shown when baseline (≥3 months) exists */
+export interface AuditDimensionScore {
+  score: number;                               // 0–100
+  label: 'Excellent' | 'Good' | 'Fair' | 'Poor';
+  detail: string;                              // Human-readable one-liner
+}
+
 export interface CurrencyConfig {
   code: CurrencyCode;
   symbol: string;
@@ -106,7 +113,26 @@ export interface EndOfMonthAuditReport {
   transactionCount: number;
   highestSpendDay: { date: string; amount: number };
   topCategories: { categoryId: string; categoryName: string; color: string; amount: number; percentage: number }[];
-  budgetHealthScore: 'A+' | 'A' | 'B' | 'C' | 'D' | 'F';
+
+  /** True when the user has ≥3 distinct calendar months of transaction data */
+  hasBaseline: boolean;
+  /** Count of distinct calendar months that have at least one transaction */
+  monthsOfData: number;
+
+  /**
+   * Three-dimension scores — null when hasBaseline is false.
+   * Scores are always percentage-based against the user's own history;
+   * they are fully currency-agnostic.
+   */
+  consistencyScore: AuditDimensionScore | null;
+  volatilityScore: AuditDimensionScore | null;
+  savingsPressureScore: AuditDimensionScore | null;
+
+  /**
+   * Computed from the average of the three dimension scores when hasBaseline is true.
+   * 'O' = Uninitialized — fewer than 3 months of data; no grade yet.
+   */
+  budgetHealthScore: 'A+' | 'A' | 'B' | 'C' | 'D' | 'F' | 'O';
   keyInsights: string[];
   anomalies: string[];
 }
