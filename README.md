@@ -101,12 +101,17 @@ Managing shared expenses with friends made simple:
 
 ---
 
-### 7. Interactive Daily Timeline & View Modes
+### 7. Interactive Timeline & Multi-Period View Engine
 
-- **Adaptive Toolbar**: Three content-fitted chips — **Search**, **Multi-Log**, and a **View Mode**.
-- **Daily Spending Chart**: Tap the "Spending Trend" header to switch between smooth line charts and detailed bar graphs.
-- **Search & Filter**: Tap Search to expand an inline search bar with category filter chips.
-- **Minimized Floating Pill**: Collapse the summary bar into a compact floating pill.
+- **Single-Line Controls Toolbar**: Built with icon-only **Search**, direct **Chart Jump**, **Multi-Log**, and **View** pill buttons — guaranteed to sit on a single line on any screen width without wrapping or truncation.
+- **Collapsible Daily Headers**: Click any date header or calendar icon to collapse/expand that day's logs into a single compact line showing the date and total daily spend.
+- **Multi-Period Aggregated Views**: Tap the **View** button to open a floating glassmorphic popover menu offering 4 time grouping modes:
+  - **Day** (Default): Daily timeline logs with `Compact`, `List`, or `Grid` card layouts.
+  - **Week**: Aggregated weekly spending cards displaying Week Number, Date Range (e.g. `Aug 3 – Aug 9, 2026`), active spending days, and total spend — no individual item clutter.
+  - **Month**: Aggregated monthly cards showing Month Name (e.g. `August 2026`), total monthly spend, and daily average.
+  - **Year**: Clean annual overview cards showing Year (e.g. `2026`), total yearly spend, total logs, and the **Highest Spending Month** highlight (e.g. `Highest: August (₹45,200)`).
+- **Direct Chart Jump**: Tap the Chart icon pill to instantly scroll smoothly to the Spending Trend interactive chart at the bottom of the feed.
+- **Minimized Floating Pill**: Collapse the summary bar into a compact floating pill showing your total spend without consuming screen space.
 
 ---
 

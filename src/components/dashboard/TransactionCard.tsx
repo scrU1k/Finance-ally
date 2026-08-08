@@ -3,7 +3,7 @@ import { Transaction, Category, Trip, TimelineViewMode } from '../../types';
 import { formatCurrency } from '../../services/currency';
 import { isPendingScheduledTx, getScheduledCountdownText } from '../../utils/scheduledUtils';
 import {
-  Trash2, Edit2, Plane, CreditCard, Clock,
+  Plane, CreditCard, Clock,
   // Category icons — explicit import so bundler can tree-shake unused Lucide icons
   Tag, Utensils, ShoppingCart, Car, Laptop, Shirt, Home, Film,
   Activity, TrendingUp, type LucideProps,
@@ -21,8 +21,8 @@ interface TransactionCardProps {
   categories: Category[];
   trips: Trip[];
   onSelect?: (tx: Transaction) => void;
-  onEdit: (tx: Transaction) => void;
-  onDelete: (id: string) => void;
+  onEdit?: (tx: Transaction) => void;
+  onDelete?: (id: string) => void;
   isSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
@@ -34,8 +34,8 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   categories,
   trips,
   onSelect,
-  onEdit,
-  onDelete,
+  onEdit: _onEdit,
+  onDelete: _onDelete,
   isSelectMode = false,
   isSelected = false,
   onToggleSelect,
@@ -94,7 +94,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
     }
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchEnd = (_e: React.TouchEvent) => {
     lastTouchTimeRef.current = Date.now();
     if (timerRef.current) {
       window.clearTimeout(timerRef.current);

@@ -17,7 +17,7 @@ interface QuickLogBarProps {
 export const QuickLogBar: React.FC<QuickLogBarProps> = ({
   onLoggedSuccess,
   isMultiLogActive = false,
-  onToggleMultiLog,
+  onToggleMultiLog: _onToggleMultiLog,
   batchDate: batchDateProp,
   onBatchDateChange,
 }) => {
@@ -25,7 +25,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
 
   const [inputPrompt, setInputPrompt] = useState('');
   const [parsedExpense, setParsedExpense] = useState<ParsedNaturalExpense | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<string>('UPI');
+  const paymentMethod = 'UPI';
   const [isSuccess, setIsSuccess] = useState(false);
   const [isTagPopupOpen, setIsTagPopupOpen] = useState(false);
 

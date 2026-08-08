@@ -29,13 +29,13 @@ export interface ParsedNaturalExpense {
  */
 function parseExhaustiveTime(lower: string): { h24: string; label: string; matchText: string } | null {
   // Pattern 1: Match explicit time with AM/PM or typo variants (p, p., pn, pmn, a, a., an, amn, etc.)
-  const ampmRegex = /\b(\d{1,2})(?:([\.\:\-\/])(\d{2}))?\s*(pm|p\.m\.?|p\.|pn|pmn|p,|p;|am|a\.m\.?|a\.|an|amn|a,|a;|p|a)\b/i;
+  const ampmRegex = /\b(\d{1,2})(?:([-.:/])(\d{2}))?\s*(pm|p\.m\.?|p\.|pn|pmn|p,|p;|am|a\.m\.?|a\.|an|amn|a,|a;|p|a)\b/i;
 
   const m = lower.match(ampmRegex);
   if (m) {
     let h = parseInt(m[1], 10);
     const minStr = m[3];
-    const rawAmPm = m[4].toLowerCase().replace(/[\.\,\;\s]/g, '');
+    const rawAmPm = m[4].toLowerCase().replace(/[.,;\s]/g, '');
 
     // Normalize typo token to 'pm' or 'am'
     const isPM = ['pm', 'p', 'pn', 'pmn'].includes(rawAmPm);
@@ -61,7 +61,7 @@ function parseExhaustiveTime(lower: string): { h24: string; label: string; match
   }
 
   // Pattern 2: Contextual time detection without AM/PM suffix (e.g. "at 8 for dinner", "at 8 in morning")
-  const contextMatch = lower.match(/\bat\s+(\d{1,2})(?:([\.\:\-\/])(\d{2}))?\b/i);
+  const contextMatch = lower.match(/\bat\s+(\d{1,2})(?:([-.:/])(\d{2}))?\b/i);
   if (contextMatch) {
     let h = parseInt(contextMatch[1], 10);
     const mins = contextMatch[3] ? parseInt(contextMatch[3], 10) : 0;
@@ -166,7 +166,7 @@ function parseExhaustiveDate(lower: string): { dateStr: string; label: string; m
   }
 
   // 3. DD/MM/YYYY or DD/MM/YY or DD/MM (also supports - and . as separators)
-  const slashDate = /\b(\d{1,2})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{2,4}))?\b/;
+  const slashDate = /\b(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?\b/;
   m = lower.match(slashDate);
   if (m) {
     const d = parseInt(m[1], 10);
@@ -212,7 +212,7 @@ export function parseNaturalLanguageExpense(
   let explicitTagName: string | null = null;
   let explicitTagMatchText: string | null = null;
 
-  const tagKeywordRegex = /\btag\s*[\:\-\.\/]\s*([a-z0-9\s\&]+)/i;
+  const tagKeywordRegex = /\btag\s*[-:./]\s*([a-z0-9\s&]+)/i;
   const matchTagKeyword = text.match(tagKeywordRegex);
 
   if (matchTagKeyword) {
@@ -462,14 +462,14 @@ export function parseNaturalLanguageExpense(
   cleanDesc = cleanDesc
     .replace(new RegExp(`\\b\\d{1,2}(?:st|nd|rd|th)?\\s*(?:of\\s+)?(?:${monthNames2})\\b`, 'gi'), ' ')
     .replace(new RegExp(`\\b(?:${monthNames2})\\s*\\d{1,2}(?:st|nd|rd|th)?\\b`, 'gi'), ' ')
-    .replace(/\b\d{1,2}[\/\-\.]\d{1,2}(?:[\/\-\.]\d{2,4})?\b/g, ' ')
+    .replace(/\b\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?\b/g, ' ')
     .replace(/\b\d{1,2}\s*(?:pm|p\.m\.?|p\.|pn|pmn|am|a\.m\.?|a\.|an|amn|p|a)\b/gi, ' ')
     .replace(/\b(?:pm|p\.m\.?|p\.|pn|pmn|am|a\.m\.?|a\.|an|amn)\b/gi, ' ')
     .replace(/\b(?:day\s*after\s*tomorrow|day\s*after|tomorrow|yesterday|2\s*days\s*ago|next\s*week|last\s*week|next\s*month|last\s*month)\b/gi, ' ')
     .replace(/\b(?:spent|on|at|for|paid|bought|cost|was)\b/gi, ' ')
     .replace(/\b(?:today|now|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|evening|night)\b/gi, ' ')
     .replace(/\b(?:rs|inr|rupees|rupee|usd|dollar|dollars|\$|eur|euro|euros|€|gbp|pounds?|£|jpy|yen|¥)\b/gi, ' ')
-    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ')
+    .replace(/[/.,#!$%^&*;:{}=\-_`~()]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 

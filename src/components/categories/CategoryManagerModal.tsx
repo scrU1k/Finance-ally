@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { Category } from '../../types';
 import { formatCurrency } from '../../services/currency';
-import { X, Tag, Plus, Edit2, Check, DollarSign } from 'lucide-react';
+import { X, Tag, Plus, Edit2, Check } from 'lucide-react';
 
 interface CategoryManagerModalProps {
   isOpen: boolean;
@@ -69,7 +69,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOp
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="max-w-xl w-full bg-surface-card/75 backdrop-blur-2xl border border-hairline rounded-2xl p-6 sm:p-7 shadow-2xl space-y-5 cursor-default relative ring-1 ring-white/10 max-h-[85vh] overflow-y-auto"
+        className="max-w-xl w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-3xl p-6 sm:p-7 shadow-2xl shadow-black/20 space-y-5 cursor-default relative ring-1 ring-white/10 max-h-[85vh] overflow-y-auto"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-hairline pb-3">

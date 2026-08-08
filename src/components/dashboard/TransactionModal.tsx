@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Transaction, Category, Trip, CurrencyCode } from '../../types';
+import { Transaction, CurrencyCode } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { TOP_CURRENCIES } from '../../services/currency';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { TOP_CURRENCIES } from '../../services/currency';
 import { CurrencyCode } from '../../types';
-import { Shield, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export const OnboardingCurrency: React.FC = () => {
   const { onboard } = useAuth();

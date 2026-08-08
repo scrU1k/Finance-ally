@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Category, Trip, CurrencyCode } from '../../types';
+import { Category, Trip } from '../../types';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { CustomTimePicker } from '../common/CustomTimePicker';

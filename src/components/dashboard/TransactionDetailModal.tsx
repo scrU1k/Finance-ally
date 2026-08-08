@@ -3,7 +3,7 @@ import { Transaction, Category, Trip } from '../../types';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 import { useFinance } from '../../context/FinanceContext';
 import { isPendingScheduledTx, getScheduledCountdownText } from '../../utils/scheduledUtils';
-import { X, Calendar, Clock, CreditCard, Tag, Plane, Sparkles, Trash2, Edit3 } from 'lucide-react';
+import { X, Calendar, Clock, CreditCard, Plane, Sparkles, Trash2, Edit3 } from 'lucide-react';
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;

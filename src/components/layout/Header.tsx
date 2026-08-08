@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Settings, Lock, Sparkles, Plane, Tag } from 'lucide-react';
+import { Shield, Settings, Lock, Plane, Tag } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { TOP_CURRENCIES } from '../../services/currency';
@@ -8,11 +8,11 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onOpenCategories: () => void;
   onOpenQuickAdd?: () => void;
-  onOpenScanner: () => void;
+  onOpenScanner?: () => void;
   onTitleClick?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories, onOpenScanner, onTitleClick }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories, onOpenScanner: _onOpenScanner, onTitleClick }) => {
   const { logout } = useAuth();
   const { baseCurrency, activeTripVault, setActiveTripVault } = useFinance();
 

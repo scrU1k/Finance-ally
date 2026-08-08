@@ -38,10 +38,6 @@ import {
   ChevronRight,
   ArrowLeft,
   FileSpreadsheet,
-  Cloud,
-  CheckCircle2,
-  Calendar,
-  Info
 } from 'lucide-react';
 
 interface SettingsModalProps {

@@ -5,7 +5,7 @@ import { loadSubscriptions, saveSubscription, deleteSubscription as dbDeleteSub 
 import { formatCurrency, TOP_CURRENCIES } from '../../services/currency';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { CustomDatePicker } from '../common/CustomDatePicker';
-import { CalendarCheck, Plus, Trash2, RefreshCw, CreditCard, Tag, Sparkles, Check, DollarSign, Edit2 } from 'lucide-react';
+import { CalendarCheck, Plus, Trash2, RefreshCw, CreditCard, Sparkles, Check, Edit2 } from 'lucide-react';
 
 export const SubscriptionPage: React.FC = () => {
   const { categories, baseCurrency, addTransaction } = useFinance();

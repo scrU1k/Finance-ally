@@ -8,7 +8,7 @@ import { Users, Copy, Plus, Trash2, Check, Calculator, Percent } from 'lucide-re
 import confetti from 'canvas-confetti';
 
 export const SplitBillModal: React.FC = () => {
-  const { baseCurrency, addTransaction, categories } = useFinance();
+  const { baseCurrency, addTransaction } = useFinance();
 
   const [totalAmount, setTotalAmount] = useState('1200');
   const [currency, setCurrency] = useState<CurrencyCode>(baseCurrency);
@@ -198,10 +198,7 @@ ${members.map(m => `- ${m.name}: **${formatCurrency(perPersonEqual, currency)}**
                   <input
                     type="text"
                     value={member.name}
-                    onChange={e => {
-                      const val = e.target.value;
-                      setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, name: val } : m)));
-                    }}
+                    onChange={e => handleNameChange(member.id, e.target.value)}
                     className="w-full bg-transparent text-xs font-mono text-ink focus:outline-none"
                   />
 

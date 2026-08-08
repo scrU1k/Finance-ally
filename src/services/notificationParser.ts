@@ -67,7 +67,7 @@ export function parseNotificationText(rawText: string, defaultCurrency: Currency
 
   if (merchant === 'Unknown Merchant') {
     // Clean text snippet as merchant note
-    const cleanText = text.replace(/(?:debited|credited|account|card|bank|txn|ref)[^\.\,]*/gi, '').trim();
+    const cleanText = text.replace(/(?:debited|credited|account|card|bank|txn|ref)[^.,]*/gi, '').trim();
     merchant = cleanText.substring(0, 35) || 'Store Purchase';
   }
 

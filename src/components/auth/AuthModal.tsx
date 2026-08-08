@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Lock, Shield, KeyRound, AlertCircle, Eye, EyeOff, Timer } from 'lucide-react';
+import { Shield, KeyRound, AlertCircle, Eye, EyeOff, Timer } from 'lucide-react';
 
 export const AuthModal: React.FC = () => {
   const { user, login, lockoutUntil, failedAttempts } = useAuth();

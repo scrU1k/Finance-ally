@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { parseNotificationText } from '../../services/notificationParser';
 import { parseSmsWithDynamicTemplates } from '../../services/smsTemplateEngine';
 import { loadSmsTemplates, saveSmsTemplate, deleteSmsTemplate, SmsTemplate } from '../../services/db';
 import { ParsedNotification } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency } from '../../services/currency';
-import { Sparkles, Shield, CheckCircle2, Clipboard, Plus, Edit2, Check, Bell, BellOff, MessageSquare, Code, Trash2 } from 'lucide-react';
+import { Sparkles, CheckCircle2, Clipboard, Plus, Edit2, Check, Bell, BellOff, MessageSquare, Code, Trash2 } from 'lucide-react';
 
 export const NotificationScannerModal: React.FC = () => {
   const { addTransaction, categories, baseCurrency } = useFinance();
@@ -37,13 +37,13 @@ export const NotificationScannerModal: React.FC = () => {
   const [editMerchant, setEditMerchant] = useState<string>('');
   const [editCategoryId, setEditCategoryId] = useState<string>('');
 
-  const handleTextChange = (text: string) => {
+  const handleTextChange = useCallback((text: string) => {
     setInputText(text);
     setLogged(false);
     setIsEditing(false);
     const result = parseSmsWithDynamicTemplates(text, userTemplates, baseCurrency);
     setParsed(result);
-  };
+  }, [userTemplates, baseCurrency]);
 
   const handleAddTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,7 +129,7 @@ export const NotificationScannerModal: React.FC = () => {
     } else {
       setSimulatedAlert(null);
     }
-  }, [listenerActive]);
+  }, [listenerActive, handleTextChange]);
 
   return (
     <div className="space-y-6 pb-24 max-w-full overflow-hidden">

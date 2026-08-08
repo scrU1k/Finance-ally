@@ -1,4 +1,4 @@
-import { Category, Transaction, Trip, UserProfile, CurrencyCode, Subscription } from '../types';
+import { Category, Transaction, Trip, Subscription } from '../types';
 
 const DB_NAME = 'FinanceAllyDB';
 const DB_VERSION = 3; // Incremented for subscriptions store
