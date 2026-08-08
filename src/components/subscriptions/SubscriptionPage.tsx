@@ -5,7 +5,7 @@ import { loadSubscriptions, saveSubscription, deleteSubscription as dbDeleteSub 
 import { formatCurrency, TOP_CURRENCIES } from '../../services/currency';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { CustomDatePicker } from '../common/CustomDatePicker';
-import { CalendarCheck, Plus, Trash2, RefreshCw, CreditCard, Tag, Sparkles, Check, DollarSign } from 'lucide-react';
+import { CalendarCheck, Plus, Trash2, RefreshCw, CreditCard, Tag, Sparkles, Check, DollarSign, Edit2 } from 'lucide-react';
 
 export const SubscriptionPage: React.FC = () => {
   const { categories, baseCurrency, addTransaction } = useFinance();
@@ -36,26 +36,61 @@ export const SubscriptionPage: React.FC = () => {
     }
   }, [showAddForm]);
 
+  const [editingSubId, setEditingSubId] = useState<string | null>(null);
+
+  const handleEditSub = (sub: Subscription) => {
+    setName(sub.name);
+    setAmount(sub.amount.toString());
+    setCurrency(sub.currency);
+    setBillingCycle(sub.billingCycle);
+    setNextDueDate(sub.nextDueDate);
+    setCategoryId(sub.categoryId);
+    setPaymentMethod(sub.paymentMethod);
+    setEditingSubId(sub.id);
+    setShowAddForm(true);
+  };
+
   const handleAddSubscription = async (e: React.FormEvent) => {
     e.preventDefault();
     const numAmount = parseFloat(amount);
     if (!name.trim() || isNaN(numAmount) || numAmount <= 0) return;
 
-    const newSub: Subscription = {
-      id: `sub-${Date.now()}`,
-      name: name.trim(),
-      amount: numAmount,
-      currency,
-      billingCycle,
-      nextDueDate,
-      categoryId,
-      paymentMethod,
-      autoLog: true,
-      createdAt: Date.now(),
-    };
+    if (editingSubId) {
+      const existingSub = subscriptions.find(s => s.id === editingSubId);
+      const updatedSub: Subscription = {
+        id: editingSubId,
+        name: name.trim(),
+        amount: numAmount,
+        currency,
+        billingCycle,
+        nextDueDate,
+        categoryId,
+        paymentMethod,
+        autoLog: true,
+        lastProcessedDate: existingSub?.lastProcessedDate,
+        createdAt: existingSub?.createdAt || Date.now(),
+      };
 
-    await saveSubscription(newSub);
-    setSubscriptions(prev => [newSub, ...prev]);
+      await saveSubscription(updatedSub);
+      setSubscriptions(prev => prev.map(s => s.id === editingSubId ? updatedSub : s));
+      setEditingSubId(null);
+    } else {
+      const newSub: Subscription = {
+        id: `sub-${Date.now()}`,
+        name: name.trim(),
+        amount: numAmount,
+        currency,
+        billingCycle,
+        nextDueDate,
+        categoryId,
+        paymentMethod,
+        autoLog: true,
+        createdAt: Date.now(),
+      };
+
+      await saveSubscription(newSub);
+      setSubscriptions(prev => [newSub, ...prev]);
+    }
 
     setName('');
     setAmount('');
@@ -388,14 +423,24 @@ export const SubscriptionPage: React.FC = () => {
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteSub(sub.id)}
-                    className="p-1.5 rounded-lg border border-hairline hover:border-brand-coral text-muted-custom hover:text-brand-coral transition-colors cursor-pointer bg-surface-soft"
-                    title="Remove subscription"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleEditSub(sub)}
+                      className="p-1.5 rounded-lg border border-hairline hover:border-brand-blue text-muted-custom hover:text-brand-blue transition-colors cursor-pointer bg-surface-soft"
+                      title="Edit subscription"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSub(sub.id)}
+                      className="p-1.5 rounded-lg border border-hairline hover:border-brand-coral text-muted-custom hover:text-brand-coral transition-colors cursor-pointer bg-surface-soft"
+                      title="Remove subscription"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
               </div>

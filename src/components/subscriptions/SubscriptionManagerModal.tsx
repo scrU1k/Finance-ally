@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { Subscription, CurrencyCode } from '../../types';
 import { loadSubscriptions, saveSubscription, deleteSubscription as dbDeleteSub } from '../../services/db';
-import { formatCurrency } from '../../services/currency';
-import { X, CalendarCheck, Plus, Trash2, CheckCircle2, Clock, CreditCard, RefreshCw } from 'lucide-react';
+import { formatCurrency, TOP_CURRENCIES } from '../../services/currency';
+import { X, Plus, Trash2, RefreshCw, CalendarCheck, Check, Edit2 } from 'lucide-react';
 
 interface SubscriptionManagerModalProps {
   isOpen: boolean;
@@ -275,14 +275,33 @@ export const SubscriptionManagerModal: React.FC<SubscriptionManagerModalProps> =
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteSub(sub.id)}
-                    className="text-brand-coral hover:opacity-80 p-2 cursor-pointer rounded-lg border border-hairline bg-surface-card"
-                    title="Delete subscription"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setName(sub.name);
+                        setAmount(sub.amount.toString());
+                        setCurrency(sub.currency);
+                        setBillingCycle(sub.billingCycle);
+                        setNextDueDate(sub.nextDueDate);
+                        setCategoryId(sub.categoryId);
+                        setPaymentMethod(sub.paymentMethod);
+                        setShowAddForm(true);
+                      }}
+                      className="text-brand-blue hover:opacity-80 p-2 cursor-pointer rounded-lg border border-hairline bg-surface-card"
+                      title="Edit subscription"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSub(sub.id)}
+                      className="text-brand-coral hover:opacity-80 p-2 cursor-pointer rounded-lg border border-hairline bg-surface-card"
+                      title="Delete subscription"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               );
             })
