@@ -26,7 +26,7 @@ export interface ParsedNaturalExpense {
  *  8-pm   (hyphen with no minutes = on the hour)
  *  AM/am/Am, PM/pm/Pm
  */
-function parseExhaustiveTime(lower: string): { h24: string; label: string } | null {
+function parseExhaustiveTime(lower: string): { h24: string; label: string; matchText: string } | null {
   // Build a comprehensive regex:
   // Groups:
   //  1: hour (1-2 digits)
@@ -57,7 +57,7 @@ function parseExhaustiveTime(lower: string): { h24: string; label: string } | nu
     const h24 = `${h.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
     const displayH = h % 12 || 12;
     const label = `${displayH}:${mins.toString().padStart(2, '0')} ${ampm.toUpperCase()}`;
-    return { h24, label };
+    return { h24, label, matchText: m[0] };
   }
 
   // 24-hour explicit: "at 14:30" or "at 1430"
@@ -68,7 +68,7 @@ function parseExhaustiveTime(lower: string): { h24: string; label: string } | nu
     const mins = parseInt(at24[2], 10);
     if (h < 24 && mins < 60) {
       const h24 = `${h.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
-      return { h24, label: h24 };
+      return { h24, label: h24, matchText: at24[0] };
     }
   }
 
@@ -105,7 +105,7 @@ const MONTH_MAP: Record<string, number> = {
  *  2/8 or 2/8/26 or 2/8/2026
  *  All slash variants with - or . as separator too
  */
-function parseExhaustiveDate(lower: string): { dateStr: string; label: string } | null {
+function parseExhaustiveDate(lower: string): { dateStr: string; label: string; matchText: string } | null {
   const currentYear = new Date().getFullYear();
 
   // Helper to build date string from d/m/y
@@ -117,28 +117,28 @@ function parseExhaustiveDate(lower: string): { dateStr: string; label: string } 
   const monthNames = Object.keys(MONTH_MAP).join('|');
   const ordinalSuffix = '(?:st|nd|rd|th)?';
 
-  // 1. "2nd August" / "2nd aug" / "2nd of august" / "2 aug"
+  // 1. "2nd August" / "2nd aug" / "2nd of august" / "2 aug" / "2aug" (allowing optional space)
   const dayFirst = new RegExp(
-    `\\b(\\d{1,2})${ordinalSuffix}\\s+(?:of\\s+)?(${monthNames})\\b`, 'i'
+    `\\b(\\d{1,2})${ordinalSuffix}\\s*(?:of\\s+)?(${monthNames})\\b`, 'i'
   );
   let m = lower.match(dayFirst);
   if (m) {
     const d = parseInt(m[1], 10);
     const mo = MONTH_MAP[m[2].toLowerCase()];
     const ds = toDateStr(d, mo, currentYear);
-    if (ds) return { dateStr: ds, label: `${d} ${m[2]}` };
+    if (ds) return { dateStr: ds, label: `${d} ${m[2]}`, matchText: m[0] };
   }
 
-  // 2. "August 2nd" / "Aug 2" / "august 2"
+  // 2. "August 2nd" / "Aug 2" / "august 2" / "aug2" (allowing optional space)
   const monthFirst = new RegExp(
-    `\\b(${monthNames})\\s+(\\d{1,2})${ordinalSuffix}\\b`, 'i'
+    `\\b(${monthNames})\\s*(\\d{1,2})${ordinalSuffix}\\b`, 'i'
   );
   m = lower.match(monthFirst);
   if (m) {
     const mo = MONTH_MAP[m[1].toLowerCase()];
     const d = parseInt(m[2], 10);
     const ds = toDateStr(d, mo, currentYear);
-    if (ds) return { dateStr: ds, label: `${m[1]} ${d}` };
+    if (ds) return { dateStr: ds, label: `${m[1]} ${d}`, matchText: m[0] };
   }
 
   // 3. DD/MM/YYYY or DD/MM/YY or DD/MM (also supports - and . as separators)
@@ -153,7 +153,7 @@ function parseExhaustiveDate(lower: string): { dateStr: string; label: string } 
       y = raw < 100 ? 2000 + raw : raw;
     }
     const ds = toDateStr(d, mo, y);
-    if (ds) return { dateStr: ds, label: `${d}/${mo}/${y}` };
+    if (ds) return { dateStr: ds, label: m[0], matchText: m[0] };
   }
 
   return null;
@@ -269,9 +269,19 @@ export function parseNaturalLanguageExpense(
     /\b(?:for|cost|costing|at|of)\s+([\d,]+(?:\.\d{1,2})?)/i
   ];
 
+  // Pre-process text to remove matched date/time components so they don't corrupt amount extraction
+  let amountText = lower;
+  if (parsedDate) {
+    amountText = amountText.replace(parsedDate.matchText.toLowerCase(), ' ');
+  }
+  const timeMatch = parseExhaustiveTime(lower);
+  if (timeMatch) {
+    amountText = amountText.replace(timeMatch.matchText.toLowerCase(), ' ');
+  }
+
   let amountFound = false;
 
-  let match = lower.match(patterns[0]);
+  let match = amountText.match(patterns[0]);
   if (match) {
     amount = parseFloat(match[1].replace(/,/g, ''));
     const currStr = match[2].toLowerCase();
@@ -280,7 +290,7 @@ export function parseNaturalLanguageExpense(
   }
 
   if (!amountFound) {
-    match = lower.match(patterns[1]);
+    match = amountText.match(patterns[1]);
     if (match) {
       amount = parseFloat(match[2].replace(/,/g, ''));
       const currStr = match[1].toLowerCase();
@@ -290,7 +300,7 @@ export function parseNaturalLanguageExpense(
   }
 
   if (!amountFound) {
-    match = lower.match(patterns[2]);
+    match = amountText.match(patterns[2]);
     if (match) {
       amount = parseFloat(match[1].replace(/,/g, ''));
       amountFound = true;
@@ -299,12 +309,13 @@ export function parseNaturalLanguageExpense(
 
   // Fallback: pick first standalone number
   if (!amountFound) {
-    const allNumbers = lower.match(/\b\d+(?:\.\d{1,2})?\b/g);
+    const allNumbers = amountText.match(/\b\d+(?:\.\d{1,2})?/g);
     if (allNumbers) {
       for (const numStr of allNumbers) {
-        const idx = lower.indexOf(numStr);
-        const postText = lower.substring(idx + numStr.length, idx + numStr.length + 15);
-        if (!/^\s*(litre|liters?|ltr|kg|g|pcs|pieces?|box|can|x)\b/i.test(postText)) {
+        const idx = amountText.indexOf(numStr);
+        const postText = amountText.substring(idx + numStr.length, idx + numStr.length + 15);
+        // Exclude quantity units like '3l', '3 l', '3 kg' and any letter directly attached to the number
+        if (!/^\s*(litres?|liters?|ltrs?|l|kgs?|g|pcs|pieces?|box(?:es)?|cans?|x)\b/i.test(postText) && !/^[a-z]/i.test(postText)) {
           amount = parseFloat(numStr);
           amountFound = true;
           break;
@@ -314,7 +325,7 @@ export function parseNaturalLanguageExpense(
   }
 
   if (!amountFound) {
-    const firstNum = lower.match(/\d+(?:\.\d{1,2})?/);
+    const firstNum = amountText.match(/\d+(?:\.\d{1,2})?/);
     if (firstNum) amount = parseFloat(firstNum[0]);
   }
 
@@ -337,8 +348,8 @@ export function parseNaturalLanguageExpense(
   // Remove date/time patterns from description
   const monthNames2 = Object.keys(MONTH_MAP).join('|');
   cleanDesc = cleanDesc
-    .replace(new RegExp(`\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${monthNames2})\\b`, 'gi'), ' ')
-    .replace(new RegExp(`\\b(?:${monthNames2})\\s+\\d{1,2}(?:st|nd|rd|th)?\\b`, 'gi'), ' ')
+    .replace(new RegExp(`\\b\\d{1,2}(?:st|nd|rd|th)?\\s*(?:of\\s+)?(?:${monthNames2})\\b`, 'gi'), ' ')
+    .replace(new RegExp(`\\b(?:${monthNames2})\\s*\\d{1,2}(?:st|nd|rd|th)?\\b`, 'gi'), ' ')
     .replace(/\b\d{1,2}[\/\-\.]\d{1,2}(?:[\/\-\.]\d{2,4})?\b/g, ' ')
     .replace(/\b\d{1,2}(?:[\.\:\-]\d{2})?\s*(?:am|pm)\b/gi, ' ')
     .replace(/\b(?:spent|on|at|for|paid|bought|cost|was)\b/gi, ' ')

@@ -38,7 +38,27 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [trips, setTrips] = useState<Trip[]>([]);
   const [period, setPeriod] = useState<PeriodType>('month');
   const [forexRates, setForexRates] = useState<Record<CurrencyCode, number>>(() => getStoredForexRates());
-  const [activeTripVault, setActiveTripVault] = useState<Trip | null>(null);
+  const [activeTripVault, setActiveTripVaultState] = useState<Trip | null>(() => {
+    try {
+      const raw = localStorage.getItem('fa_active_trip_vault');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const setActiveTripVault = (trip: Trip | null) => {
+    setActiveTripVaultState(trip);
+    try {
+      if (trip) {
+        localStorage.setItem('fa_active_trip_vault', JSON.stringify(trip));
+      } else {
+        localStorage.removeItem('fa_active_trip_vault');
+      }
+    } catch (e) {
+      console.warn('Failed to persist active trip vault:', e);
+    }
+  };
 
   const baseCurrency: CurrencyCode = activeTripVault ? activeTripVault.currency : (user?.baseCurrency || 'INR');
 

@@ -65,7 +65,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
       setTime(initialData.time || '12:00');
       setNote(initialData.note);
       setPaymentMethod(initialData.paymentMethod || 'UPI');
-      setTripId(initialData.tripId || '');
+      setTripId(initialData.tripId || activeTripVault?.id || '');
     } else {
       setAmount('');
       setCurrency(baseCurrency);
