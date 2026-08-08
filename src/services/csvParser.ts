@@ -1,5 +1,15 @@
 import { Transaction, Category, CurrencyCode } from '../types';
 
+function sanitizeCSVCell(str: string): string {
+  if (!str) return '""';
+  let text = str.trim();
+  // Neutralize spreadsheet formula injection characters (=, +, -, @, \t, \r)
+  if (/^[=+\-@\t\r]/.test(text)) {
+    text = `'${text}`;
+  }
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
 export function exportTransactionsToCSV(transactions: Transaction[], categories: Category[]): string {
   const catMap = new Map<string, string>();
   categories.forEach(c => catMap.set(c.id, c.name));
@@ -8,16 +18,14 @@ export function exportTransactionsToCSV(transactions: Transaction[], categories:
 
   const rows = transactions.map(t => {
     const catName = t.customCategoryName || catMap.get(t.categoryId) || 'Others';
-    const noteEscaped = `"${(t.note || '').replace(/"/g, '""')}"`;
-    const payMethodEscaped = `"${(t.paymentMethod || '').replace(/"/g, '""')}"`;
     return [
       t.date,
       t.time || '12:00',
       t.amount.toFixed(2),
       t.currency,
-      `"${catName.replace(/"/g, '""')}"`,
-      noteEscaped,
-      payMethodEscaped,
+      sanitizeCSVCell(catName),
+      sanitizeCSVCell(t.note || ''),
+      sanitizeCSVCell(t.paymentMethod || ''),
       t.isAutoParsed ? 'Yes' : 'No'
     ].join(',');
   });

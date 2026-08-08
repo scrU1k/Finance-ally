@@ -154,10 +154,18 @@ export async function createLocalAutoBackup(manualTrigger = false): Promise<{ su
     try {
       localStorage.setItem(`fa_snap_data_${newSnapshot.id}`, finalPayload);
     } catch {
-      // Storage quota safety
+      // Storage quota exceeded — prune older snapshot payloads to free space
+      try {
+        const existing = getLocalSnapshots();
+        // Remove older cached payloads except the newest one
+        existing.slice(1).forEach(old => localStorage.removeItem(`fa_snap_data_${old.id}`));
+        localStorage.setItem(`fa_snap_data_${newSnapshot.id}`, finalPayload);
+      } catch {
+        // Safe fallback if still full
+      }
     }
 
-    // Update snapshots history list (keep max 10 latest)
+    // Update snapshots history list (keep max 10 latest metadata records)
     let snapshots = getLocalSnapshots();
     snapshots.unshift(newSnapshot);
     if (snapshots.length > MAX_SNAPSHOTS) {

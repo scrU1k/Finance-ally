@@ -49,17 +49,31 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
     };
   }, [isOpen]);
 
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const activeTabRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (activeTabRef.current) {
+      activeTabRef.current.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest',
+      });
+    }
+  }, [activeTab]);
+
   return (
     <nav className="relative mb-3" ref={containerRef}>
       <div className="flex items-center justify-between gap-2">
         
         {/* Scrollable container for visible tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
+        <div ref={scrollContainerRef} className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
           {visibleTabs.map(tab => {
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
+                ref={isActive ? activeTabRef : null}
                 onClick={() => {
                   setActiveTab(tab.id);
                   setIsOpen(false);

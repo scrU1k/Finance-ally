@@ -174,9 +174,13 @@ export async function loadCategories(): Promise<Category[]> {
 export async function saveCategory(category: Category): Promise<void> {
   try {
     const db = await openDatabase();
-    const tx = db.transaction('categories', 'readwrite');
-    const store = tx.objectStore('categories');
-    store.put(category);
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('categories', 'readwrite');
+      const store = tx.objectStore('categories');
+      store.put(category);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   } catch (e) {
     console.error('IndexedDB saveCategory failed:', e);
   }
@@ -185,9 +189,13 @@ export async function saveCategory(category: Category): Promise<void> {
 export async function deleteCategory(id: string): Promise<void> {
   try {
     const db = await openDatabase();
-    const tx = db.transaction('categories', 'readwrite');
-    const store = tx.objectStore('categories');
-    store.delete(id);
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('categories', 'readwrite');
+      const store = tx.objectStore('categories');
+      store.delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   } catch (e) {
     console.error('IndexedDB deleteCategory failed:', e);
   }
@@ -214,9 +222,13 @@ export async function loadTrips(): Promise<Trip[]> {
 export async function saveTrip(trip: Trip): Promise<void> {
   try {
     const db = await openDatabase();
-    const tx = db.transaction('trips', 'readwrite');
-    const store = tx.objectStore('trips');
-    store.put(trip);
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('trips', 'readwrite');
+      const store = tx.objectStore('trips');
+      store.put(trip);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   } catch (e) {
     console.error('IndexedDB saveTrip failed:', e);
   }
@@ -225,9 +237,13 @@ export async function saveTrip(trip: Trip): Promise<void> {
 export async function deleteTrip(id: string): Promise<void> {
   try {
     const db = await openDatabase();
-    const tx = db.transaction('trips', 'readwrite');
-    const store = tx.objectStore('trips');
-    store.delete(id);
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('trips', 'readwrite');
+      const store = tx.objectStore('trips');
+      store.delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   } catch (e) {
     console.error('IndexedDB deleteTrip failed:', e);
   }
@@ -253,9 +269,13 @@ export async function loadSmsTemplates(): Promise<SmsTemplate[]> {
 export async function saveSmsTemplate(template: SmsTemplate): Promise<void> {
   try {
     const db = await openDatabase();
-    const tx = db.transaction('smsTemplates', 'readwrite');
-    const store = tx.objectStore('smsTemplates');
-    store.put(template);
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('smsTemplates', 'readwrite');
+      const store = tx.objectStore('smsTemplates');
+      store.put(template);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   } catch (e) {
     console.error('IndexedDB saveSmsTemplate failed:', e);
   }
@@ -264,9 +284,13 @@ export async function saveSmsTemplate(template: SmsTemplate): Promise<void> {
 export async function deleteSmsTemplate(id: string): Promise<void> {
   try {
     const db = await openDatabase();
-    const tx = db.transaction('smsTemplates', 'readwrite');
-    const store = tx.objectStore('smsTemplates');
-    store.delete(id);
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('smsTemplates', 'readwrite');
+      const store = tx.objectStore('smsTemplates');
+      store.delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   } catch (e) {
     console.error('IndexedDB deleteSmsTemplate failed:', e);
   }
@@ -292,9 +316,13 @@ export async function loadSubscriptions(): Promise<Subscription[]> {
 export async function saveSubscription(sub: Subscription): Promise<void> {
   try {
     const db = await openDatabase();
-    const tx = db.transaction('subscriptions', 'readwrite');
-    const store = tx.objectStore('subscriptions');
-    store.put(sub);
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('subscriptions', 'readwrite');
+      const store = tx.objectStore('subscriptions');
+      store.put(sub);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   } catch (e) {
     console.error('IndexedDB saveSubscription failed:', e);
   }
@@ -303,9 +331,13 @@ export async function saveSubscription(sub: Subscription): Promise<void> {
 export async function deleteSubscription(id: string): Promise<void> {
   try {
     const db = await openDatabase();
-    const tx = db.transaction('subscriptions', 'readwrite');
-    const store = tx.objectStore('subscriptions');
-    store.delete(id);
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('subscriptions', 'readwrite');
+      const store = tx.objectStore('subscriptions');
+      store.delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   } catch (e) {
     console.error('IndexedDB deleteSubscription failed:', e);
   }
@@ -360,54 +392,90 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
 
     const db = await openDatabase();
 
+    // 1. Transactions Store
     if (data.transactions && Array.isArray(data.transactions)) {
-      const tx = db.transaction('transactions', 'readwrite');
-      const store = tx.objectStore('transactions');
-      store.clear();
-      data.transactions.forEach((t: Transaction) => {
-        if (t.id && typeof t.amount === 'number' && t.date) {
-          store.put({
-            ...t,
-            note: String(t.note || '').substring(0, 500),
-          });
-        }
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('transactions', 'readwrite');
+        const store = tx.objectStore('transactions');
+        store.clear();
+        data.transactions.forEach((t: Transaction) => {
+          if (t.id && typeof t.amount === 'number' && t.amount > 0 && t.date) {
+            store.put({
+              ...t,
+              note: String(t.note || '').substring(0, 500),
+            });
+          }
+        });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
       });
       localStorage.setItem('fa_transactions', JSON.stringify(data.transactions));
     }
+
+    // 2. Categories Store
     if (data.categories && Array.isArray(data.categories)) {
-      const tx = db.transaction('categories', 'readwrite');
-      const store = tx.objectStore('categories');
-      store.clear();
-      data.categories.forEach((c: Category) => {
-        if (c.id && c.name) store.put(c);
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('categories', 'readwrite');
+        const store = tx.objectStore('categories');
+        store.clear();
+        data.categories.forEach((c: Category) => {
+          if (c.id && c.name) store.put(c);
+        });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
       });
       localStorage.setItem('fa_categories', JSON.stringify(data.categories));
     }
+
+    // 3. Trips Store
     if (data.trips && Array.isArray(data.trips)) {
-      const tx = db.transaction('trips', 'readwrite');
-      const store = tx.objectStore('trips');
-      store.clear();
-      data.trips.forEach((t: Trip) => store.put(t));
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('trips', 'readwrite');
+        const store = tx.objectStore('trips');
+        store.clear();
+        data.trips.forEach((t: Trip) => store.put(t));
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
       localStorage.setItem('fa_trips', JSON.stringify(data.trips));
     }
+
+    // 4. SMS Templates Store
     if (data.smsTemplates && Array.isArray(data.smsTemplates)) {
-      const tx = db.transaction('smsTemplates', 'readwrite');
-      const store = tx.objectStore('smsTemplates');
-      store.clear();
-      data.smsTemplates.forEach((st: SmsTemplate) => store.put(st));
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('smsTemplates', 'readwrite');
+        const store = tx.objectStore('smsTemplates');
+        store.clear();
+        data.smsTemplates.forEach((st: SmsTemplate) => store.put(st));
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
     }
+
+    // 5. Subscriptions Store
     if (data.subscriptions && Array.isArray(data.subscriptions)) {
-      const tx = db.transaction('subscriptions', 'readwrite');
-      const store = tx.objectStore('subscriptions');
-      store.clear();
-      data.subscriptions.forEach((sub: Subscription) => store.put(sub));
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('subscriptions', 'readwrite');
+        const store = tx.objectStore('subscriptions');
+        store.clear();
+        data.subscriptions.forEach((sub: Subscription) => store.put(sub));
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
     }
+
+    // 6. User Profile Store
     if (data.profile && typeof data.profile === 'object' && data.profile.username) {
-      const tx = db.transaction('userProfile', 'readwrite');
-      const store = tx.objectStore('userProfile');
-      store.put(data.profile);
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('userProfile', 'readwrite');
+        const store = tx.objectStore('userProfile');
+        store.put(data.profile);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
       localStorage.setItem('fa_user_profile', JSON.stringify(data.profile));
     }
+
     return true;
   } catch (err) {
     console.error('Failed to import backup:', err);

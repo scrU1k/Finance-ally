@@ -4,6 +4,8 @@
 
 Finance-Ally is a premium, beautifully crafted personal finance app designed for users who value privacy, speed, and sleek modern design. It operates 100% offline on your device, ensuring your sensitive spending data never touches a remote server or cloud network.
 
+*Made with Antigravity*
+
 ---
 
 ## Why Choose Finance-Ally?
@@ -87,3 +89,13 @@ Managing shared expenses with roommates or friends made simple:
 ## Supported Devices & Formats
 - **Web App**: Runs in any modern desktop or mobile browser.
 - **Android App**: Available as a native Android APK with native device share integration, local file storage access, and zero high-risk background permissions for a clean Play Protect installation.
+
+---
+
+## License
+
+This project is licensed under the **[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](./LICENSE)** license.
+
+- **Free for Personal Use**: Anyone is free to download, use, and run the app for personal finances.
+- **Modifications & Forks**: You are free to fork, adapt, and build upon this project for non-commercial purposes, provided appropriate credit is given and derivative works are shared under the same license.
+- **Non-Commercial**: Commercial distribution, sale, or monetization of this software is strictly prohibited without explicit permission.

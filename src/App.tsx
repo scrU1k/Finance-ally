@@ -10,16 +10,11 @@ import { SidebarNav, NavTab } from './components/layout/SidebarNav';
 import { BottomPeriodBar } from './components/layout/BottomPeriodBar';
 import { DailyTimeline } from './components/dashboard/DailyTimeline';
 import { TransactionModal } from './components/dashboard/TransactionModal';
-import { TripList } from './components/trips/TripList';
-import { NotificationScannerModal } from './components/scanner/NotificationScannerModal';
-import { EndOfMonthAudit } from './components/audit/EndOfMonthAudit';
-import { SplitBillModal } from './components/tools/SplitBillModal';
-import { SmartSuggestions } from './components/insights/SmartSuggestions';
-import { SettingsModal } from './components/settings/SettingsModal';
-import { CategoryManagerModal } from './components/categories/CategoryManagerModal';
-import { SubscriptionPage } from './components/subscriptions/SubscriptionPage';
+import { AutoSmsDetectorBanner } from './components/common/AutoSmsDetectorBanner';
+import { Transaction } from './types';
+import { checkAndPerformLocalAutoBackup } from './services/localAutoBackupService';
 
-// Lazy load secondary views for bundle optimization
+// Lazy load secondary views for true Vite chunk code-splitting
 const LazySubscriptionPage = React.lazy(() => import('./components/subscriptions/SubscriptionPage').then(module => ({ default: module.SubscriptionPage })));
 const LazyTripList = React.lazy(() => import('./components/trips/TripList').then(module => ({ default: module.TripList })));
 const LazyNotificationScannerModal = React.lazy(() => import('./components/scanner/NotificationScannerModal').then(module => ({ default: module.NotificationScannerModal })));
@@ -28,9 +23,6 @@ const LazySplitBillModal = React.lazy(() => import('./components/tools/SplitBill
 const LazySmartSuggestions = React.lazy(() => import('./components/insights/SmartSuggestions').then(module => ({ default: module.SmartSuggestions })));
 const LazySettingsModal = React.lazy(() => import('./components/settings/SettingsModal').then(module => ({ default: module.SettingsModal })));
 const LazyCategoryManagerModal = React.lazy(() => import('./components/categories/CategoryManagerModal').then(module => ({ default: module.CategoryManagerModal })));
-import { AutoSmsDetectorBanner } from './components/common/AutoSmsDetectorBanner';
-import { Transaction } from './types';
-import { checkAndPerformLocalAutoBackup } from './services/localAutoBackupService';
 
 const MainAppContent: React.FC = () => {
   const { needsOnboarding, isUnlocked } = useAuth();

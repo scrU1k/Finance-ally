@@ -128,14 +128,26 @@ export const SubscriptionPage: React.FC = () => {
             isAutoParsed: true,
           });
 
-          // Advance next due date based on selected cycle
-          const d = new Date(sub.nextDueDate);
-          if (sub.billingCycle === 'monthly') d.setMonth(d.getMonth() + 1);
-          else if (sub.billingCycle === 'bi-monthly') d.setMonth(d.getMonth() + 2);
-          else if (sub.billingCycle === 'tri-monthly') d.setMonth(d.getMonth() + 3);
-          else if (sub.billingCycle === 'annually') d.setFullYear(d.getFullYear() + 1);
+          // Advance next due date based on selected cycle with month-end day clamping
+          const [curY, curM, curD] = sub.nextDueDate.split('-').map(Number);
+          let targetY = curY;
+          let targetM = curM - 1; // 0-indexed
+          const originalDay = curD;
 
-          const newDateStr = d.toISOString().split('T')[0];
+          if (sub.billingCycle === 'monthly') targetM += 1;
+          else if (sub.billingCycle === 'bi-monthly') targetM += 2;
+          else if (sub.billingCycle === 'tri-monthly') targetM += 3;
+          else if (sub.billingCycle === 'annually') targetY += 1;
+
+          if (targetM >= 12) {
+            targetY += Math.floor(targetM / 12);
+            targetM = targetM % 12;
+          }
+
+          const maxDays = new Date(targetY, targetM + 1, 0).getDate();
+          const targetD = Math.min(originalDay, maxDays);
+          const newDateStr = `${targetY}-${String(targetM + 1).padStart(2, '0')}-${String(targetD).padStart(2, '0')}`;
+
           const updatedSub = { ...sub, nextDueDate: newDateStr, lastProcessedDate: today };
           await saveSubscription(updatedSub);
           updatedSubs[i] = updatedSub;
