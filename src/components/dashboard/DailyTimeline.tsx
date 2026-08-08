@@ -569,43 +569,15 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
         </div>
       )}
 
-      {/* Custom Multi-Log Date Selection Modal */}
-      {showMultiLogDatePickerModal && (
-        <div
-          className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150 cursor-pointer"
-          onClick={() => setShowMultiLogDatePickerModal(false)}
-        >
-          <div
-            className="bg-surface-card/90 backdrop-blur-2xl border border-hairline rounded-3xl p-6 shadow-2xl space-y-4 max-w-sm w-full cursor-default ring-1 ring-white/10 text-center animate-in zoom-in-95 duration-150"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-hairline pb-2.5">
-              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-brand-purple" /> Select Multi-Log Date
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowMultiLogDatePickerModal(false)}
-                className="p-1 text-muted-custom hover:text-ink cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs font-mono font-semibold text-brand-purple leading-relaxed">
-              All expenses will be logged to the selected date
-            </p>
-
-            <div className="flex justify-center pt-2">
-              <CustomDatePicker
-                value={batchDate}
-                onChange={handleSelectMultiLogDate}
-                className="bg-surface-soft border-brand-purple/40 text-brand-purple font-bold rounded-xl text-sm px-4 py-2"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Direct CustomDatePicker portal trigger when clicking Multi-Log */}
+      <CustomDatePicker
+        value={batchDate}
+        onChange={handleSelectMultiLogDate}
+        isOpenControlled={showMultiLogDatePickerModal}
+        onCloseControlled={() => setShowMultiLogDatePickerModal(false)}
+        title="Select Multi-Log Date"
+        subtitle="All expenses will be logged to the selected date"
+      />
 
     </div>
   );

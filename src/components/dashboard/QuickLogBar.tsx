@@ -3,7 +3,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { parseNaturalLanguageExpense, ParsedNaturalExpense } from '../../services/naturalLanguageParser';
 import { formatCurrency } from '../../services/currency';
 import { CustomDatePicker } from '../common/CustomDatePicker';
-import { Sparkles, ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus } from 'lucide-react';
+import { ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus } from 'lucide-react';
 
 interface QuickLogBarProps {
   onLoggedSuccess?: () => void;
@@ -147,9 +147,29 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
   const paymentOptions = ['UPI', 'Credit Card', 'Debit Card', 'Cash', 'Net Banking'];
 
   return (
-    <div className="space-y-3 dotgui-glass border border-hairline p-4 rounded-2xl shadow-lg bg-surface-card/90 backdrop-blur-xl">
+    <div className="space-y-2.5 dotgui-glass border border-hairline p-4 rounded-2xl shadow-lg bg-surface-card/90 backdrop-blur-xl">
 
-      {/* Natural Language Prompt Input Bar - EXACTLY AS ORIGINALLY DESIGNED */}
+      {/* Centered Compact Date Pill Button ABOVE Quick Log Text Box when Multi-Log is active */}
+      {isMultiLogActive && (
+        <div className="flex justify-center animate-in fade-in duration-150">
+          <CustomDatePicker
+            value={batchDate}
+            onChange={val => setBatchDate(val)}
+            customTrigger={
+              <button
+                type="button"
+                className="bg-brand-purple/15 border border-brand-purple/40 text-brand-purple font-mono font-bold rounded-xl text-xs px-3 py-1 hover:bg-brand-purple/25 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                title="Click to change Multi-Log date"
+              >
+                <Calendar className="w-3.5 h-3.5 text-brand-purple shrink-0" />
+                <span>{batchDate}</span>
+              </button>
+            }
+          />
+        </div>
+      )}
+
+      {/* Natural Language Prompt Input Bar - NO STAR ICON, MAXIMUM TEXT SPACE */}
       <form onSubmit={handleParse} className="relative flex items-center gap-2">
         <div className="relative flex-1">
           <input
@@ -157,9 +177,8 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
             value={inputPrompt}
             onChange={e => setInputPrompt(e.target.value)}
             placeholder="Quick Log: 300Rs spent on Burger..."
-            className="w-full bg-surface-soft border border-hairline rounded-2xl pl-12 pr-4 py-3.5 text-sm sm:text-base font-sans-custom text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[54px]"
+            className="w-full bg-surface-soft border border-hairline rounded-2xl pl-4 pr-12 py-3.5 text-sm sm:text-base font-sans-custom text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[54px]"
           />
-          <Sparkles className="w-4 h-4 text-brand-yellow absolute left-4.5 top-1/2 -translate-y-1/2" />
         </div>
 
         <button
@@ -171,17 +190,6 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
           <ArrowRight className="w-5 h-5 stroke-[2.5]" />
         </button>
       </form>
-
-      {/* Compact Date Field below Quick Log Text Box when Multi-Log is active */}
-      {isMultiLogActive && (
-        <div className="flex items-center pt-0.5 animate-in fade-in duration-150">
-          <CustomDatePicker
-            value={batchDate}
-            onChange={val => setBatchDate(val)}
-            className="bg-surface-soft border-brand-purple/50 text-brand-purple font-bold rounded-xl text-xs px-3 py-1 hover:border-brand-purple cursor-pointer shadow-2xs"
-          />
-        </div>
-      )}
 
       {/* Success Notification */}
       {isSuccess && (

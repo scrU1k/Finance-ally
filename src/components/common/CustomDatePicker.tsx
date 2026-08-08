@@ -7,10 +7,37 @@ interface CustomDatePickerProps {
   onChange: (val: string) => void;
   className?: string;
   placeholder?: string;
+  title?: string;
+  subtitle?: string;
+  customTrigger?: React.ReactNode;
+  isOpenControlled?: boolean;
+  onCloseControlled?: () => void;
 }
 
-export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, className = '', placeholder }) => {
-  const [isOpen, setIsOpen] = useState(false);
+export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
+  value,
+  onChange,
+  className = '',
+  placeholder,
+  title,
+  subtitle,
+  customTrigger,
+  isOpenControlled,
+  onCloseControlled,
+}) => {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+
+  const isControlled = isOpenControlled !== undefined;
+  const isOpen = isControlled ? isOpenControlled : internalIsOpen;
+
+  const setIsOpen = (val: boolean) => {
+    if (isControlled) {
+      if (!val && onCloseControlled) onCloseControlled();
+    } else {
+      setInternalIsOpen(val);
+    }
+  };
+
   const [typedInput, setTypedInput] = useState(value);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -84,17 +111,25 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
 
   return (
     <div className={`relative ${className}`} ref={containerRef}>
-      {/* Trigger Button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between gap-2 bg-surface-soft border border-hairline hover:border-ink rounded-xl px-3 py-2 text-xs font-mono text-ink transition-all cursor-pointer shadow-sm min-h-[38px]"
-      >
-        <span className="flex items-center gap-1.5 font-bold truncate">
-          <Calendar className="w-3.5 h-3.5 text-brand-blue shrink-0" />
-          <span>{value || placeholder || 'Date'}</span>
-        </span>
-      </button>
+      {/* Trigger Button or Custom Trigger */}
+      {!isControlled && (
+        customTrigger ? (
+          <div onClick={() => setIsOpen(!isOpen)} className="cursor-pointer inline-block">
+            {customTrigger}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            className="w-full flex items-center justify-between gap-2 bg-surface-soft border border-hairline hover:border-ink rounded-xl px-3 py-2 text-xs font-mono text-ink transition-all cursor-pointer shadow-sm min-h-[38px]"
+          >
+            <span className="flex items-center gap-1.5 font-bold truncate">
+              <Calendar className="w-3.5 h-3.5 text-brand-blue shrink-0" />
+              <span>{value || placeholder || 'Date'}</span>
+            </span>
+          </button>
+        )
+      )}
 
       {/* Centered Glass Screen Modal */}
       {isOpen && createPortal(
@@ -103,14 +138,15 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
             onClick={() => setIsOpen(false)}
           >
             <div
-              className="bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl shadow-2xl shadow-black/20 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-100 w-72 max-w-[92vw] ring-1 ring-white/10"
+              className="bg-surface-card/90 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl shadow-2xl shadow-black/20 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-100 w-80 max-w-[92vw] ring-1 ring-white/10"
               onClick={e => e.stopPropagation()}
             >
             
             {/* Header */}
             <div className="flex items-center justify-between border-b border-hairline pb-2">
               <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-brand-blue" /> Select Date
+                <Calendar className="w-3.5 h-3.5 text-brand-purple" />
+                <span>{title || 'Select Date'}</span>
               </span>
               <button
                 type="button"
@@ -120,6 +156,13 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Subtitle Card Line */}
+            {subtitle && (
+              <div className="bg-brand-purple/10 border border-brand-purple/30 p-2.5 rounded-xl text-xs font-mono text-brand-purple font-semibold text-center leading-snug">
+                {subtitle}
+              </div>
+            )}
 
             {/* Manual Type Input */}
             <div className="space-y-1">
@@ -138,32 +181,32 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
               <button
                 type="button"
                 onClick={() => setPreset(0)}
-                className="flex-1 py-1 rounded-lg text-[10px] font-mono border border-hairline bg-surface-soft text-ink font-bold hover:border-ink cursor-pointer"
+                className="flex-1 py-1 rounded-lg bg-surface-soft hover:bg-surface-card border border-hairline text-[10px] font-mono text-ink font-bold"
               >
                 Today
               </button>
               <button
                 type="button"
                 onClick={() => setPreset(1)}
-                className="flex-1 py-1 rounded-lg text-[10px] font-mono border border-hairline bg-surface-soft text-ink font-bold hover:border-ink cursor-pointer"
+                className="flex-1 py-1 rounded-lg bg-surface-soft hover:bg-surface-card border border-hairline text-[10px] font-mono text-ink font-bold"
               >
                 Yesterday
               </button>
               <button
                 type="button"
                 onClick={() => setPreset(2)}
-                className="flex-1 py-1 rounded-lg text-[10px] font-mono border border-hairline bg-surface-soft text-ink font-bold hover:border-ink cursor-pointer"
+                className="flex-1 py-1 rounded-lg bg-surface-soft hover:bg-surface-card border border-hairline text-[10px] font-mono text-ink font-bold"
               >
-                2d Ago
+                2 Days Ago
               </button>
             </div>
 
-            {/* Month & Year Navigator */}
-            <div className="flex items-center justify-between font-mono text-xs text-ink font-bold border-t border-hairline pt-2">
+            {/* Month & Year Navigation */}
+            <div className="flex items-center justify-between font-mono text-xs text-ink font-bold pt-1">
               <button
                 type="button"
                 onClick={prevMonth}
-                className="p-1 hover:bg-surface-soft rounded-lg cursor-pointer"
+                className="p-1 rounded-lg hover:bg-surface-soft text-muted-custom hover:text-ink cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -173,48 +216,58 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
               <button
                 type="button"
                 onClick={nextMonth}
-                className="p-1 hover:bg-surface-soft rounded-lg cursor-pointer"
+                className="p-1 rounded-lg hover:bg-surface-soft text-muted-custom hover:text-ink cursor-pointer"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Day Name Headers */}
-            <div className="grid grid-cols-7 gap-1 text-center font-mono text-[10px] text-muted-custom font-bold">
-              <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+            {/* Days Header */}
+            <div className="grid grid-cols-7 text-center font-mono text-[10px] text-muted-custom uppercase font-bold pt-1">
+              <span>Su</span>
+              <span>Mo</span>
+              <span>Tu</span>
+              <span>We</span>
+              <span>Th</span>
+              <span>Fr</span>
+              <span>Sa</span>
             </div>
 
-            {/* Calendar Days Grid */}
-            <div className="grid grid-cols-7 gap-1">
+            {/* Days Grid */}
+            <div className="grid grid-cols-7 gap-1 text-center font-mono text-xs">
               {Array.from({ length: firstDayOfWeek }).map((_, i) => (
                 <div key={`empty-${i}`} />
               ))}
+
               {Array.from({ length: daysInMonth }).map((_, i) => {
-                const dayNum = i + 1;
-                const mStr = (viewMonth + 1).toString().padStart(2, '0');
-                const dStr = dayNum.toString().padStart(2, '0');
-                const dateStr = `${viewYear}-${mStr}-${dStr}`;
-                const isSelected = dateStr === value;
+                const day = i + 1;
+                const m = (viewMonth + 1).toString().padStart(2, '0');
+                const d = day.toString().padStart(2, '0');
+                const dayStr = `${viewYear}-${m}-${d}`;
+                const isSelected = value === dayStr;
+                const isToday = new Date().toISOString().split('T')[0] === dayStr;
 
                 return (
                   <button
-                    key={dayNum}
+                    key={`day-${day}`}
                     type="button"
-                    onClick={() => handleSelectDay(dayNum)}
-                    className={`h-7 rounded-lg text-xs font-mono font-semibold flex items-center justify-center transition-all cursor-pointer ${
+                    onClick={() => handleSelectDay(day)}
+                    className={`py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-brand-blue text-white font-bold shadow-sm'
-                        : 'text-ink hover:bg-surface-soft'
+                        ? 'bg-brand-purple text-white shadow-md'
+                        : isToday
+                        ? 'border border-brand-purple text-brand-purple bg-brand-purple/10'
+                        : 'hover:bg-surface-soft text-ink'
                     }`}
                   >
-                    {dayNum}
+                    {day}
                   </button>
                 );
               })}
             </div>
 
-            </div>
-          </div>,
+          </div>
+        </div>,
         document.body
       )}
     </div>
