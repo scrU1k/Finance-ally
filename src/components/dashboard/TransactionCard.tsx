@@ -52,53 +52,95 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 
   const timerRef = React.useRef<number | null>(null);
   const [isLongPressActive, setIsLongPressActive] = React.useState(false);
-  const isTouchRef = React.useRef(false);
+  const touchStartPos = React.useRef<{ x: number; y: number } | null>(null);
+  const isScrolledRef = React.useRef(false);
 
-  const startPress = (e: React.MouseEvent | React.TouchEvent) => {
-    const isTouch = 'touches' in e;
-    if (isTouch) {
-      isTouchRef.current = true;
-    } else if (isTouchRef.current) {
-      return;
+  const handleTouchStart = (e: React.TouchEvent) => {
+    isScrolledRef.current = false;
+    if (e.touches.length > 0) {
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }
-
-    if ('button' in e && e.button !== 0) return;
     setIsLongPressActive(false);
 
+    if (timerRef.current) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => {
-      setIsLongPressActive(true);
-      onToggleSelect?.(transaction.id);
-      try {
-        navigator.vibrate?.(50);
-      } catch {}
-    }, 600);
+      if (!isScrolledRef.current) {
+        setIsLongPressActive(true);
+        onToggleSelect?.(transaction.id);
+        try {
+          navigator.vibrate?.(50);
+        } catch {}
+      }
+    }, 500);
   };
 
-  const endPress = (e: React.MouseEvent | React.TouchEvent, action: 'click' | 'none') => {
-    const isTouch = 'touches' in e;
-    if (!isTouch && isTouchRef.current) {
-      return;
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartPos.current && e.touches.length > 0) {
+      const dx = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
+      const dy = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
+      if (dx > 8 || dy > 8) {
+        isScrolledRef.current = true;
+        if (timerRef.current) {
+          window.clearTimeout(timerRef.current);
+          timerRef.current = null;
+        }
+      }
     }
+  };
 
+  const handleTouchEnd = (e: React.TouchEvent) => {
     if (timerRef.current) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
     }
 
-    if (action === 'click') {
-      if (isLongPressActive) {
-        setIsLongPressActive(false);
-        return;
-      }
-      if (isSelectMode) {
-        onToggleSelect?.(transaction.id);
-      } else {
-        onSelect?.(transaction);
-      }
+    if (isScrolledRef.current) {
+      return;
+    }
+
+    if (isLongPressActive) {
+      setIsLongPressActive(false);
+      return;
+    }
+
+    if (isSelectMode) {
+      onToggleSelect?.(transaction.id);
+    } else {
+      onSelect?.(transaction);
     }
   };
 
-  const cancelPress = () => {
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    setIsLongPressActive(false);
+
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => {
+      setIsLongPressActive(true);
+      onToggleSelect?.(transaction.id);
+    }, 500);
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    if (timerRef.current) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    if (isLongPressActive) {
+      setIsLongPressActive(false);
+      return;
+    }
+
+    if (isSelectMode) {
+      onToggleSelect?.(transaction.id);
+    } else {
+      onSelect?.(transaction);
+    }
+  };
+
+  const handleMouseLeave = () => {
     if (timerRef.current) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
@@ -107,12 +149,12 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 
   return (
     <div
-      onMouseDown={startPress}
-      onMouseUp={e => endPress(e, 'click')}
-      onMouseLeave={() => cancelPress()}
-      onTouchStart={startPress}
-      onTouchEnd={e => endPress(e, 'click')}
-      onTouchMove={() => cancelPress()}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       className={`dotgui-card p-4 flex items-center justify-between gap-3 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${
         isSelected ? 'border-brand-blue ring-1 ring-brand-blue/30 bg-brand-blue/5' : ''
       }`}

@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Category, Trip, CurrencyCode } from '../../types';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { CustomDatePicker } from '../common/CustomDatePicker';
-import { X, Check, Calendar, Clock, Tag, Plane, CreditCard } from 'lucide-react';
+import { CustomTimePicker } from '../common/CustomTimePicker';
+import { X, Check, Calendar, Clock, Tag, Plane, CreditCard, Palette } from 'lucide-react';
 
 interface BulkEditModalProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ interface BulkEditModalProps {
     date?: string;
     time?: string;
     categoryId?: string;
+    customCategoryName?: string;
+    customTagColor?: string;
     tripId?: string | null;
     paymentMethod?: string;
   }) => Promise<void>;
@@ -27,24 +30,32 @@ export const BulkEditModal: React.FC<BulkEditModalProps> = ({
   trips,
   onSave,
 }) => {
-  const [updateDate, setUpdateDate] = useState(false);
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-
-  const [updateTime, setUpdateTime] = useState(false);
-  const [time, setTime] = useState('12:00');
-
-  const [updateCategory, setUpdateCategory] = useState(false);
-  const [categoryId, setCategoryId] = useState(categories[0]?.id || 'cat-food');
-
-  const [updateTrip, setUpdateTrip] = useState(false);
-  const [tripId, setTripId] = useState(''); // '' means Keep Current, 'remove' means Remove Trip tag
-
-  const [updatePayment, setUpdatePayment] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('UPI');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [customCategoryName, setCustomCategoryName] = useState('');
+  const [customTagColor, setCustomTagColor] = useState('#6366f1');
+  const [tripId, setTripId] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
 
   if (!isOpen) return null;
 
+  const tagColorPalette = [
+    '#6366f1', '#ec4899', '#8b5cf6', '#10b981', '#f59e0b',
+    '#3b82f6', '#ef4444', '#14b8a6', '#84cc16', '#64748b'
+  ];
+
+  const categoryOptions: SelectOption[] = [
+    { value: '', label: 'Keep Current Tag' },
+    ...categories.map(c => ({
+      value: c.id,
+      label: c.name,
+      icon: <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />,
+    })),
+  ];
+
   const paymentOptions: SelectOption[] = [
+    { value: '', label: 'Keep Current Payment Method' },
     { value: 'UPI', label: 'UPI (GPay / PhonePe / Paytm)' },
     { value: 'Credit Card', label: 'Credit Card' },
     { value: 'Debit Card', label: 'Debit Card' },
@@ -65,16 +76,22 @@ export const BulkEditModal: React.FC<BulkEditModalProps> = ({
     e.preventDefault();
 
     const updates: Parameters<typeof onSave>[0] = {};
-    if (updateDate) updates.date = date;
-    if (updateTime) updates.time = time;
-    if (updateCategory) updates.categoryId = categoryId;
-    if (updateTrip) {
-      updates.tripId = tripId === 'remove' ? null : (tripId || undefined);
+    if (date) updates.date = date;
+    if (time) updates.time = time;
+    if (categoryId) {
+      updates.categoryId = categoryId;
+      if (categoryId === 'cat-others' && customCategoryName.trim()) {
+        updates.customCategoryName = customCategoryName.trim();
+        updates.customTagColor = customTagColor;
+      }
     }
-    if (updatePayment) updates.paymentMethod = paymentMethod;
+    if (tripId) {
+      updates.tripId = tripId === 'remove' ? null : tripId;
+    }
+    if (paymentMethod) updates.paymentMethod = paymentMethod;
 
     if (Object.keys(updates).length === 0) {
-      alert('Please check at least one field to update.');
+      alert('Please select at least one field to change.');
       return;
     }
 
@@ -86,9 +103,10 @@ export const BulkEditModal: React.FC<BulkEditModalProps> = ({
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
       <div className="max-w-md w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl p-6 shadow-2xl shadow-black/20 space-y-4 ring-1 ring-white/10" onClick={e => e.stopPropagation()}>
         
+        {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-hairline pb-3">
           <div>
-            <h3 className="text-sm font-mono font-bold text-ink uppercase">Bulk Edit Transactions</h3>
+            <h3 className="text-sm font-mono font-bold text-ink uppercase">Edit Transactions</h3>
             <p className="text-[10px] font-mono text-muted-custom mt-0.5">Updating {selectedCount} selected logs</p>
           </div>
           <button onClick={onClose} className="p-1 text-muted-custom hover:text-ink cursor-pointer">
@@ -96,143 +114,106 @@ export const BulkEditModal: React.FC<BulkEditModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-left">
-          <p className="text-[10px] font-mono text-muted-custom leading-relaxed bg-surface-soft p-2.5 rounded-xl border border-hairline">
-            Check the boxes next to the fields you wish to bulk update. Unchecked fields will remain untouched on the selected transactions.
-          </p>
+        <form onSubmit={handleSubmit} className="space-y-3.5 text-left">
 
-          {/* 1. Date */}
-          <div className="flex items-center gap-3.5 border-b border-hairline/40 pb-2">
-            <input
-              type="checkbox"
-              id="update-date"
-              checked={updateDate}
-              onChange={e => setUpdateDate(e.target.checked)}
-              className="w-4 h-4 rounded border-hairline text-brand-blue focus:ring-brand-blue/30 bg-surface-soft cursor-pointer"
-            />
-            <div className="flex-1 space-y-1">
-              <label htmlFor="update-date" className="text-[11px] font-mono text-muted-custom uppercase font-bold flex items-center gap-1.5 cursor-pointer">
-                <Calendar className="w-3.5 h-3.5 text-brand-blue" /> Change Date
-              </label>
-              {updateDate && (
-                <div className="animate-in slide-in-from-top-1 duration-150 mt-1">
-                  <CustomDatePicker value={date} onChange={val => setDate(val)} />
-                </div>
-              )}
-            </div>
+          {/* Date Selection */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-mono text-muted-custom uppercase font-bold flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-brand-blue" /> Date
+            </label>
+            <CustomDatePicker value={date} onChange={val => setDate(val)} placeholder="Keep Current Date" />
           </div>
 
-          {/* 2. Time */}
-          <div className="flex items-center gap-3.5 border-b border-hairline/40 pb-2">
-            <input
-              type="checkbox"
-              id="update-time"
-              checked={updateTime}
-              onChange={e => setUpdateTime(e.target.checked)}
-              className="w-4 h-4 rounded border-hairline text-brand-blue focus:ring-brand-blue/30 bg-surface-soft cursor-pointer"
-            />
-            <div className="flex-1 space-y-1">
-              <label htmlFor="update-time" className="text-[11px] font-mono text-muted-custom uppercase font-bold flex items-center gap-1.5 cursor-pointer">
-                <Clock className="w-3.5 h-3.5 text-brand-mint" /> Change Time
-              </label>
-              {updateTime && (
-                <div className="animate-in slide-in-from-top-1 duration-150 mt-1">
-                  <input
-                    type="time"
-                    value={time}
-                    onChange={e => setTime(e.target.value)}
-                    className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink focus:outline-none focus:border-ink min-h-[38px]"
-                  />
-                </div>
-              )}
-            </div>
+          {/* Time Selection */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-mono text-muted-custom uppercase font-bold flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-brand-mint" /> Time
+            </label>
+            <CustomTimePicker value={time || 'Keep Current Time'} onChange={val => setTime(val)} />
           </div>
 
-          {/* 3. Category Tag */}
-          <div className="flex items-center gap-3.5 border-b border-hairline/40 pb-2">
-            <input
-              type="checkbox"
-              id="update-category"
-              checked={updateCategory}
-              onChange={e => setUpdateCategory(e.target.checked)}
-              className="w-4 h-4 rounded border-hairline text-brand-blue focus:ring-brand-blue/30 bg-surface-soft cursor-pointer"
+          {/* Category Tag Selection */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-mono text-muted-custom uppercase font-bold flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-brand-yellow" /> Category Tag
+            </label>
+            <CustomSelect
+              direction="up"
+              options={categoryOptions}
+              value={categoryId}
+              onChange={val => setCategoryId(val)}
             />
-            <div className="flex-1 space-y-1">
-              <label htmlFor="update-category" className="text-[11px] font-mono text-muted-custom uppercase font-bold flex items-center gap-1.5 cursor-pointer">
-                <Tag className="w-3.5 h-3.5 text-brand-yellow" /> Change Category Tag
-              </label>
-              {updateCategory && (
-                <div className="animate-in slide-in-from-top-1 duration-150 mt-1">
-                  <CustomSelect
-                    direction="up"
-                    options={categories.map(c => ({ value: c.id, label: c.name }))}
-                    value={categoryId}
-                    onChange={val => setCategoryId(val)}
-                  />
-                </div>
-              )}
-            </div>
           </div>
 
-          {/* 4. Trip Tag */}
-          <div className="flex items-center gap-3.5 border-b border-hairline/40 pb-2">
-            <input
-              type="checkbox"
-              id="update-trip"
-              checked={updateTrip}
-              onChange={e => setUpdateTrip(e.target.checked)}
-              className="w-4 h-4 rounded border-hairline text-brand-blue focus:ring-brand-blue/30 bg-surface-soft cursor-pointer"
-            />
-            <div className="flex-1 space-y-1">
-              <label htmlFor="update-trip" className="text-[11px] font-mono text-muted-custom uppercase font-bold flex items-center gap-1.5 cursor-pointer">
-                <Plane className="w-3.5 h-3.5 text-brand-coral" /> Add / Remove Trip Tag
-              </label>
-              {updateTrip && (
-                <div className="animate-in slide-in-from-top-1 duration-150 mt-1">
-                  <CustomSelect
-                    direction="up"
-                    options={tripOptions}
-                    value={tripId}
-                    onChange={val => setTripId(val)}
-                  />
+          {/* Custom Tag Name & Color Palette when "Others" is selected */}
+          {categoryId === 'cat-others' && (
+            <div className="space-y-3 bg-surface-soft p-3 rounded-xl border border-hairline animate-in fade-in duration-150">
+              <label className="text-[10px] font-mono text-muted-custom uppercase font-bold block">Custom Tag Name</label>
+              <input
+                type="text"
+                value={customCategoryName}
+                onChange={e => setCustomCategoryName(e.target.value)}
+                placeholder="e.g. Pet Care, Hobbies, Subscriptions"
+                className="w-full bg-surface-card border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink focus:outline-none focus:border-ink"
+              />
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-muted-custom uppercase font-bold flex items-center gap-1">
+                  <Palette className="w-3 h-3 text-brand-pink" /> Tag Color Accent
+                </label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {tagColorPalette.map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setCustomTagColor(color)}
+                      className={`w-5 h-5 rounded-full transition-transform cursor-pointer border ${
+                        customTagColor === color ? 'scale-125 border-ink ring-2 ring-white/20' : 'border-hairline hover:scale-110'
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
                 </div>
-              )}
+              </div>
             </div>
+          )}
+
+          {/* Trip Tag Selection */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-mono text-muted-custom uppercase font-bold flex items-center gap-1.5">
+              <Plane className="w-3.5 h-3.5 text-brand-coral" /> Trip Tag
+            </label>
+            <CustomSelect
+              direction="up"
+              options={tripOptions}
+              value={tripId}
+              onChange={val => setTripId(val)}
+            />
           </div>
 
-          {/* 5. Payment Method */}
-          <div className="flex items-center gap-3.5 border-b border-hairline/40 pb-2">
-            <input
-              type="checkbox"
-              id="update-payment"
-              checked={updatePayment}
-              onChange={e => setUpdatePayment(e.target.checked)}
-              className="w-4 h-4 rounded border-hairline text-brand-blue focus:ring-brand-blue/30 bg-surface-soft cursor-pointer"
+          {/* Payment Method Selection */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-mono text-muted-custom uppercase font-bold flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5 text-brand-blue" /> Payment Method
+            </label>
+            <CustomSelect
+              direction="up"
+              options={paymentOptions}
+              value={paymentMethod}
+              onChange={val => setPaymentMethod(val)}
             />
-            <div className="flex-1 space-y-1">
-              <label htmlFor="update-payment" className="text-[11px] font-mono text-muted-custom uppercase font-bold flex items-center gap-1.5 cursor-pointer">
-                <CreditCard className="w-3.5 h-3.5 text-brand-blue" /> Change Payment Method
-              </label>
-              {updatePayment && (
-                <div className="animate-in slide-in-from-top-1 duration-150 mt-1">
-                  <CustomSelect
-                    direction="up"
-                    options={paymentOptions}
-                    value={paymentMethod}
-                    onChange={val => setPaymentMethod(val)}
-                  />
-                </div>
-              )}
-            </div>
           </div>
 
-          <button
-            type="submit"
-            className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft font-mono text-xs font-bold py-2.5 rounded-xl shadow-sm transition-all active:scale-98 flex items-center justify-center gap-2 mt-4 cursor-pointer"
-          >
-            <Check className="w-4 h-4" />
-            <span>Apply Bulk Updates</span>
-          </button>
+          {/* Apply Submit Button */}
+          <div className="pt-2">
+            <button
+              type="submit"
+              className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft font-mono text-xs font-bold py-2.5 rounded-xl shadow-sm transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Check className="w-4 h-4" />
+              <span>Apply</span>
+            </button>
+          </div>
 
         </form>
 

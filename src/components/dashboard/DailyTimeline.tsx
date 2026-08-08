@@ -125,6 +125,8 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
     date?: string;
     time?: string;
     categoryId?: string;
+    customCategoryName?: string;
+    customTagColor?: string;
     tripId?: string | null;
     paymentMethod?: string;
   }) => {
@@ -139,7 +141,12 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
 
         if (updates.date !== undefined) updatedTx.date = updates.date;
         if (updates.time !== undefined) updatedTx.time = updates.time;
-        if (updates.categoryId !== undefined) updatedTx.categoryId = updates.categoryId;
+        if (updates.categoryId !== undefined) {
+          updatedTx.categoryId = updates.categoryId;
+          if (updates.customCategoryName !== undefined) {
+            updatedTx.customCategoryName = updates.customCategoryName;
+          }
+        }
         if (updates.paymentMethod !== undefined) updatedTx.paymentMethod = updates.paymentMethod;
 
         if (updates.tripId !== undefined) {
@@ -381,49 +388,45 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
         />
       )}
 
-      {/* Floating Bulk Action Bar */}
-      {isSelectMode && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 bg-surface-card/95 backdrop-blur-2xl saturate-[180%] border border-hairline px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-250 ring-1 ring-white/10 max-w-[92vw] sm:max-w-md w-full">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleToggleSelectAll}
-              className="text-[10px] font-mono border border-hairline text-ink hover:border-ink px-2 py-1 rounded-lg bg-surface-soft cursor-pointer transition-all active:scale-95 font-bold"
-            >
-              {isAllSelected ? 'Deselect All' : 'Select All'}
-            </button>
-            <span className="text-[11px] font-mono text-muted-custom font-bold">
-              {selectedTxIds.length} Selected
-            </span>
-          </div>
+      {/* Compact Floating Selection Pill Overlay */}
+      {isSelectMode && selectedTxIds.length > 0 && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-surface-card/95 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-full shadow-2xl px-3.5 py-1.5 flex items-center gap-2.5 ring-1 ring-white/15 animate-in slide-in-from-bottom-2 duration-200 cursor-default">
+          {/* Close cross */}
+          <button
+            onClick={() => {
+              setIsSelectMode(false);
+              setSelectedTxIds([]);
+            }}
+            className="p-1 text-muted-custom hover:text-ink transition-colors cursor-pointer rounded-full"
+            title="Clear Selection"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              disabled={selectedTxIds.length === 0}
-              onClick={() => setIsBulkEditOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-blue text-brand-blue hover:bg-brand-blue/10 disabled:opacity-40 disabled:pointer-events-none font-mono text-[11px] font-bold cursor-pointer transition-all active:scale-95"
-            >
-              <Edit2 className="w-3.5 h-3.5" />
-              <span>Edit</span>
-            </button>
-            <button
-              disabled={selectedTxIds.length === 0}
-              onClick={handleBulkDelete}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-coral text-brand-coral hover:bg-brand-coral/10 disabled:opacity-40 disabled:pointer-events-none font-mono text-[11px] font-bold cursor-pointer transition-all active:scale-95"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete</span>
-            </button>
-            <button
-              onClick={() => {
-                setIsSelectMode(false);
-                setSelectedTxIds([]);
-              }}
-              className="p-1 rounded-full text-muted-custom hover:text-ink cursor-pointer ml-1"
-              title="Close Select Mode"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+          {/* Count Badge (just the number) */}
+          <span className="w-5 h-5 rounded-full bg-brand-blue/20 text-brand-blue font-mono font-bold text-xs flex items-center justify-center shrink-0">
+            {selectedTxIds.length}
+          </span>
+
+          <div className="h-3.5 w-px bg-hairline shrink-0" />
+
+          {/* Edit Action Button */}
+          <button
+            onClick={() => setIsBulkEditOpen(true)}
+            className="flex items-center gap-1.5 text-brand-blue hover:text-ink font-mono text-xs font-bold px-1.5 py-0.5 rounded-lg transition-colors cursor-pointer"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+            <span>Edit</span>
+          </button>
+
+          {/* Delete Action Button */}
+          <button
+            onClick={handleBulkDelete}
+            className="flex items-center gap-1.5 text-brand-coral hover:opacity-80 font-mono text-xs font-bold px-1.5 py-0.5 rounded-lg transition-colors cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete</span>
+          </button>
         </div>
       )}
 

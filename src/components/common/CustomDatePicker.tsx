@@ -6,9 +6,10 @@ interface CustomDatePickerProps {
   value: string; // YYYY-MM-DD
   onChange: (val: string) => void;
   className?: string;
+  placeholder?: string;
 }
 
-export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, className = '' }) => {
+export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, className = '', placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [typedInput, setTypedInput] = useState(value);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -91,7 +92,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
       >
         <span className="flex items-center gap-1.5 font-bold truncate">
           <Calendar className="w-3.5 h-3.5 text-brand-blue shrink-0" />
-          <span>{value || 'Date'}</span>
+          <span>{value || placeholder || 'Date'}</span>
         </span>
       </button>
 
@@ -148,33 +149,42 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
               >
                 Yesterday
               </button>
+              <button
+                type="button"
+                onClick={() => setPreset(2)}
+                className="flex-1 py-1 rounded-lg text-[10px] font-mono border border-hairline bg-surface-soft text-ink font-bold hover:border-ink cursor-pointer"
+              >
+                2d Ago
+              </button>
             </div>
 
-            {/* Month / Year Controls */}
-            <div className="flex items-center justify-between border-t border-hairline pt-2">
+            {/* Month & Year Navigator */}
+            <div className="flex items-center justify-between font-mono text-xs text-ink font-bold border-t border-hairline pt-2">
               <button
                 type="button"
                 onClick={prevMonth}
-                className="p-1 text-muted-custom hover:text-ink rounded-lg cursor-pointer"
+                className="p-1 hover:bg-surface-soft rounded-lg cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="text-xs font-mono font-bold text-ink">
+              <span>
                 {monthNames[viewMonth]} {viewYear}
               </span>
               <button
                 type="button"
                 onClick={nextMonth}
-                className="p-1 text-muted-custom hover:text-ink rounded-lg cursor-pointer"
+                className="p-1 hover:bg-surface-soft rounded-lg cursor-pointer"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Calendar Day Matrix */}
-            <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-mono text-muted-custom">
-              <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+            {/* Day Name Headers */}
+            <div className="grid grid-cols-7 gap-1 text-center font-mono text-[10px] text-muted-custom font-bold">
+              <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
             </div>
+
+            {/* Calendar Days Grid */}
             <div className="grid grid-cols-7 gap-1">
               {Array.from({ length: firstDayOfWeek }).map((_, i) => (
                 <div key={`empty-${i}`} />
@@ -183,18 +193,18 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
                 const dayNum = i + 1;
                 const mStr = (viewMonth + 1).toString().padStart(2, '0');
                 const dStr = dayNum.toString().padStart(2, '0');
-                const dayFormatted = `${viewYear}-${mStr}-${dStr}`;
-                const isSelected = dayFormatted === value;
+                const dateStr = `${viewYear}-${mStr}-${dStr}`;
+                const isSelected = dateStr === value;
 
                 return (
                   <button
                     key={dayNum}
                     type="button"
                     onClick={() => handleSelectDay(dayNum)}
-                    className={`py-1 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                    className={`h-7 rounded-lg text-xs font-mono font-semibold flex items-center justify-center transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-brand-blue text-white font-bold shadow-sm'
-                        : 'hover:bg-surface-soft text-ink'
+                        : 'text-ink hover:bg-surface-soft'
                     }`}
                   >
                     {dayNum}
