@@ -446,16 +446,30 @@ export function parseNaturalLanguageExpense(
     cleanDesc = cleanDesc.replace(new RegExp(explicitTagMatchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), ' ');
   }
 
-  // Remove date/time patterns from description
+  // Remove matched date/time tokens explicitly from description
+  if (parsedDate) {
+    cleanDesc = cleanDesc.replace(new RegExp(parsedDate.matchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), ' ');
+  }
+  if (matchedRelativeDateText) {
+    cleanDesc = cleanDesc.replace(new RegExp(matchedRelativeDateText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), ' ');
+  }
+  if (timeMatch) {
+    cleanDesc = cleanDesc.replace(new RegExp(timeMatch.matchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), ' ');
+  }
+
+  // Remove date/time patterns and typo tokens from description
   const monthNames2 = Object.keys(MONTH_MAP).join('|');
   cleanDesc = cleanDesc
     .replace(new RegExp(`\\b\\d{1,2}(?:st|nd|rd|th)?\\s*(?:of\\s+)?(?:${monthNames2})\\b`, 'gi'), ' ')
     .replace(new RegExp(`\\b(?:${monthNames2})\\s*\\d{1,2}(?:st|nd|rd|th)?\\b`, 'gi'), ' ')
     .replace(/\b\d{1,2}[\/\-\.]\d{1,2}(?:[\/\-\.]\d{2,4})?\b/g, ' ')
-    .replace(/\b\d{1,2}(?:[\.\:\-]\d{2})?\s*(?:am|pm)\b/gi, ' ')
+    .replace(/\b\d{1,2}\s*(?:pm|p\.m\.?|p\.|pn|pmn|am|a\.m\.?|a\.|an|amn|p|a)\b/gi, ' ')
+    .replace(/\b(?:pm|p\.m\.?|p\.|pn|pmn|am|a\.m\.?|a\.|an|amn)\b/gi, ' ')
+    .replace(/\b(?:day\s*after\s*tomorrow|day\s*after|tomorrow|yesterday|2\s*days\s*ago|next\s*week|last\s*week|next\s*month|last\s*month)\b/gi, ' ')
     .replace(/\b(?:spent|on|at|for|paid|bought|cost|was)\b/gi, ' ')
-    .replace(/\b(?:today|yesterday|now|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|evening|night)\b/gi, ' ')
+    .replace(/\b(?:today|now|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|evening|night)\b/gi, ' ')
     .replace(/\b(?:rs|inr|rupees|rupee|usd|dollar|dollars|\$|eur|euro|euros|€|gbp|pounds?|£|jpy|yen|¥)\b/gi, ' ')
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
