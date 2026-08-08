@@ -120,11 +120,10 @@ export interface EndOfMonthAuditReport {
   monthsOfData: number;
 
   /**
-   * Three-dimension scores — null when hasBaseline is false.
+   * Two-dimension scores — null when hasBaseline is false.
    * Scores are always percentage-based against the user's own history;
    * they are fully currency-agnostic.
    */
-  consistencyScore: AuditDimensionScore | null;
   volatilityScore: AuditDimensionScore | null;
   savingsPressureScore: AuditDimensionScore | null;
 

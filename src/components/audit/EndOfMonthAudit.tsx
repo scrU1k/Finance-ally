@@ -6,7 +6,7 @@ import { loadSubscriptions } from '../../services/db';
 import { formatCurrency } from '../../services/currency';
 import {
   PieChart, Award, AlertTriangle, CheckCircle, Calendar, HelpCircle,
-  Mail, Save, X, Activity, TrendingUp, Wallet, Clock,
+  Mail, Save, X, TrendingUp, Wallet, Clock,
 } from 'lucide-react';
 import { saveUserProfile } from '../../services/auth';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
@@ -191,14 +191,14 @@ export const EndOfMonthAudit: React.FC = () => {
               <button onClick={() => setShowGradeExplanation(false)} className="text-muted-custom cursor-pointer">✕</button>
             </div>
             <p className="text-[11px] text-muted-custom">
-              The grade is the average of three scored dimensions — each measured as a percentage of your
+              The grade is the average of two scored dimensions — each measured as a percentage of your
               own spending history, never against an absolute currency amount.
             </p>
             <ul className="list-disc list-inside space-y-1 text-[11px] text-muted-custom">
-              <li><strong className="text-brand-mint">A+ / A (90–100 / 75–89)</strong>: Consistent daily logging, stable week-to-week spending, low discretionary pressure vs your average.</li>
-              <li><strong className="text-brand-blue">B (60–74)</strong>: Mostly good habits — minor gaps or slight discretionary uptick.</li>
-              <li><strong className="text-yellow-400">C (45–59)</strong>: Irregular logging or elevated discretionary spending vs your baseline.</li>
-              <li><strong className="text-brand-coral">D / F (30–44 / &lt;30)</strong>: Significant logging gaps, high spending volatility, or heavy discretionary pressure.</li>
+              <li><strong className="text-brand-mint">A+ / A (90–100 / 75–89)</strong>: Stable week-to-week spending with low discretionary pressure vs your average.</li>
+              <li><strong className="text-brand-blue">B (60–74)</strong>: Mostly stable — slight volatility or a modest discretionary uptick.</li>
+              <li><strong className="text-yellow-400">C (45–59)</strong>: Elevated spending volatility or discretionary spending above your baseline.</li>
+              <li><strong className="text-brand-coral">D / F (30–44 / &lt;30)</strong>: High week-to-week swings or heavy discretionary pressure.</li>
               <li><strong className="text-muted-custom">O — Uninitialized</strong>: Fewer than 3 months of data. Grades are meaningless without a baseline. Keep logging — your first score unlocks at month 3.</li>
             </ul>
           </div>
@@ -231,14 +231,9 @@ export const EndOfMonthAudit: React.FC = () => {
           </div>
         )}
 
-        {/* Three Dimension Score Cards — only when baseline exists */}
-        {auditReport.hasBaseline && auditReport.consistencyScore && auditReport.volatilityScore && auditReport.savingsPressureScore && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <ScoreDimensionCard
-              title="Consistency"
-              icon={<Activity className="w-3.5 h-3.5" />}
-              score={auditReport.consistencyScore}
-            />
+        {/* Two Dimension Score Cards — only when baseline exists */}
+        {auditReport.hasBaseline && auditReport.volatilityScore && auditReport.savingsPressureScore && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <ScoreDimensionCard
               title="Volatility"
               icon={<TrendingUp className="w-3.5 h-3.5" />}

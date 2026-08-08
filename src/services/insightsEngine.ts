@@ -10,10 +10,6 @@ import { formatCurrency } from './currency';
 
 // ─── Pure Helpers ────────────────────────────────────────────────────────────
 
-function getDaysInMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
-}
-
 /**
  * Returns the previous N calendar month keys (YYYY-MM) before monthKey,
  * in descending order (most recent first).
@@ -81,65 +77,6 @@ function classifyCategory(
 }
 
 // ─── Dimension Scorers ───────────────────────────────────────────────────────
-
-/**
- * Consistency Score: Are they logging regularly, or in bursts?
- * Penalises gaps > 3 days and catch-up logging sessions.
- */
-function computeConsistencyScore(
-  monthTxs: Transaction[],
-  monthKey: string
-): AuditDimensionScore {
-  const [year, month] = monthKey.split('-').map(Number);
-  const daysInMonth = getDaysInMonth(year, month);
-
-  if (monthTxs.length === 0) {
-    return { score: 0, label: 'Poor', detail: 'No transactions logged this month' };
-  }
-
-  const daysWithLogs = new Set(monthTxs.map(t => t.date));
-  const coverage = daysWithLogs.size / daysInMonth;
-
-  // Gap penalty: each gap of > 3 consecutive days = −10 pts
-  let gapPenalty = 0;
-  const sortedDays = Array.from(daysWithLogs).sort();
-  for (let i = 1; i < sortedDays.length; i++) {
-    const prev = new Date(sortedDays[i - 1]);
-    const curr = new Date(sortedDays[i]);
-    const gap = (curr.getTime() - prev.getTime()) / 86_400_000;
-    if (gap > 3) gapPenalty += 10;
-  }
-
-  // Catch-up penalty: ≥15 transactions on one day after ≥5 days of silence = −20 pts
-  let catchUpPenalty = 0;
-  daysWithLogs.forEach(day => {
-    const dayTxs = monthTxs.filter(t => t.date === day);
-    if (dayTxs.length >= 15) {
-      const dayDate = new Date(day);
-      const fiveDaysBefore = new Date(dayDate.getTime() - 5 * 86_400_000);
-      const hasRecentActivity = monthTxs.some(t => {
-        const d = new Date(t.date);
-        return d >= fiveDaysBefore && d < dayDate;
-      });
-      if (!hasRecentActivity) catchUpPenalty = 20;
-    }
-  });
-
-  let score = Math.round(coverage * 100) - gapPenalty - catchUpPenalty;
-  score = Math.max(0, Math.min(100, score));
-
-  const label = scoreToLabel(score);
-  const detail =
-    catchUpPenalty > 0
-      ? `Catch-up logging detected — log daily for reliable insights`
-      : score >= 80
-      ? `Logged on ${daysWithLogs.size}/${daysInMonth} days — consistent tracking`
-      : score >= 60
-      ? `${daysWithLogs.size}/${daysInMonth} days logged — minor gaps detected`
-      : `${daysWithLogs.size}/${daysInMonth} days logged — irregular pattern`;
-
-  return { score, label, detail };
-}
 
 /**
  * Volatility Score: How erratic is spending week-to-week within categories?
@@ -420,15 +357,14 @@ export function generateEndOfMonthAudit(
     })
     .sort((a, b) => b.amount - a.amount);
 
-  // ── Three-dimension scores (always computed, used when baseline available) ─
-  const consistencyScore = computeConsistencyScore(monthTxs, monthKey);
+  // ── Two-dimension scores (always computed, used when baseline available) ──
   const volatilityScore = computeVolatilityScore(monthTxs);
   const savingsPressureScore = computeSavingsPressureScore(
     monthTxs, categories, allTransactions, hasBaseline, monthKey
   );
 
   const budgetHealthScore: 'A+' | 'A' | 'B' | 'C' | 'D' | 'F' | 'O' = hasBaseline
-    ? avgScoreToGrade([consistencyScore.score, volatilityScore.score, savingsPressureScore.score])
+    ? avgScoreToGrade([volatilityScore.score, savingsPressureScore.score])
     : 'O';
 
   // ── Smart Insights (always percentage-based) ──────────────────────────────
@@ -557,7 +493,6 @@ export function generateEndOfMonthAudit(
     topCategories,
     hasBaseline,
     monthsOfData,
-    consistencyScore,
     volatilityScore,
     savingsPressureScore,
     budgetHealthScore,
