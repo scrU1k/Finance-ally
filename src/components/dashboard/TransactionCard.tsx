@@ -22,6 +22,9 @@ interface TransactionCardProps {
   onSelect?: (tx: Transaction) => void;
   onEdit: (tx: Transaction) => void;
   onDelete: (id: string) => void;
+  isSelectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 export const TransactionCard: React.FC<TransactionCardProps> = ({
@@ -31,6 +34,9 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   onSelect,
   onEdit,
   onDelete,
+  isSelectMode = false,
+  isSelected = false,
+  onToggleSelect,
 }) => {
   const category = categories.find(c => c.id === transaction.categoryId) || {
     id: 'unknown',
@@ -46,12 +52,30 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 
   return (
     <div
-      onClick={() => onSelect?.(transaction)}
-      className="dotgui-card p-4 flex items-center justify-between gap-3 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99]"
+      onClick={() => {
+        if (isSelectMode) {
+          onToggleSelect?.(transaction.id);
+        } else {
+          onSelect?.(transaction);
+        }
+      }}
+      className={`dotgui-card p-4 flex items-center justify-between gap-3 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${
+        isSelected ? 'border-brand-blue ring-1 ring-brand-blue/30 bg-brand-blue/5' : ''
+      }`}
     >
       
       {/* Icon & Details */}
-      <div className="flex items-center gap-3.5 min-w-0">
+      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+        {isSelectMode && (
+          <div className="flex items-center shrink-0 pr-1" onClick={(e) => { e.stopPropagation(); onToggleSelect?.(transaction.id); }}>
+            <input
+              type="checkbox"
+              checked={isSelected}
+              readOnly
+              className="w-4 h-4 rounded border-hairline text-brand-blue focus:ring-brand-blue/30 bg-surface-soft cursor-pointer"
+            />
+          </div>
+        )}
         
         {/* Category Color Badge */}
         <div
@@ -62,7 +86,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
         </div>
 
         {/* Note & Tag metadata */}
-        <div className="min-w-0 space-y-1">
+        <div className="min-w-0 space-y-1 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="text-sm font-semibold text-ink truncate font-sans-custom">
               {transaction.note || category.name}
@@ -123,28 +147,30 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
         </div>
 
         {/* Hover Action Buttons */}
-        <div className="opacity-80 sm:opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(transaction);
-            }}
-            className="p-1.5 text-muted-custom hover:text-ink hover:bg-surface-soft rounded-lg transition-colors"
-            title="Edit Transaction"
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(transaction.id);
-            }}
-            className="p-1.5 text-muted-custom hover:text-brand-coral hover:bg-surface-soft rounded-lg transition-colors"
-            title="Delete Transaction"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {!isSelectMode && (
+          <div className="opacity-80 sm:opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(transaction);
+              }}
+              className="p-1.5 text-muted-custom hover:text-ink hover:bg-surface-soft rounded-lg transition-colors"
+              title="Edit Transaction"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(transaction.id);
+              }}
+              className="p-1.5 text-muted-custom hover:text-brand-coral hover:bg-surface-soft rounded-lg transition-colors"
+              title="Delete Transaction"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
     </div>

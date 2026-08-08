@@ -4,7 +4,11 @@ import { TripModal } from './TripModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 import { Plane, Plus, Trash2, Calendar } from 'lucide-react';
 
-export const TripList: React.FC = () => {
+interface TripListProps {
+  setActiveTab?: (tab: 'dashboard' | 'subscriptions' | 'trips' | 'scanner' | 'audit' | 'split' | 'insights') => void;
+}
+
+export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {
   const { trips, transactions, removeTripItem, activeTripVault, setActiveTripVault, forexRates } = useFinance();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -34,20 +38,31 @@ export const TripList: React.FC = () => {
 
       {/* Active Vault Compact Notification Banner */}
       {activeTripVault && (
-        <div className="bg-surface-soft border border-brand-coral/40 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 text-ink">
-          <div className="flex items-center gap-2 min-w-0">
-            <Plane className="w-4 h-4 text-brand-coral shrink-0" />
-            <span className="text-xs font-mono truncate">
-              Active Vault: <strong className="text-brand-coral">{activeTripVault.name}</strong> ({activeTripVault.currency})
-            </span>
+        <div className="space-y-2">
+          <div className="bg-surface-soft border border-brand-coral/40 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 text-ink">
+            <div className="flex items-center gap-2 min-w-0">
+              <Plane className="w-4 h-4 text-brand-coral shrink-0" />
+              <span className="text-xs font-mono truncate">
+                Active Vault: <strong className="text-brand-coral">{activeTripVault.name}</strong> ({activeTripVault.currency})
+              </span>
+            </div>
+
+            <button
+              onClick={() => setActiveTripVault(null)}
+              className="p-1 rounded-full text-brand-coral hover:bg-surface-card transition-colors shrink-0 cursor-pointer"
+              title="Exit Trip Vault"
+            >
+              <span className="font-bold text-sm px-1.5">✕</span>
+            </button>
           </div>
 
           <button
-            onClick={() => setActiveTripVault(null)}
-            className="p-1 rounded-full text-brand-coral hover:bg-surface-card transition-colors shrink-0 cursor-pointer"
-            title="Exit Trip Vault"
+            type="button"
+            onClick={() => setActiveTab?.('dashboard')}
+            className="w-full bg-brand-coral/10 hover:bg-brand-coral/15 border border-brand-coral/30 text-brand-coral font-mono text-xs py-2 px-4 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer font-bold active:scale-[0.99]"
           >
-            <span className="font-bold text-sm px-1.5">✕</span>
+            <Plane className="w-3.5 h-3.5 animate-pulse" />
+            <span>View Trip Expenditure Timeline →</span>
           </button>
         </div>
       )}

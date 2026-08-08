@@ -104,7 +104,7 @@ const MainAppContent: React.FC = () => {
           )}
 
           {activeTab === 'subscriptions' && <LazySubscriptionPage />}
-          {activeTab === 'trips' && <LazyTripList />}
+          {activeTab === 'trips' && <LazyTripList setActiveTab={setActiveTab} />}
           {activeTab === 'scanner' && <LazyNotificationScannerModal />}
           {activeTab === 'audit' && <LazyEndOfMonthAudit />}
           {activeTab === 'split' && <LazySplitBillModal />}

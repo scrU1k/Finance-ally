@@ -6,7 +6,8 @@ import { TransactionDetailModal } from './TransactionDetailModal';
 import { LiveSpendChart } from './LiveSpendChart';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { QuickLogBar } from './QuickLogBar';
-import { Search, Sparkles, Calendar, Tag, X } from 'lucide-react';
+import { Search, Sparkles, Calendar, Tag, X, CheckSquare, Edit2, Trash2 } from 'lucide-react';
+import { BulkEditModal } from './BulkEditModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 
 interface DailyTimelineProps {
@@ -31,7 +32,7 @@ function formatDayHeader(dateStr: string): string {
 }
 
 export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, onEditTransaction }) => {
-  const { filteredTransactions, categories, trips, deleteTx, baseCurrency, forexRates } = useFinance();
+  const { filteredTransactions, categories, trips, deleteTx, editTransaction, baseCurrency, forexRates } = useFinance();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCatFilter, setSelectedCatFilter] = useState<string>('all');
@@ -39,6 +40,11 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [showTagFilterRow, setShowTagFilterRow] = useState(false);
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
+
+  // Multi-select bulk edit/delete states
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
 
   const processedTransactions = useMemo(() => {
     return filteredTransactions.filter(tx => {
@@ -79,6 +85,71 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
   }, [processedTransactions, baseCurrency, forexRates]);
 
   const activeCategoryObj = categories.find(c => c.id === selectedCatFilter);
+
+  const handleToggleSelect = (txId: string) => {
+    setSelectedTxIds(prev =>
+      prev.includes(txId) ? prev.filter(id => id !== txId) : [...prev, txId]
+    );
+  };
+
+  const allFilteredIds = processedTransactions.map(tx => tx.id);
+  const isAllSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedTxIds.includes(id));
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedTxIds([]);
+    } else {
+      setSelectedTxIds(allFilteredIds);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedTxIds.length === 0) return;
+    const confirm = window.confirm(`Are you sure you want to delete ${selectedTxIds.length} transactions?`);
+    if (!confirm) return;
+
+    for (const id of selectedTxIds) {
+      await deleteTx(id);
+    }
+    setSelectedTxIds([]);
+    setIsSelectMode(false);
+  };
+
+  const handleBulkSave = async (updates: {
+    date?: string;
+    time?: string;
+    categoryId?: string;
+    tripId?: string | null;
+    paymentMethod?: string;
+  }) => {
+    if (selectedTxIds.length === 0) return;
+
+    for (const txId of selectedTxIds) {
+      const tx = filteredTransactions.find(t => t.id === txId);
+      if (tx) {
+        const updatedTx: Transaction = {
+          ...tx,
+        };
+
+        if (updates.date !== undefined) updatedTx.date = updates.date;
+        if (updates.time !== undefined) updatedTx.time = updates.time;
+        if (updates.categoryId !== undefined) updatedTx.categoryId = updates.categoryId;
+        if (updates.paymentMethod !== undefined) updatedTx.paymentMethod = updates.paymentMethod;
+
+        if (updates.tripId !== undefined) {
+          if (updates.tripId === null) {
+            delete updatedTx.tripId;
+          } else {
+            updatedTx.tripId = updates.tripId;
+          }
+        }
+
+        await editTransaction(updatedTx);
+      }
+    }
+
+    setSelectedTxIds([]);
+    setIsSelectMode(false);
+  };
 
   return (
     <div className="space-y-6 pb-24">
@@ -156,6 +227,23 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
           >
             <Sparkles className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
             <span>{showCharts ? 'Hide Charts' : 'Show Charts'}</span>
+          </button>
+
+          {/* 5. Select Mode Toggle Chip Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsSelectMode(!isSelectMode);
+              setSelectedTxIds([]);
+            }}
+            className={`px-3 py-2 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              isSelectMode
+                ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
+                : 'bg-surface-card text-body-custom border-hairline hover:border-ink'
+            }`}
+          >
+            <CheckSquare className="w-3.5 h-3.5 text-brand-blue shrink-0" />
+            <span>{isSelectMode ? 'Cancel Select' : 'Select Logs'}</span>
           </button>
 
         </div>
@@ -264,6 +352,9 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
                     onSelect={t => setSelectedTxDetail(t)}
                     onEdit={t => onEditTransaction(t)}
                     onDelete={id => deleteTx(id)}
+                    isSelectMode={isSelectMode}
+                    isSelected={selectedTxIds.includes(tx.id)}
+                    onToggleSelect={handleToggleSelect}
                   />
                 ))}
               </div>
@@ -297,6 +388,62 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd, on
           }}
         />
       )}
+
+      {/* Floating Bulk Action Bar */}
+      {isSelectMode && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 bg-surface-card/95 backdrop-blur-2xl saturate-[180%] border border-hairline px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-250 ring-1 ring-white/10 max-w-[92vw] sm:max-w-md w-full">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleToggleSelectAll}
+              className="text-[10px] font-mono border border-hairline text-ink hover:border-ink px-2 py-1 rounded-lg bg-surface-soft cursor-pointer transition-all active:scale-95 font-bold"
+            >
+              {isAllSelected ? 'Deselect All' : 'Select All'}
+            </button>
+            <span className="text-[11px] font-mono text-muted-custom font-bold">
+              {selectedTxIds.length} Selected
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              disabled={selectedTxIds.length === 0}
+              onClick={() => setIsBulkEditOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-blue text-brand-blue hover:bg-brand-blue/10 disabled:opacity-40 disabled:pointer-events-none font-mono text-[11px] font-bold cursor-pointer transition-all active:scale-95"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+              <span>Edit</span>
+            </button>
+            <button
+              disabled={selectedTxIds.length === 0}
+              onClick={handleBulkDelete}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-coral text-brand-coral hover:bg-brand-coral/10 disabled:opacity-40 disabled:pointer-events-none font-mono text-[11px] font-bold cursor-pointer transition-all active:scale-95"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete</span>
+            </button>
+            <button
+              onClick={() => {
+                setIsSelectMode(false);
+                setSelectedTxIds([]);
+              }}
+              className="p-1 rounded-full text-muted-custom hover:text-ink cursor-pointer ml-1"
+              title="Close Select Mode"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Edit Modal */}
+      <BulkEditModal
+        isOpen={isBulkEditOpen}
+        onClose={() => setIsBulkEditOpen(false)}
+        selectedCount={selectedTxIds.length}
+        categories={categories}
+        trips={trips}
+        onSave={handleBulkSave}
+      />
 
     </div>
   );
