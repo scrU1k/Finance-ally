@@ -14,7 +14,7 @@ interface TransactionModalProps {
 }
 
 export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, initialData }) => {
-  const { categories, trips, baseCurrency, addTransaction, editTransaction, addCategoryItem } = useFinance();
+  const { categories, trips, baseCurrency, activeTripVault, addTransaction, editTransaction, addCategoryItem } = useFinance();
 
   const [amount, setAmount] = useState<string>('');
   const [currency, setCurrency] = useState<CurrencyCode>(baseCurrency);
@@ -75,9 +75,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
       setTime(new Date().toTimeString().split(' ')[0].substring(0, 5));
       setNote('');
       setPaymentMethod('UPI');
-      setTripId('');
+      setTripId(activeTripVault?.id || '');
     }
-  }, [initialData, baseCurrency, categories, isOpen]);
+  }, [initialData, baseCurrency, categories, activeTripVault, isOpen]);
 
   if (!isOpen) return null;
 

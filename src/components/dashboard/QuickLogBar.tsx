@@ -9,7 +9,7 @@ interface QuickLogBarProps {
 }
 
 export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => {
-  const { baseCurrency, addTransaction, categories, transactions } = useFinance();
+  const { baseCurrency, addTransaction, categories, transactions, activeTripVault } = useFinance();
 
   const [inputPrompt, setInputPrompt] = useState('');
   const [parsedExpense, setParsedExpense] = useState<ParsedNaturalExpense | null>(null);
@@ -79,6 +79,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess }) => 
       paymentMethod: finalMethod,
       isAutoParsed: true,
       confidenceScore: parsedExpense.confidence,
+      tripId: activeTripVault?.id || undefined,
     });
 
     setBudgetWarning(null);

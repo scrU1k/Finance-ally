@@ -124,7 +124,7 @@ export async function createLocalAutoBackup(manualTrigger = false): Promise<{ su
     if (Capacitor.isNativePlatform()) {
       try {
         await Filesystem.writeFile({
-          path: `FinanceAlly/Backups/${filename}`,
+          path: `Finance-Ally/Snapshots/${filename}`,
           data: finalPayload,
           directory: Directory.Documents,
           encoding: Encoding.UTF8,

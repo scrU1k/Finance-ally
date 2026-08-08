@@ -184,19 +184,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
     if (Capacitor.isNativePlatform()) {
       Filesystem.writeFile({
-        path: filename,
+        path: `Finance-Ally/${filename}`,
         data: csvStr,
-        directory: Directory.Cache,
-        encoding: 'utf8' as any
+        directory: Directory.Documents,
+        encoding: 'utf8' as any,
+        recursive: true
       }).then(writeResult => {
+        setCsvStatus(`CSV saved to Documents: Finance-Ally/${filename}`);
         Share.share({
           title: 'Finance-Ally CSV Export',
           url: writeResult.uri,
           dialogTitle: 'Save CSV Export'
         });
-      }).catch(() => {
-        navigator.clipboard.writeText(csvStr);
-        setCsvStatus('CSV copied to clipboard!');
+      }).catch((err) => {
+        console.error('Failed to save CSV to Documents, trying cache:', err);
+        Filesystem.writeFile({
+          path: filename,
+          data: csvStr,
+          directory: Directory.Cache,
+          encoding: 'utf8' as any
+        }).then(writeResult => {
+          Share.share({
+            title: 'Finance-Ally CSV Export',
+            url: writeResult.uri,
+            dialogTitle: 'Save CSV Export'
+          });
+        }).catch(() => {
+          navigator.clipboard.writeText(csvStr);
+          setCsvStatus('CSV copied to clipboard!');
+        });
       });
     } else {
       const a = document.createElement('a');
@@ -1045,6 +1061,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
                     if (Capacitor.isNativePlatform()) {
                       try {
+                        await Filesystem.writeFile({
+                          path: `Finance-Ally/Backups/${filename}`,
+                          data: encryptedStr,
+                          directory: Directory.Documents,
+                          encoding: 'utf8' as any,
+                          recursive: true
+                        });
                         const writeResult = await Filesystem.writeFile({ path: filename, data: encryptedStr, directory: Directory.Cache, encoding: 'utf8' as any });
                         await Share.share({ title: 'Finance-Ally Encrypted Backup', url: writeResult.uri, dialogTitle: 'Save encrypted backup' });
                       } catch { navigator.clipboard.writeText(encryptedStr); }
@@ -1097,8 +1120,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       try {
                         const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
                         if (Capacitor.isNativePlatform()) {
-                          await Filesystem.writeFile({ path: filename, data: exportModalData, directory: Directory.Documents, encoding: 'utf8' as any });
-                          setImportStatus(`File saved to Documents: ${filename}`);
+                          await Filesystem.writeFile({
+                            path: `Finance-Ally/Backups/${filename}`,
+                            data: exportModalData,
+                            directory: Directory.Documents,
+                            encoding: 'utf8' as any,
+                            recursive: true
+                          });
+                          setImportStatus(`File saved to Documents: Finance-Ally/Backups/${filename}`);
                         } else {
                           const a = document.createElement('a');
                           a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(exportModalData);

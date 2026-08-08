@@ -42,8 +42,10 @@ const MainAppContent: React.FC = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   React.useEffect(() => {
-    checkAndPerformLocalAutoBackup();
-  }, []);
+    if (!needsOnboarding && isUnlocked) {
+      checkAndPerformLocalAutoBackup();
+    }
+  }, [needsOnboarding, isUnlocked]);
 
   if (needsOnboarding) {
     return <OnboardingCurrency />;

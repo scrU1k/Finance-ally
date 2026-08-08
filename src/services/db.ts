@@ -11,15 +11,15 @@ export interface SmsTemplate {
 }
 
 export const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat-food', name: 'Food & Drinks', color: '#ee5f1c', icon: 'Utensils', isDefault: true, budgetLimit: 500 },
-  { id: 'cat-groceries', name: 'Groceries', color: '#f2b300', icon: 'ShoppingCart', isDefault: true, budgetLimit: 400 },
-  { id: 'cat-transport', name: 'Transport', color: '#2b6be4', icon: 'Car', isDefault: true, budgetLimit: 250 },
-  { id: 'cat-electronics', name: 'Electronics', color: '#002688', icon: 'Laptop', isDefault: true, budgetLimit: 300 },
-  { id: 'cat-clothing', name: 'Clothing', color: '#009efd', icon: 'Shirt', isDefault: true, budgetLimit: 200 },
-  { id: 'cat-housing', name: 'Housing & Bills', color: '#717171', icon: 'Home', isDefault: true, budgetLimit: 1200 },
-  { id: 'cat-entertainment', name: 'Entertainment', color: '#ff0073', icon: 'Film', isDefault: true, budgetLimit: 150 },
-  { id: 'cat-health', name: 'Health', color: '#950000', icon: 'Activity', isDefault: true, budgetLimit: 150 },
-  { id: 'cat-travel', name: 'Travel & Trips', color: '#009efd', icon: 'Plane', isDefault: true, budgetLimit: 800 },
+  { id: 'cat-food', name: 'Food & Drinks', color: '#ee5f1c', icon: 'Utensils', isDefault: true },
+  { id: 'cat-groceries', name: 'Groceries', color: '#f2b300', icon: 'ShoppingCart', isDefault: true },
+  { id: 'cat-transport', name: 'Transport', color: '#2b6be4', icon: 'Car', isDefault: true },
+  { id: 'cat-electronics', name: 'Electronics', color: '#002688', icon: 'Laptop', isDefault: true },
+  { id: 'cat-clothing', name: 'Clothing', color: '#009efd', icon: 'Shirt', isDefault: true },
+  { id: 'cat-housing', name: 'Housing & Bills', color: '#717171', icon: 'Home', isDefault: true },
+  { id: 'cat-entertainment', name: 'Entertainment', color: '#ff0073', icon: 'Film', isDefault: true },
+  { id: 'cat-health', name: 'Health', color: '#950000', icon: 'Activity', isDefault: true },
+  { id: 'cat-travel', name: 'Travel & Trips', color: '#009efd', icon: 'Plane', isDefault: true },
   { id: 'cat-investments', name: 'Investments', color: '#34d399', icon: 'TrendingUp', isDefault: true },
   { id: 'cat-others', name: 'Others', color: '#652d1f', icon: 'Tag', isDefault: true },
 ];
@@ -314,72 +314,7 @@ export async function deleteSubscription(id: string): Promise<void> {
 // ─── SEED INITIAL DATA ─────────────────────────────────────────────────────────
 
 function seedInitialTransactions(): Transaction[] {
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-  const threeDaysAgo = new Date(Date.now() - 86400000 * 3).toISOString().split('T')[0];
-  const lastWeek = new Date(Date.now() - 86400000 * 7).toISOString().split('T')[0];
-
-  return [
-    {
-      id: 'tx-seed-1',
-      amount: 450,
-      currency: 'INR',
-      categoryId: 'cat-food',
-      date: today,
-      time: '14:30',
-      note: 'Starbucks Coffee & Sandwich via UPI',
-      paymentMethod: 'UPI (PhonePe)',
-      isAutoParsed: true,
-      confidenceScore: 98,
-      createdAt: Date.now() - 3600000
-    },
-    {
-      id: 'tx-seed-2',
-      amount: 620,
-      currency: 'INR',
-      categoryId: 'cat-transport',
-      date: today,
-      time: '09:15',
-      note: 'Uber cab ride to tech hub',
-      paymentMethod: 'HDFC Card',
-      isAutoParsed: true,
-      confidenceScore: 94,
-      createdAt: Date.now() - 7200000
-    },
-    {
-      id: 'tx-seed-3',
-      amount: 1850,
-      currency: 'INR',
-      categoryId: 'cat-groceries',
-      date: yesterday,
-      time: '19:00',
-      note: 'Weekly organic groceries at supermarket',
-      paymentMethod: 'UPI (GPay)',
-      createdAt: Date.now() - 90000000
-    },
-    {
-      id: 'tx-seed-4',
-      amount: 3499,
-      currency: 'INR',
-      categoryId: 'cat-clothing',
-      date: threeDaysAgo,
-      time: '17:20',
-      note: 'ZARA summer linen shirt',
-      paymentMethod: 'Credit Card',
-      createdAt: Date.now() - 86400000 * 3
-    },
-    {
-      id: 'tx-seed-5',
-      amount: 2490,
-      currency: 'INR',
-      categoryId: 'cat-housing',
-      date: lastWeek,
-      time: '11:00',
-      note: 'Broadband Fiber internet bill auto-debit',
-      paymentMethod: 'Bank Auto-Debit',
-      createdAt: Date.now() - 86400000 * 7
-    }
-  ];
+  return [];
 }
 
 // ─── FULL BACKUP EXPORT & IMPORT (Async IndexedDB Read/Write) ──────────────────

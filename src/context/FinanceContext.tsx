@@ -84,6 +84,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt'>) => {
     const newTx: Transaction = {
       ...txData,
+      tripId: txData.tripId || activeTripVault?.id || undefined,
       id: `tx-${Date.now()}-${crypto.randomUUID().split('-')[0]}`,
       createdAt: Date.now(),
     };
