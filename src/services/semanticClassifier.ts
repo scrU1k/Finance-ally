@@ -15,7 +15,10 @@ const CATEGORY_ANCHORS: CategoryAnchor[] = [
       'starbucks', 'coffee', 'cafe', 'restaurant', 'swiggy', 'zomato', 'mcdonalds', 'kfc', 'burger',
       'pizza', 'diner', 'baking', 'bakery', 'tea', 'subway', 'bar', 'dinner', 'lunch', 'breakfast',
       'snack', 'beer', 'wine', 'cocktail', 'food', 'eatery', 'buffet', 'juice', 'pub', 'bistro',
-      'biryani', 'noodles', 'coke', 'pepsi', 'dessert', 'ice cream', 'mcd', 'dominos', 'burger king'
+      'biryani', 'noodles', 'coke', 'pepsi', 'dessert', 'ice cream', 'mcd', 'dominos', 'burger king',
+      'chocolate', 'chocolates', 'cadbury', 'kitkat', 'candy', 'sweets', 'sweet', 'cake', 'cakes',
+      'pastry', 'pastries', 'waffle', 'donut', 'donuts', 'biscuit', 'biscuits', 'cookie', 'cookies',
+      'chips', 'milkshake', 'smoothie', 'shake'
     ],
     vector: [0.85, 0.12, 0.05, 0.02, 0.10, 0.03, 0.01, 0.04]
   },
@@ -163,6 +166,15 @@ export function categorizeNoteWithArcticFTS5(text: string): { categoryId: string
     }
   }
 
+  if (maxSimilarity < 0.15) {
+    const othersAnchor = CATEGORY_ANCHORS.find(a => a.categoryId === 'cat-others') || CATEGORY_ANCHORS[CATEGORY_ANCHORS.length - 1];
+    return {
+      categoryId: othersAnchor.categoryId,
+      categoryName: othersAnchor.categoryName,
+      confidence: 65
+    };
+  }
+
   const confidence = Math.min(Math.round(maxSimilarity * 100), 92);
 
   return {
@@ -173,7 +185,7 @@ export function categorizeNoteWithArcticFTS5(text: string): { categoryId: string
 }
 
 function computeSimpleFeatureVector(text: string): number[] {
-  let foodScore = /eat|dine|drink|food|sip|meal|snack|cup|table|dinner|lunch|coffee|burger|pizza/i.test(text) ? 0.8 : 0.1;
+  let foodScore = /eat|dine|drink|food|sip|meal|snack|cup|table|dinner|lunch|coffee|burger|pizza|chocolate|candy|sweet|cake|biscuit|cookie/i.test(text) ? 0.8 : 0.1;
   let moveScore = /drive|ride|travel|fly|commute|route|trip|cab|uber|petrol|fuel/i.test(text) ? 0.8 : 0.1;
   let techScore = /tech|digital|device|gadget|wire|screen|laptop|phone|earbud|headphone/i.test(text) ? 0.8 : 0.1;
   let wearScore = /wear|cloth|style|outfit|shoe|shirt|pant|jeans/i.test(text) ? 0.8 : 0.1;

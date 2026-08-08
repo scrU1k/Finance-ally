@@ -34,6 +34,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
   const [multiInputPrompt, setMultiInputPrompt] = useState('');
   const [stagedItems, setStagedItems] = useState<StagedLogItem[]>([]);
   const [editingStagedId, setEditingStagedId] = useState<string | null>(null);
+  const [changingTagStagedId, setChangingTagStagedId] = useState<string | null>(null);
 
   // Proactive Budget Cap Interception State
   const [budgetWarning, setBudgetWarning] = useState<{
@@ -244,14 +245,19 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
       {(isMultiLogOpen ?? false) && (
         <div className="bg-surface-soft border border-hairline p-4 rounded-xl space-y-4 animate-in fade-in zoom-in-95 duration-150 relative shadow-inner">
           
-          {/* Header & Date Selector */}
-          <div className="flex items-center justify-between gap-3 border-b border-hairline pb-3">
-            <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
-              <ListPlus className="w-4 h-4 text-brand-purple" /> Multi-Log Batch Session
-            </span>
+          {/* Header & Date Selector: Two-Line Layout */}
+          <div className="space-y-2 border-b border-hairline pb-3">
+            {/* Line 1: Title (One-line on top, no wrapping, no truncation) */}
+            <div className="overflow-x-auto no-scrollbar">
+              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5 whitespace-nowrap">
+                <ListPlus className="w-4 h-4 text-brand-purple shrink-0" />
+                <span>Multi-Log Batch Session</span>
+              </span>
+            </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-mono text-muted-custom shrink-0 font-semibold">Date:</span>
+            {/* Line 2: Set Date */}
+            <div className="flex items-center gap-2 pt-0.5">
+              <span className="text-xs font-mono text-muted-custom shrink-0 font-semibold">Set Date:</span>
               <CustomDatePicker
                 value={batchDate}
                 onChange={val => {
@@ -283,73 +289,84 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
 
           {/* Staged Items List */}
           {stagedItems.length > 0 && (
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
               {stagedItems.map((item) => {
                 const catObj = categories.find(c => c.id === item.categoryId);
                 const catColor = catObj?.color || '#8B5CF6';
 
-                const paymentSelectOptions = paymentOptions.map(p => ({ value: p, label: p }));
-
                 return (
                   <div
                     key={item.id}
-                    className="bg-surface-card border border-hairline p-3 rounded-xl space-y-2 text-xs font-mono"
+                    className="bg-surface-card border border-hairline p-3 rounded-xl space-y-2.5 text-xs font-mono"
                   >
-                    {/* Row 1: Name + Category tag */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-bold text-ink truncate flex-1">{item.description}</span>
-                      <span
-                        className="text-[9px] font-mono px-1.5 py-0.5 rounded-full font-medium shrink-0"
-                        style={{ backgroundColor: `${catColor}15`, color: catColor, border: `1px solid ${catColor}30` }}
-                      >
-                        {item.categoryName}
-                      </span>
-                    </div>
-
-                    {/* Row 2: Amount, time, payment selector + action buttons */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-bold text-ink shrink-0">{formatCurrency(item.amount, item.currency)}</span>
-                      <span className="text-muted-custom shrink-0">•</span>
-                      <span className="text-muted-custom shrink-0">{item.time}</span>
-                      <span className="text-muted-custom shrink-0">•</span>
-                      <div className="flex-1 min-w-0">
-                        <CustomSelect
-                          options={paymentSelectOptions}
+                    {/* Line 1: Registered Expense Details */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+                        <span className="font-bold text-ink truncate max-w-[130px] sm:max-w-none text-sm">{item.description}</span>
+                        <span className="font-bold text-brand-mint shrink-0 bg-surface-soft px-2 py-0.5 rounded-lg border border-hairline">
+                          {formatCurrency(item.amount, item.currency)}
+                        </span>
+                        <span className="text-muted-custom text-[11px] shrink-0">{item.time}</span>
+                        
+                        {/* Properly Formatted Payment Mode Dropdown Pill */}
+                        <select
                           value={item.paymentMethod}
-                          onChange={val => {
+                          onChange={e => {
+                            const val = e.target.value;
                             setStagedItems(prev =>
                               prev.map(i => i.id === item.id ? { ...i, paymentMethod: val } : i)
                             );
                           }}
-                          direction="up"
-                        />
+                          className="bg-surface-soft border border-hairline rounded-lg px-2 py-1 text-xs text-ink font-mono font-semibold focus:outline-none focus:border-brand-blue cursor-pointer transition-all shrink-0 min-w-[90px]"
+                        >
+                          {paymentOptions.map(p => (
+                            <option key={p} value={p} className="bg-surface-card text-ink">{p}</option>
+                          ))}
+                        </select>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleSaveSingleStagedItem(item.id)}
-                          className="p-1.5 rounded-lg border border-hairline hover:border-brand-mint text-brand-mint hover:bg-surface-soft transition-colors cursor-pointer"
-                          title="Save"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleEditStagedItem(item.id)}
-                          className="p-1.5 rounded-lg border border-hairline hover:border-brand-blue text-brand-blue hover:bg-surface-soft transition-colors cursor-pointer"
-                          title="Edit"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteStagedItem(item.id)}
-                          className="p-1.5 rounded-lg border border-hairline hover:border-brand-coral text-brand-coral hover:bg-surface-soft transition-colors cursor-pointer"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+
+                      {/* Clickable Category Tag Badge */}
+                      <button
+                        type="button"
+                        onClick={() => setChangingTagStagedId(item.id)}
+                        className="text-[10px] font-mono px-2 py-1 rounded-lg font-bold shrink-0 flex items-center gap-1 hover:opacity-80 active:scale-95 transition-all cursor-pointer shadow-2xs"
+                        style={{ backgroundColor: `${catColor}18`, color: catColor, border: `1px solid ${catColor}40` }}
+                        title="Click to change category tag"
+                      >
+                        <Tag className="w-3 h-3" />
+                        <span>{item.categoryName}</span>
+                      </button>
+                    </div>
+
+                    {/* Line 2: The Three Action Buttons */}
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-hairline/50">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveSingleStagedItem(item.id)}
+                        className="px-2.5 py-1 rounded-lg border border-brand-mint text-brand-mint hover:bg-brand-mint/10 font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Save expense"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Save</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleEditStagedItem(item.id)}
+                        className="px-2.5 py-1 rounded-lg border border-brand-blue text-brand-blue hover:bg-brand-blue/10 font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Edit expense"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteStagedItem(item.id)}
+                        className="px-2.5 py-1 rounded-lg border border-brand-coral text-brand-coral hover:bg-brand-coral/10 font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Delete expense"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -551,6 +568,64 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({ onLoggedSuccess, isMul
                         categoryName: cat.name,
                       });
                       setIsTagPopupOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 p-2 rounded-xl border text-xs font-mono text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-ink text-ink font-bold bg-surface-soft'
+                        : 'border-hairline bg-surface-card text-body-custom hover:border-ink'
+                    }`}
+                  >
+                    <span
+                      className="w-3.5 h-3.5 rounded-full shrink-0"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    <span className="truncate">{cat.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      {/* Staged Item Category Tag Selection Popup */}
+      {changingTagStagedId && (
+        <div
+          className="fixed inset-0 z-[85] bg-canvas/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setChangingTagStagedId(null)}
+        >
+          <div
+            className="dotgui-glass border border-hairline rounded-2xl shadow-2xl p-5 space-y-4 bg-surface-card/95 backdrop-blur-xl w-72 max-w-[92vw]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-hairline pb-2">
+              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-brand-purple" /> Select Category Tag
+              </span>
+              <button
+                type="button"
+                onClick={() => setChangingTagStagedId(null)}
+                className="p-1 text-muted-custom hover:text-ink cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-1.5 max-h-60 overflow-y-auto no-scrollbar">
+              {categories.map(cat => {
+                const currentItem = stagedItems.find(i => i.id === changingTagStagedId);
+                const isSelected = currentItem?.categoryId === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      setStagedItems(prev =>
+                        prev.map(i =>
+                          i.id === changingTagStagedId
+                            ? { ...i, categoryId: cat.id, categoryName: cat.name }
+                            : i
+                        )
+                      );
+                      setChangingTagStagedId(null);
                     }}
                     className={`w-full flex items-center gap-2 p-2 rounded-xl border text-xs font-mono text-left transition-all cursor-pointer ${
                       isSelected
