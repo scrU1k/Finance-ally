@@ -381,6 +381,7 @@ export async function exportFullDataBackup(): Promise<string> {
     subscriptions,
     periodNotes,
     profile,
+    exportPin: localStorage.getItem('fa_export_pin') || null,
     exportTimestamp: Date.now(),
     appVersion: '1.2.0'
   };
@@ -473,14 +474,21 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
 
     // 7. User Profile Store
     if (data.profile && typeof data.profile === 'object' && data.profile.username) {
+      // Force isUnlocked:false so the lock screen is shown after reload
+      const restoredProfile = { ...data.profile, isUnlocked: false };
       await new Promise<void>((resolve, reject) => {
         const tx = db.transaction('userProfile', 'readwrite');
         const store = tx.objectStore('userProfile');
-        store.put(data.profile);
+        store.put(restoredProfile);
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
-      localStorage.setItem('fa_user_profile', JSON.stringify(data.profile));
+      localStorage.setItem('fa_user_profile', JSON.stringify(restoredProfile));
+    }
+
+    // 8. Export PIN (snapshot/backup encryption PIN)
+    if (data.exportPin && typeof data.exportPin === 'string') {
+      localStorage.setItem('fa_export_pin', data.exportPin);
     }
 
     return true;

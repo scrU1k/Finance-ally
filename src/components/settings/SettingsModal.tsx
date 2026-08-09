@@ -110,6 +110,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [verifyPinLoading, setVerifyPinLoading] = useState(false);
   const [verifyPinError, setVerifyPinError] = useState('');
 
+  // Track whether the PIN modal is being used for snapshot creation vs import/restore
+  const [pendingSnapshotCreate, setPendingSnapshotCreate] = useState(false);
+
   if (!isOpen) return null;
 
   const convertedValue = convertCurrencyAmount(
@@ -265,8 +268,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       } else {
         const ok = await importFullDataBackup(content);
         if (ok) {
-          await reloadAllData();
-          setImportStatus('Backup restored successfully!');
+          setImportStatus('Backup restored! Restarting app...');
+          setTimeout(() => window.location.reload(), 1200);
         } else {
           setImportStatus('Error: Invalid JSON backup file.');
         }
@@ -276,17 +279,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   const handleVerifyPinAndImport = async (pin: string) => {
-    if (!pendingImportContent) return;
     setVerifyPinLoading(true);
     setVerifyPinError('');
+
+    // If this was triggered by a manual snapshot creation request, encrypt & save snapshot
+    if (pendingSnapshotCreate) {
+      try {
+        // Verify the PIN first before using it
+        const { verifyExportPin } = await import('../../services/cryptoService');
+        const valid = await verifyExportPin(pin);
+        if (!valid) {
+          setVerifyPinLoading(false);
+          setVerifyPinError('Incorrect PIN. Please try again.');
+          return;
+        }
+        setLocalBackupLoading(true);
+        const res = await createLocalAutoBackup(true, pin);
+        setLocalBackupLoading(false);
+        setLocalBackupMsg(res.message);
+        setLocalSnapshotsState(getLocalSnapshots());
+        setShowVerifyPinModal(false);
+        setPendingSnapshotCreate(false);
+        setVerifyPinLoading(false);
+      } catch {
+        setVerifyPinLoading(false);
+        setVerifyPinError('Error creating encrypted snapshot.');
+      }
+      return;
+    }
+
+    if (!pendingImportContent) return;
     try {
       const decrypted = await decryptJSON(pendingImportContent, pin);
       const ok = await importFullDataBackup(decrypted);
       setVerifyPinLoading(false);
       if (ok) {
-        await reloadAllData();
         setShowVerifyPinModal(false);
-        setImportStatus('Encrypted backup decrypted and restored!');
+        setImportStatus('Encrypted backup decrypted and restored! Restarting app...');
+        setTimeout(() => window.location.reload(), 1200);
       } else {
         setVerifyPinError('Data decrypted but appears invalid. Wrong PIN?');
       }
@@ -311,6 +341,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   const handleManualLocalAutoBackup = async () => {
+    // If a PIN is set, ask for it first so the snapshot can be encrypted
+    if (hasExportPin()) {
+      setPendingSnapshotCreate(true);
+      setPendingImportContent(null);
+      setVerifyPinError('');
+      setShowVerifyPinModal(true);
+      return;
+    }
     setLocalBackupLoading(true);
     setLocalBackupMsg('');
     const res = await createLocalAutoBackup(true);
@@ -326,14 +364,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       return;
     }
 
+    // Always gate behind PIN if one is set — snapshots are plain JSON but
+    // we still verify the user is authorised before overwriting all data.
+    if (hasExportPin()) {
+      setPendingImportContent(payload);
+      setShowVerifyPinModal(true);
+      return;
+    }
+
     if (snap.isEncrypted) {
       setPendingImportContent(payload);
       setShowVerifyPinModal(true);
     } else {
       const ok = await importFullDataBackup(payload);
       if (ok) {
-        await reloadAllData();
-        setImportStatus(`Restored from snapshot ${snap.filename}!`);
+        setImportStatus(`Restored from snapshot ${snap.filename}! Restarting app...`);
+        setTimeout(() => window.location.reload(), 1200);
       } else {
         setImportStatus('Failed to restore snapshot data.');
       }
@@ -1164,14 +1210,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         {showVerifyPinModal && (
           <PinModal
             mode="verify"
-            title="Enter Backup Encryption PIN"
-            description="This backup is AES-256 encrypted. Enter the correct PIN to decrypt and restore your data."
+            title={pendingSnapshotCreate ? "Enter PIN to Encrypt Snapshot" : "Enter Backup Encryption PIN"}
+            description={
+              pendingSnapshotCreate
+                ? "Your snapshot will be encrypted with AES-256-GCM using your backup PIN."
+                : "This backup is AES-256 encrypted. Enter the correct PIN to decrypt and restore your data."
+            }
             onConfirm={handleVerifyPinAndImport}
-            onCancel={() => { setShowVerifyPinModal(false); setVerifyPinError(''); setPendingImportContent(null); }}
+            onCancel={() => { setShowVerifyPinModal(false); setVerifyPinError(''); setPendingImportContent(null); setPendingSnapshotCreate(false); }}
             loading={verifyPinLoading}
             error={verifyPinError}
           />
         )}
+
 
         </div>
       </div>

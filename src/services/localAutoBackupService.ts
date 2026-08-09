@@ -6,6 +6,7 @@
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { exportFullDataBackup } from './db';
+import { encryptJSON } from './cryptoService';
 
 export type LocalSyncSchedule = 'daily' | 'weekly' | 'monthly' | 'off';
 
@@ -101,19 +102,20 @@ export function isBackupDue(config: LocalAutoBackupConfig): boolean {
 
 /**
  * Creates an offline local automated snapshot of the app database.
- * Auto-backups are always saved as plain JSON — encryption requires the user's
- * plaintext PIN which is never held in memory and cannot be safely used here.
- * Manual encrypted exports from the Settings modal are unaffected.
+ * Pass a `pin` string to encrypt the snapshot with AES-256-GCM.
+ * Automated (background) snapshots without a PIN remain plain JSON.
  */
-export async function createLocalAutoBackup(manualTrigger = false): Promise<{ success: boolean; snapshot?: LocalSnapshotMetadata; message: string }> {
+export async function createLocalAutoBackup(
+  manualTrigger = false,
+  pin?: string
+): Promise<{ success: boolean; snapshot?: LocalSnapshotMetadata; message: string }> {
   try {
     const config = getLocalAutoBackupConfig();
     const jsonStr = await exportFullDataBackup();
 
-    // Auto-backups are always plain JSON — encryption requires the raw PIN
-    // which is never stored in memory. Manual exports retain AES-256-GCM encryption.
-    const finalPayload = jsonStr;
-    const isEncrypted = false;
+    // Encrypt when a PIN is explicitly provided (manual triggered with PIN)
+    const isEncrypted = !!(pin && pin.length > 0);
+    const finalPayload = isEncrypted ? await encryptJSON(jsonStr, pin!) : jsonStr;
 
     const isoDate = new Date().toISOString().split('T')[0];
     const timestampStr = new Date().toLocaleString();
