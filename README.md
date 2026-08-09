@@ -50,11 +50,11 @@ Forget tedious multi-step form fields. Just type your expenses naturally into th
 
 ---
 
-## 2. Notification Extraction (Offline & Privacy-First)
+### 2. Notification Extraction (Offline & Privacy-First)
 
 Finance-Ally features a dedicated **Notification Extraction** module designed to convert bank debit alerts, UPI messages, and transaction SMS text into logged expenses.
 
-### Extraction Capabilities
+#### Extraction Capabilities
 - **One-Tap Clipboard Extraction**: Copy a debit alert from HDFC, ICICI, SBI, Axis, GPay, Paytm, Swiggy, etc., and tap **"Paste Clipboard"** to extract the amount, merchant name, currency, and category instantly.
 - **Custom Pattern Engine**: Create custom regex/placeholder templates (e.g. `Debited {CURRENCY} {AMOUNT} to {MERCHANT}`) to support any regional bank or payment app.
 
@@ -74,7 +74,7 @@ Any expense with a future date/time is automatically recognized as a **Scheduled
 ### 4. Complete Privacy & Security
 
 - **Startup App Lock**: Optional PIN lock card to guard your database from local access.
-- **RSA-2048 + AES-256-GCM Encrypted Backups**: Export your complete financial backup as an encrypted `.json.enc` file with PIN protection.
+- **RSA-2048 + AES-256-GCM Encrypted Backups**: Export your complete financial backup as an encrypted `.json.enc` file with PIN protection. Furthermore enabling auto-backup ensures data `Snapshots` are backed onto device storage, fully encrypted as per user convenience - `Daily`, `Weekly`, `Monthly`, `Off(Manual)`. These snapshots can be restored by the user at any time, and to upto 5 snapshots are stored on-device at once.
 - **Zero Third-Party Tracking**: No analytics, no advertising SDKs, no external accounts — ever.
 
 ---
