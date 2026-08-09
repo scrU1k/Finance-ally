@@ -21,7 +21,7 @@ export interface LocalSnapshotMetadata {
 
 const CONFIG_KEY = 'fa_local_autobackup_config';
 const SNAPSHOTS_KEY = 'fa_local_snapshots_list';
-const MAX_SNAPSHOTS = 10;
+const MAX_SNAPSHOTS = 5;
 
 export interface LocalAutoBackupConfig {
   enabled: boolean;
