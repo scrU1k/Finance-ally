@@ -172,7 +172,22 @@ export async function createLocalAutoBackup(
     snapshots.unshift(newSnapshot);
     if (snapshots.length > MAX_SNAPSHOTS) {
       const removed = snapshots.slice(MAX_SNAPSHOTS);
-      removed.forEach(r => localStorage.removeItem(`fa_snap_data_${r.id}`));
+      removed.forEach(r => {
+        localStorage.removeItem(`fa_snap_data_${r.id}`);
+        // Also delete from physical filesystem
+        if (Capacitor.isNativePlatform()) {
+          Filesystem.deleteFile({
+            path: `Finance-Ally/Snapshots/${r.filename}`,
+            directory: Directory.Documents
+          }).catch(() => {
+            // Fallback to cache directory deletion if it was saved there
+            Filesystem.deleteFile({
+              path: r.filename,
+              directory: Directory.Cache
+            }).catch(() => {});
+          });
+        }
+      });
       snapshots = snapshots.slice(0, MAX_SNAPSHOTS);
     }
 
@@ -215,8 +230,24 @@ export function getSnapshotPayload(snapshotId: string): string | null {
  * Deletes a snapshot.
  */
 export function deleteLocalSnapshot(snapshotId: string): LocalSnapshotMetadata[] {
+  const list = getLocalSnapshots();
+  const snap = list.find(s => s.id === snapshotId);
+  
   localStorage.removeItem(`fa_snap_data_${snapshotId}`);
-  const list = getLocalSnapshots().filter(s => s.id !== snapshotId);
-  saveSnapshotsList(list);
-  return list;
+  
+  if (snap && Capacitor.isNativePlatform()) {
+    Filesystem.deleteFile({
+      path: `Finance-Ally/Snapshots/${snap.filename}`,
+      directory: Directory.Documents
+    }).catch(() => {
+      Filesystem.deleteFile({
+        path: snap.filename,
+        directory: Directory.Cache
+      }).catch(() => {});
+    });
+  }
+  
+  const updatedList = list.filter(s => s.id !== snapshotId);
+  saveSnapshotsList(updatedList);
+  return updatedList;
 }
