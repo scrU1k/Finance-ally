@@ -271,25 +271,12 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
     onEditTransaction(duplicatedTx);
   };
 
-  const handleBulkDuplicate = async () => {
+  const handleBulkDuplicate = () => {
     if (selectedTxIds.length === 0) return;
-    for (const id of selectedTxIds) {
-      const tx = filteredTransactions.find(t => t.id === id);
-      if (tx) {
-        await addTransaction({
-          amount: tx.amount,
-          currency: tx.currency,
-          originalAmount: tx.originalAmount,
-          originalCurrency: tx.originalCurrency,
-          categoryId: tx.categoryId,
-          customCategoryName: tx.customCategoryName,
-          date: tx.date,
-          time: tx.time,
-          note: `${tx.note} (Copy)`,
-          paymentMethod: tx.paymentMethod,
-          tripId: tx.tripId,
-        });
-      }
+    const targetId = selectedTxIds[0];
+    const tx = filteredTransactions.find(t => t.id === targetId);
+    if (tx) {
+      handleDuplicateSingle(tx);
     }
     setSelectedTxIds([]);
     setIsSelectMode(false);
@@ -915,21 +902,27 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
           {/* DAY MODE */}
           {periodMode === 'day' && (
             <div className="space-y-6">
-              {/* Period Note Pill Card for Drilled Month or Active Month */}
-              {drilledFilter && drilledFilter.type === 'month' && (
-                <div
-                  onClick={() => handleOpenNoteModal(drilledFilter.datePrefix || '', 'month', `${drilledFilter.label} Note`)}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-surface-card border border-hairline hover:border-brand-purple text-xs font-mono cursor-pointer transition-all shadow-sm hover:scale-[1.005]"
-                >
-                  <div className="flex items-center gap-2 text-brand-purple font-bold">
-                    <FileText className="w-4 h-4 shrink-0" />
-                    <span>{drilledFilter.label} Note</span>
+              {/* Period Note Pill Card for Current / Drilled Month in Day Mode */}
+              {(() => {
+                const targetMonthKey = drilledFilter?.datePrefix || new Date().toISOString().substring(0, 7);
+                const targetMonthLabel = drilledFilter?.label || new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                const hasNote = periodNotes.some(n => n.periodKey === targetMonthKey && n.content.trim() !== '');
+
+                return (
+                  <div
+                    onClick={() => handleOpenNoteModal(targetMonthKey, 'month', `${targetMonthLabel} Note`)}
+                    className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-surface-card border border-hairline hover:border-brand-purple text-xs font-mono cursor-pointer transition-all shadow-sm hover:scale-[1.005] group"
+                  >
+                    <div className="flex items-center gap-2 text-brand-purple font-bold">
+                      <FileText className="w-4 h-4 shrink-0" />
+                      <span>{targetMonthLabel} Note</span>
+                    </div>
+                    <span className="text-[11px] font-mono text-muted-custom font-bold group-hover:text-brand-purple transition-colors">
+                      {hasNote ? 'Read / Edit Note' : '+ Add Month Note'}
+                    </span>
                   </div>
-                  <span className="text-[11px] text-muted-custom font-mono">
-                    {periodNotes.find(n => n.periodKey === drilledFilter.datePrefix)?.content ? 'Read Note' : '+ Add Note'}
-                  </span>
-                </div>
-              )}
+                );
+              })()}
 
               {visibleGroupedByDate.map(group => {
                 const isCollapsed = collapsedDates.has(group.date);
@@ -1313,13 +1306,11 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
           {/* Copy / Duplicate Action Button (Icon-Only, No Text) */}
           <button
             onClick={handleBulkDuplicate}
-            className="p-1 text-brand-purple hover:text-ink font-mono text-xs font-bold transition-colors cursor-pointer"
-            title="Duplicate selected expense(s)"
+            className="p-1 text-muted-custom hover:text-ink transition-colors cursor-pointer"
+            title="Duplicate expense in editor"
           >
-            <Copy className="w-3.5 h-3.5 text-brand-purple" />
+            <Copy className="w-3.5 h-3.5 text-muted-custom hover:text-ink" />
           </button>
-
-          <div className="h-3.5 w-px bg-hairline shrink-0" />
 
           <button
             onClick={() => setIsBulkEditOpen(true)}

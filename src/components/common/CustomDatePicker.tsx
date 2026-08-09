@@ -91,22 +91,35 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     setIsOpen(false);
   };
 
+  const prevMonthDate = new Date(viewYear, viewMonth, 0);
+  const prevMonthDays = prevMonthDate.getDate();
+
+  const [slideAnim, setSlideAnim] = useState<'slide-left' | 'slide-right' | null>(null);
+
   const prevMonth = () => {
-    if (viewMonth === 0) {
-      setViewMonth(11);
-      setViewYear(viewYear - 1);
-    } else {
-      setViewMonth(viewMonth - 1);
-    }
+    setSlideAnim('slide-right');
+    setTimeout(() => {
+      if (viewMonth === 0) {
+        setViewMonth(11);
+        setViewYear(v => v - 1);
+      } else {
+        setViewMonth(v => v - 1);
+      }
+      setSlideAnim(null);
+    }, 120);
   };
 
   const nextMonth = () => {
-    if (viewMonth === 11) {
-      setViewMonth(0);
-      setViewYear(viewYear + 1);
-    } else {
-      setViewMonth(viewMonth + 1);
-    }
+    setSlideAnim('slide-left');
+    setTimeout(() => {
+      if (viewMonth === 11) {
+        setViewMonth(0);
+        setViewYear(v => v + 1);
+      } else {
+        setViewMonth(v => v + 1);
+      }
+      setSlideAnim(null);
+    }, 120);
   };
 
   const touchStartX = useRef<number | null>(null);
@@ -160,7 +173,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
             <div
               onTouchStart={handleTouchStartCalendar}
               onTouchEnd={handleTouchEndCalendar}
-              className="bg-surface-card/90 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl shadow-2xl shadow-black/20 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-100 w-80 max-w-[92vw] ring-1 ring-white/10 select-none"
+              className="bg-surface-card/90 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl shadow-2xl shadow-black/20 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-100 w-80 max-w-[92vw] ring-1 ring-white/10 select-none overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
             
@@ -232,7 +245,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span>
+              <span className="font-bold text-ink transition-opacity">
                 {monthNames[viewMonth]} {viewYear}
               </span>
               <button
@@ -255,11 +268,28 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
               <span>Sa</span>
             </div>
 
-            {/* Days Grid */}
-            <div className="grid grid-cols-7 gap-1 text-center font-mono text-xs">
-              {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                <div key={`empty-${i}`} />
-              ))}
+            {/* Days Grid with Smooth Slide Transition & Greyed Out Previous Month Days */}
+            <div
+              className={`grid grid-cols-7 gap-1 text-center font-mono text-xs transition-all duration-150 transform ${
+                slideAnim === 'slide-left'
+                  ? '-translate-x-3 opacity-40'
+                  : slideAnim === 'slide-right'
+                  ? 'translate-x-3 opacity-40'
+                  : 'translate-x-0 opacity-100'
+              }`}
+            >
+              {/* Previous Month Trailing Days (Greyed Out) */}
+              {Array.from({ length: firstDayOfWeek }).map((_, i) => {
+                const dayNum = prevMonthDays - firstDayOfWeek + i + 1;
+                return (
+                  <div
+                    key={`prev-day-${i}`}
+                    className="py-1.5 font-bold text-muted-custom/35 cursor-default select-none"
+                  >
+                    {dayNum}
+                  </div>
+                );
+              })}
 
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const day = i + 1;

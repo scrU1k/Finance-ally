@@ -164,7 +164,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                   onDuplicate(transaction);
                   onClose();
                 }}
-                className="p-2 rounded-full border border-hairline bg-surface-soft text-brand-purple hover:border-brand-purple hover:bg-brand-purple/10 transition-all cursor-pointer shadow-xs flex items-center justify-center"
+                className="p-2 rounded-full border border-hairline bg-surface-soft text-muted-custom hover:text-ink hover:border-ink transition-all cursor-pointer shadow-xs flex items-center justify-center"
                 title="Duplicate expense as a new log"
               >
                 <Copy className="w-4 h-4" />
