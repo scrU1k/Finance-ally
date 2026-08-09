@@ -137,3 +137,12 @@ export interface EndOfMonthAuditReport {
   keyInsights: string[];
   anomalies: string[];
 }
+
+export interface PeriodNote {
+  id: string; // 'note-2026-08' or 'note-2026'
+  periodType: 'month' | 'year';
+  periodKey: string; // '2026-08' or '2026'
+  title: string; // 'August 2026 Note' or '2026 Note'
+  content: string;
+  updatedAt: number;
+}

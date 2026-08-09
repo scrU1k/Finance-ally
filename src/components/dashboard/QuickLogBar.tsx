@@ -4,7 +4,7 @@ import { parseNaturalLanguageExpense, ParsedNaturalExpense } from '../../service
 import { formatCurrency } from '../../services/currency';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { isFutureDateTime } from '../../utils/scheduledUtils';
-import { ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus } from 'lucide-react';
+import { ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus, Plane } from 'lucide-react';
 
 interface QuickLogBarProps {
   onLoggedSuccess?: () => void;
@@ -21,13 +21,17 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
   batchDate: batchDateProp,
   onBatchDateChange,
 }) => {
-  const { baseCurrency, addTransaction, categories, transactions, activeTripVault, addCategoryItem } = useFinance();
+  const { baseCurrency, addTransaction, categories, transactions, activeTripVault, trips, addCategoryItem } = useFinance();
 
   const [inputPrompt, setInputPrompt] = useState('');
   const [parsedExpense, setParsedExpense] = useState<ParsedNaturalExpense | null>(null);
   const paymentMethod = 'UPI';
   const [isSuccess, setIsSuccess] = useState(false);
   const [isTagPopupOpen, setIsTagPopupOpen] = useState(false);
+
+  // Trip selection state during quick log
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [isTripPopupOpen, setIsTripPopupOpen] = useState(false);
 
   // Custom Tag Creation Modal Form State
   const [showCustomTagForm, setShowCustomTagForm] = useState(false);
@@ -122,6 +126,8 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
       targetCatId = await ensureCustomTagSaved(parsedExpense.categoryName);
     }
 
+    const finalTripId = selectedTripId !== null ? (selectedTripId || undefined) : activeTripVault?.id || undefined;
+
     await addTransaction({
       amount: parsedExpense.amount,
       currency: parsedExpense.currency,
@@ -132,7 +138,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
       paymentMethod: finalMethod,
       isAutoParsed: true,
       confidenceScore: parsedExpense.confidence,
-      tripId: activeTripVault?.id || undefined,
+      tripId: finalTripId,
     });
 
     setBudgetWarning(null);
@@ -141,6 +147,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
       setIsSuccess(false);
       setParsedExpense(null);
       setInputPrompt('');
+      setSelectedTripId(null);
       onLoggedSuccess?.();
     }, 1000);
   };
@@ -208,6 +215,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
             onClick={() => {
               setParsedExpense(null);
               setInputPrompt('');
+              setSelectedTripId(null);
             }}
             className="absolute top-3 right-3 text-muted-custom hover:text-ink cursor-pointer"
             title="Clear quick log text box"
@@ -231,8 +239,8 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-muted-custom">
-            {/* Clickable Auto-detected Tag selector */}
+          <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-muted-custom">
+            {/* Clickable Auto-detected Category Tag selector */}
             <button
               type="button"
               onClick={() => setIsTagPopupOpen(true)}
@@ -243,18 +251,37 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
               <span>{parsedExpense.categoryName}</span>
             </button>
 
+            {/* Clickable Trip Tag selector */}
+            <button
+              type="button"
+              onClick={() => setIsTripPopupOpen(true)}
+              className={`flex items-center gap-1.5 font-semibold hover:bg-surface-card px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                selectedTripId ? 'border-brand-coral text-brand-coral bg-brand-coral/10 font-bold' : 'border-hairline text-ink'
+              }`}
+              title="Click to select Trip tag"
+            >
+              <Plane className="w-3 h-3 text-brand-coral shrink-0" />
+              <span>
+                {selectedTripId
+                  ? (trips.find(t => t.id === selectedTripId)?.name || 'Trip')
+                  : activeTripVault
+                  ? activeTripVault.name
+                  : 'Trip'}
+              </span>
+            </button>
+
             <span>•</span>
 
             <span className="flex items-center gap-1">
               <Calendar className="w-3 h-3 text-brand-blue" />
-              <span>{parsedExpense.dateLabel} ({parsedExpense.date})</span>
+              <span>{parsedExpense.dateLabel}</span>
             </span>
 
             <span>•</span>
 
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3 text-brand-mint" />
-              <span>{parsedExpense.timeLabel} ({parsedExpense.time})</span>
+              <span>{parsedExpense.timeLabel}</span>
             </span>
           </div>
 
@@ -475,6 +502,75 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
               </div>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* TRIP TAG SELECTION MODAL */}
+      {isTripPopupOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer animate-in fade-in duration-150"
+          onClick={() => setIsTripPopupOpen(false)}
+        >
+          <div
+            className="max-w-xs w-full bg-surface-card/95 backdrop-blur-2xl border border-hairline rounded-2xl p-4 shadow-2xl space-y-3 cursor-default relative ring-1 ring-white/10 animate-in zoom-in-95 duration-150"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-hairline pb-2">
+              <span className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                <Plane className="w-3.5 h-3.5 text-brand-coral" /> Select Trip Tag
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsTripPopupOpen(false)}
+                className="text-muted-custom hover:text-ink cursor-pointer text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-1.5 max-h-60 overflow-y-auto no-scrollbar pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTripId('');
+                  setIsTripPopupOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
+                  selectedTripId === ''
+                    ? 'bg-brand-coral/15 text-brand-coral font-bold border border-brand-coral/30'
+                    : 'bg-surface-soft hover:bg-surface-card text-ink border border-hairline'
+                }`}
+              >
+                <span>No Trip (Main Wallet)</span>
+                {selectedTripId === '' && <Check className="w-3.5 h-3.5 text-brand-coral" />}
+              </button>
+
+              {trips.map(t => {
+                const isSelected = selectedTripId === t.id || (selectedTripId === null && activeTripVault?.id === t.id);
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTripId(t.id);
+                      setIsTripPopupOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
+                      isSelected
+                        ? 'bg-brand-coral/15 text-brand-coral font-bold border border-brand-coral/30'
+                        : 'bg-surface-soft hover:bg-surface-card text-ink border border-hairline'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color || '#EE5F1C' }} />
+                      <span className="font-bold truncate">{t.name}</span>
+                    </div>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-brand-coral" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

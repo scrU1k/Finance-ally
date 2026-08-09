@@ -110,13 +110,15 @@ Managing shared expenses with friends made simple:
   - **Week**: Aggregated weekly spending cards displaying Week Number, Date Range (e.g. `Aug 3 – Aug 9, 2026`), active spending days, and total spend — no individual item clutter.
   - **Month**: Aggregated monthly cards showing Month Name (e.g. `August 2026`), total monthly spend, and daily average.
   - **Year**: Clean annual overview cards showing Year (e.g. `2026`), total yearly spend, total logs, and the **Highest Spending Month** highlight (e.g. `Highest: August (₹45,200)`).
+- **Log Duplication**: Long-pressing logs reveals a Copy icon button in the floating selection bar to bulk-duplicate old recurring payments into new draft logs. Detail view modals also feature a dedicated Copy button.
+- **Trip Tag Quick Logging**: Choose or switch Trip Tags directly inside the Quick Log preview chip bar before saving.
+- **Side-Swipe Month Date Picker**: In the custom calendar date selector, swipe left or right to seamlessly navigate between months.
+- **Monthly & Annual Review Notes**: Dedicated `<Month Name, Year> Note` and `<Year> Note` cards appear in timeline feeds. Clicking opens a glassmorphic popover to view, edit, or delete personal notes, financial goals, or monthly reviews.
 - **Hierarchical Card Drill-Down**: Tapping any card in high-level views seamlessly drills down into deeper detail:
   - **Year Card Click** → Drills into **Month View** filtered to that year.
   - **Month Card Click** → Drills into **Day View** filtered to that month.
   - **Week Card Click** → Drills into **Day View** filtered to that week.
 - **Step-Back & Reset Navigation Banner**: Active drill-downs display a minimal banner (`View: August 2026 [ Reset ]`). Tapping the `View: <Label>` text steps back **one level up** to the parent period view; tapping `Reset` restores the all-time view.
-- **Direct Chart Jump**: Tap the Chart icon pill to instantly scroll smoothly to the Spending Trend interactive chart at the bottom of the feed.
-- **Minimized Floating Pill**: Collapse the summary bar into a compact floating pill showing your total spend without consuming screen space.
 
 ---
 
@@ -158,7 +160,7 @@ Finance-Ally's Android build is a first-class native experience, not just a web 
 
 | Version | Highlights |
 |---------|-----------|
-| **v1.2** | Multi-Period View Engine (Day/Week/Month/Year), Hierarchical Card Drill-Down (Year → Month → Day, Week → Day), Step-Back Banner Navigation (`View: <Label>`), 30-Day Active Window Pagination, Collapsible Daily Headers with Cyan/Chevron Icon toggles, Single-Line Controls Toolbar with icon-only Search & Chart Jump buttons, `select-none` long-press selection prevention |
+| **v1.2** | Log Duplication (selection bar & detail modal Copy buttons), Quick Log Trip Tag Selector, Side-Swipe Month Date Selector, Monthly & Annual Review Notes (`<Month/Year> Note` popovers), Multi-Period View Engine (Day/Week/Month/Year), Hierarchical Card Drill-Down (Year → Month → Day, Week → Day), Step-Back Banner Navigation (`View: <Label>`), 30-Day Active Window Pagination, Collapsible Daily Headers |
 | **v1.1** | Native AlarmManager background notifications (`ScheduledNotificationPlugin` + `NotificationReceiver`), Multi-Log mode with direct calendar popup, typo-tolerant time parsing (`8pn`, `8a.`, `8.30an`), contextual time inference, clean note extraction |
 | **v1.0** | Initial release — Quick Log NLP, Trip Vaults, Split Bills, Monthly Audit, Clipboard Detection, Glassmorphic UI |
 

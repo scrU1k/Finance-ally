@@ -109,6 +109,26 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     }
   };
 
+  const touchStartX = useRef<number | null>(null);
+
+  const handleTouchStartCalendar = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) {
+      touchStartX.current = e.touches[0].clientX;
+    }
+  };
+
+  const handleTouchEndCalendar = (e: React.TouchEvent) => {
+    if (touchStartX.current !== null && e.changedTouches.length > 0) {
+      const dx = e.changedTouches[0].clientX - touchStartX.current;
+      if (dx > 40) {
+        prevMonth();
+      } else if (dx < -40) {
+        nextMonth();
+      }
+    }
+    touchStartX.current = null;
+  };
+
   return (
     <div className={`relative ${className}`} ref={containerRef}>
       {/* Trigger Button or Custom Trigger */}
@@ -138,7 +158,9 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
             onClick={() => setIsOpen(false)}
           >
             <div
-              className="bg-surface-card/90 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl shadow-2xl shadow-black/20 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-100 w-80 max-w-[92vw] ring-1 ring-white/10"
+              onTouchStart={handleTouchStartCalendar}
+              onTouchEnd={handleTouchEndCalendar}
+              className="bg-surface-card/90 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl shadow-2xl shadow-black/20 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-100 w-80 max-w-[92vw] ring-1 ring-white/10 select-none"
               onClick={e => e.stopPropagation()}
             >
             

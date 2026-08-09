@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useFinance } from '../../context/FinanceContext';
-import { Transaction, TimelineViewMode } from '../../types';
+import { Transaction, TimelineViewMode, PeriodNote } from '../../types';
 import { TransactionCard } from './TransactionCard';
 import { TransactionDetailModal } from './TransactionDetailModal';
 import { LiveSpendChart } from './LiveSpendChart';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { QuickLogBar } from './QuickLogBar';
+import { loadPeriodNotes, savePeriodNote, deletePeriodNote } from '../../services/db';
 import {
   Search,
   Sparkles,
@@ -29,6 +30,9 @@ import {
   Flame,
   Filter,
   ArrowRight,
+  Copy,
+  FileText,
+  Plus,
 } from 'lucide-react';
 import { BulkEditModal } from './BulkEditModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
@@ -91,7 +95,7 @@ function getWeekInfo(dateStr: string) {
 }
 
 export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _onOpenQuickAdd, onEditTransaction }) => {
-  const { filteredTransactions, categories, trips, deleteTx, editTransaction, baseCurrency, forexRates } = useFinance();
+  const { filteredTransactions, categories, trips, deleteTx, editTransaction, addTransaction, baseCurrency, forexRates } = useFinance();
 
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -102,13 +106,59 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
   const [showTagFilterRow, setShowTagFilterRow] = useState(false);
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
 
-  // Drill-down filter state (e.g. clicking a Year, Month, or Week card filters down)
+  // Period Notes state
+  const [periodNotes, setPeriodNotes] = useState<PeriodNote[]>([]);
+  const [activeNoteModal, setActiveNoteModal] = useState<{
+    periodKey: string;
+    periodType: 'month' | 'year';
+    title: string;
+  } | null>(null);
+  const [noteEditContent, setNoteEditContent] = useState('');
+  const [isEditingNote, setIsEditingNote] = useState(false);
+
+  useEffect(() => {
+    loadPeriodNotes().then(notes => setPeriodNotes(notes));
+  }, []);
+
+  const handleOpenNoteModal = (periodKey: string, periodType: 'month' | 'year', title: string) => {
+    const existing = periodNotes.find(n => n.periodKey === periodKey);
+    setActiveNoteModal({ periodKey, periodType, title });
+    setNoteEditContent(existing ? existing.content : '');
+    setIsEditingNote(!existing);
+  };
+
+  const handleSaveActiveNote = async () => {
+    if (!activeNoteModal) return;
+    const newNote: PeriodNote = {
+      id: `note-${activeNoteModal.periodKey}`,
+      periodType: activeNoteModal.periodType,
+      periodKey: activeNoteModal.periodKey,
+      title: activeNoteModal.title,
+      content: noteEditContent.trim(),
+      updatedAt: Date.now(),
+    };
+    await savePeriodNote(newNote);
+    const updated = await loadPeriodNotes();
+    setPeriodNotes(updated);
+    setIsEditingNote(false);
+  };
+
+  const handleDeleteActiveNote = async () => {
+    if (!activeNoteModal) return;
+    await deletePeriodNote(activeNoteModal.periodKey);
+    const updated = await loadPeriodNotes();
+    setPeriodNotes(updated);
+    setActiveNoteModal(null);
+    setNoteEditContent('');
+  };
+
+  // Drill-down filter state
   const [drilledFilter, setDrilledFilter] = useState<DrilledFilter | null>(null);
 
   // 30-Day Window limit for Day view
   const [dayWindowLimit, setDayWindowLimit] = useState(30);
 
-  // Minimizable date groups state (set of collapsed date strings)
+  // Minimizable date groups state
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
 
   const toggleDateCollapse = (dateStr: string) => {
@@ -210,6 +260,40 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+
+  // Duplication Handlers
+  const handleDuplicateSingle = (tx: Transaction) => {
+    const duplicatedTx: Transaction = {
+      ...tx,
+      id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      createdAt: Date.now(),
+    };
+    onEditTransaction(duplicatedTx);
+  };
+
+  const handleBulkDuplicate = async () => {
+    if (selectedTxIds.length === 0) return;
+    for (const id of selectedTxIds) {
+      const tx = filteredTransactions.find(t => t.id === id);
+      if (tx) {
+        await addTransaction({
+          amount: tx.amount,
+          currency: tx.currency,
+          originalAmount: tx.originalAmount,
+          originalCurrency: tx.originalCurrency,
+          categoryId: tx.categoryId,
+          customCategoryName: tx.customCategoryName,
+          date: tx.date,
+          time: tx.time,
+          note: `${tx.note} (Copy)`,
+          paymentMethod: tx.paymentMethod,
+          tripId: tx.tripId,
+        });
+      }
+    }
+    setSelectedTxIds([]);
+    setIsSelectMode(false);
+  };
 
   // Streamlined Multi-Log state
   const [isMultiLogActive, setIsMultiLogActive] = useState(false);
@@ -831,6 +915,22 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
           {/* DAY MODE */}
           {periodMode === 'day' && (
             <div className="space-y-6">
+              {/* Period Note Pill Card for Drilled Month or Active Month */}
+              {drilledFilter && drilledFilter.type === 'month' && (
+                <div
+                  onClick={() => handleOpenNoteModal(drilledFilter.datePrefix || '', 'month', `${drilledFilter.label} Note`)}
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-surface-card border border-hairline hover:border-brand-purple text-xs font-mono cursor-pointer transition-all shadow-sm hover:scale-[1.005]"
+                >
+                  <div className="flex items-center gap-2 text-brand-purple font-bold">
+                    <FileText className="w-4 h-4 shrink-0" />
+                    <span>{drilledFilter.label} Note</span>
+                  </div>
+                  <span className="text-[11px] text-muted-custom font-mono">
+                    {periodNotes.find(n => n.periodKey === drilledFilter.datePrefix)?.content ? 'Read Note' : '+ Add Note'}
+                  </span>
+                </div>
+              )}
+
               {visibleGroupedByDate.map(group => {
                 const isCollapsed = collapsedDates.has(group.date);
                 return (
@@ -959,27 +1059,46 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
               {groupedByMonth.map(m => (
                 <div
                   key={m.monthKey}
-                  onClick={() => handleDrillDownMonth(m.monthKey, m.monthName)}
-                  className="bg-surface-card border border-hairline rounded-2xl p-4 space-y-2.5 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
-                  title="Click to view daily logs for this month"
+                  className="space-y-2"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-brand-purple/10 border border-brand-purple/20 text-brand-purple flex items-center justify-center font-mono font-bold text-xs shrink-0 group-hover:bg-brand-purple group-hover:text-white transition-colors">
-                        <CalendarDays className="w-4 h-4" />
+                  {/* Month Expense Card */}
+                  <div
+                    onClick={() => handleDrillDownMonth(m.monthKey, m.monthName)}
+                    className="bg-surface-card border border-hairline rounded-2xl p-4 space-y-2.5 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
+                    title="Click to view daily logs for this month"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-brand-purple/10 border border-brand-purple/20 text-brand-purple flex items-center justify-center font-mono font-bold text-xs shrink-0 group-hover:bg-brand-purple group-hover:text-white transition-colors">
+                          <CalendarDays className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-mono font-bold text-ink group-hover:text-brand-purple transition-colors">{m.monthName}</h4>
+                          <p className="text-[11px] font-mono text-muted-custom">
+                            {m.txCount} total logs • ~{formatCurrency(m.dailyAvg, baseCurrency)}/day
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-mono font-bold text-ink group-hover:text-brand-purple transition-colors">{m.monthName}</h4>
-                        <p className="text-[11px] font-mono text-muted-custom">
-                          {m.txCount} total logs • ~{formatCurrency(m.dailyAvg, baseCurrency)}/day
-                        </p>
+                      <div className="text-right">
+                        <div className="text-base font-mono font-bold text-brand-purple">
+                          {formatCurrency(m.monthTotal, baseCurrency)}
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-base font-mono font-bold text-brand-purple">
-                        {formatCurrency(m.monthTotal, baseCurrency)}
-                      </div>
+                  </div>
+
+                  {/* Month Note Card */}
+                  <div
+                    onClick={() => handleOpenNoteModal(m.monthKey, 'month', `${m.monthName} Note`)}
+                    className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-surface-soft/70 border border-hairline hover:border-brand-purple text-xs font-mono cursor-pointer transition-colors group shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2 text-brand-purple font-bold">
+                      <FileText className="w-3.5 h-3.5 shrink-0" />
+                      <span>{m.monthName} Note</span>
                     </div>
+                    <span className="text-[10px] text-muted-custom font-mono">
+                      {periodNotes.find(n => n.periodKey === m.monthKey)?.content ? 'Read Note' : '+ Add Note'}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -988,43 +1107,59 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
 
           {/* YEAR MODE */}
           {periodMode === 'year' && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {groupedByYear.map(y => (
-                <div
-                  key={y.yearKey}
-                  onClick={() => handleDrillDownYear(y.yearKey)}
-                  className="bg-surface-card border border-hairline rounded-2xl p-4 space-y-3 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
-                  title="Click to view monthly breakdown for this year"
-                >
-                  <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="px-2.5 py-1.5 rounded-2xl bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow flex items-center justify-center font-mono font-bold text-xs shrink-0 tracking-wider group-hover:bg-brand-yellow group-hover:text-white transition-colors">
-                        {y.yearKey}
+                <div key={y.yearKey} className="space-y-2">
+                  {/* Year Expense Card */}
+                  <div
+                    onClick={() => handleDrillDownYear(y.yearKey)}
+                    className="bg-surface-card border border-hairline rounded-2xl p-4 space-y-3 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
+                    title="Click to view monthly breakdown for this year"
+                  >
+                    <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="px-2.5 py-1.5 rounded-2xl bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow flex items-center justify-center font-mono font-bold text-xs shrink-0 tracking-wider group-hover:bg-brand-yellow group-hover:text-white transition-colors">
+                          {y.yearKey}
+                        </div>
+                        <div>
+                          <h4 className="text-base font-display font-bold text-ink group-hover:text-brand-purple transition-colors">Annual Summary</h4>
+                          <p className="text-xs font-mono text-muted-custom">{y.txCount} total logged expenses</p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-base font-display font-bold text-ink group-hover:text-brand-purple transition-colors">Annual Summary</h4>
-                        <p className="text-xs font-mono text-muted-custom">{y.txCount} total logged expenses</p>
+                      <div className="text-right">
+                        <div className="text-lg font-mono font-bold text-ink">
+                          {formatCurrency(y.yearTotal, baseCurrency)}
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-mono font-bold text-ink">
-                        {formatCurrency(y.yearTotal, baseCurrency)}
+
+                    {/* Highest Spending Month Highlight */}
+                    {y.highestMonthName && (
+                      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-soft/80 border border-hairline text-xs font-mono">
+                        <span className="flex items-center gap-1.5 text-muted-custom font-bold">
+                          <Flame className="w-3.5 h-3.5 text-brand-coral" />
+                          Highest Spending Month
+                        </span>
+                        <span className="font-bold text-ink">
+                          {y.highestMonthName} ({formatCurrency(y.highestMonthTotal, baseCurrency)})
+                        </span>
                       </div>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Highest Spending Month Highlight */}
-                  {y.highestMonthName && (
-                    <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-soft/80 border border-hairline text-xs font-mono">
-                      <span className="flex items-center gap-1.5 text-muted-custom font-bold">
-                        <Flame className="w-3.5 h-3.5 text-brand-coral" />
-                        Highest Spending Month
-                      </span>
-                      <span className="font-bold text-ink">
-                        {y.highestMonthName} ({formatCurrency(y.highestMonthTotal, baseCurrency)})
-                      </span>
+                  {/* Year Note Card */}
+                  <div
+                    onClick={() => handleOpenNoteModal(y.yearKey, 'year', `${y.yearKey} Note`)}
+                    className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-surface-soft/70 border border-hairline hover:border-brand-purple text-xs font-mono cursor-pointer transition-colors group shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2 text-brand-purple font-bold">
+                      <FileText className="w-3.5 h-3.5 shrink-0" />
+                      <span>{y.yearKey} Note</span>
                     </div>
-                  )}
+                    <span className="text-[10px] text-muted-custom font-mono">
+                      {periodNotes.find(n => n.periodKey === y.yearKey)?.content ? 'Read Note' : '+ Add Note'}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1039,6 +1174,89 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
         </div>
       )}
 
+      {/* Period Note Popover / Modal */}
+      {activeNoteModal && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150 cursor-pointer"
+          onClick={() => setActiveNoteModal(null)}
+        >
+          <div
+            className="max-w-md w-full bg-surface-card/95 backdrop-blur-2xl border border-hairline rounded-2xl p-5 shadow-2xl space-y-4 relative cursor-default ring-1 ring-white/10 animate-in zoom-in-95 duration-150"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-hairline pb-2.5">
+              <span className="text-sm font-mono font-bold text-ink flex items-center gap-2">
+                <FileText className="w-4 h-4 text-brand-purple" />
+                {activeNoteModal.title}
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveNoteModal(null)}
+                className="p-1 text-muted-custom hover:text-ink cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content Body / Textarea */}
+            {isEditingNote ? (
+              <div className="space-y-2">
+                <textarea
+                  value={noteEditContent}
+                  onChange={e => setNoteEditContent(e.target.value)}
+                  placeholder="Add monthly or annual review notes, goals, or financial observations..."
+                  rows={6}
+                  autoFocus
+                  className="w-full bg-surface-soft border border-hairline rounded-xl p-3 text-xs font-mono text-ink focus:outline-none focus:border-brand-purple leading-relaxed"
+                />
+              </div>
+            ) : (
+              <div className="bg-surface-soft p-4 rounded-xl border border-hairline min-h-[100px]">
+                <p className="text-xs font-mono text-ink whitespace-pre-wrap leading-relaxed">
+                  {noteEditContent || 'No note recorded yet.'}
+                </p>
+              </div>
+            )}
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-hairline">
+              {periodNotes.some(n => n.periodKey === activeNoteModal.periodKey) ? (
+                <button
+                  type="button"
+                  onClick={handleDeleteActiveNote}
+                  className="px-3.5 py-1.5 rounded-xl border border-hairline text-brand-coral text-xs font-mono font-bold hover:border-brand-coral cursor-pointer flex items-center gap-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete</span>
+                </button>
+              ) : <div />}
+
+              <div className="flex items-center gap-2">
+                {isEditingNote ? (
+                  <button
+                    type="button"
+                    onClick={handleSaveActiveNote}
+                    className="px-4 py-1.5 rounded-xl bg-brand-purple text-white text-xs font-mono font-bold shadow-md hover:bg-brand-purple/90 cursor-pointer"
+                  >
+                    Save Note
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingNote(true)}
+                    className="px-4 py-1.5 rounded-xl border border-hairline bg-surface-soft hover:bg-surface-card text-ink text-xs font-mono font-bold cursor-pointer flex items-center gap-1"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 text-brand-blue" />
+                    <span>Edit Note</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Transaction Detail Popout Modal */}
       {selectedTxDetail && (
         <TransactionDetailModal
@@ -1049,6 +1267,10 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
           onEdit={t => {
             setSelectedTxDetail(null);
             onEditTransaction(t);
+          }}
+          onDuplicate={t => {
+            setSelectedTxDetail(null);
+            handleDuplicateSingle(t);
           }}
           onDelete={id => {
             setSelectedTxDetail(null);
@@ -1084,6 +1306,17 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
           >
             <CheckSquare className="w-3 h-3 text-brand-blue" />
             <span>{isAllSelected ? 'None' : 'All'}</span>
+          </button>
+
+          <div className="h-3.5 w-px bg-hairline shrink-0" />
+
+          {/* Copy / Duplicate Action Button (Icon-Only, No Text) */}
+          <button
+            onClick={handleBulkDuplicate}
+            className="p-1 text-brand-purple hover:text-ink font-mono text-xs font-bold transition-colors cursor-pointer"
+            title="Duplicate selected expense(s)"
+          >
+            <Copy className="w-3.5 h-3.5 text-brand-purple" />
           </button>
 
           <div className="h-3.5 w-px bg-hairline shrink-0" />

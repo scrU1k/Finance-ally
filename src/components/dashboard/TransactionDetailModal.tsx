@@ -3,7 +3,7 @@ import { Transaction, Category, Trip } from '../../types';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 import { useFinance } from '../../context/FinanceContext';
 import { isPendingScheduledTx, getScheduledCountdownText } from '../../utils/scheduledUtils';
-import { X, Calendar, Clock, CreditCard, Plane, Sparkles, Trash2, Edit3 } from 'lucide-react';
+import { X, Calendar, Clock, CreditCard, Plane, Sparkles, Trash2, Edit3, Copy } from 'lucide-react';
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
@@ -11,6 +11,7 @@ interface TransactionDetailModalProps {
   trips: Trip[];
   onClose: () => void;
   onEdit: (tx: Transaction) => void;
+  onDuplicate?: (tx: Transaction) => void;
   onDelete: (id: string) => void;
 }
 
@@ -20,6 +21,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
   trips,
   onClose,
   onEdit,
+  onDuplicate,
   onDelete,
 }) => {
   const { baseCurrency, forexRates } = useFinance();
@@ -142,7 +144,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
 
         </div>
 
-        {/* Action Buttons: Edit / Delete */}
+        {/* Action Buttons: Delete / Duplicate / Edit */}
         <div className="pt-2 border-t border-hairline flex items-center justify-between gap-3">
           <button
             onClick={() => {
@@ -155,16 +157,31 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
             <span>Delete</span>
           </button>
 
-          <button
-            onClick={() => {
-              onEdit(transaction);
-              onClose();
-            }}
-            className="flex items-center gap-1.5 px-5 py-2 rounded-full text-xs font-mono font-bold border border-ink text-ink hover:bg-surface-soft transition-all cursor-pointer shadow-sm"
-          >
-            <Edit3 className="w-3.5 h-3.5 text-brand-blue" />
-            <span>Edit Details</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {onDuplicate && (
+              <button
+                onClick={() => {
+                  onDuplicate(transaction);
+                  onClose();
+                }}
+                className="p-2 rounded-full border border-hairline bg-surface-soft text-brand-purple hover:border-brand-purple hover:bg-brand-purple/10 transition-all cursor-pointer shadow-xs flex items-center justify-center"
+                title="Duplicate expense as a new log"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                onEdit(transaction);
+                onClose();
+              }}
+              className="flex items-center gap-1.5 px-5 py-2 rounded-full text-xs font-mono font-bold border border-ink text-ink hover:bg-surface-soft transition-all cursor-pointer shadow-sm"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-brand-blue" />
+              <span>Edit Details</span>
+            </button>
+          </div>
         </div>
 
       </div>

@@ -1,4 +1,4 @@
-import { Category, Transaction, Trip, Subscription } from '../types';
+import { Category, Transaction, Trip, Subscription, PeriodNote } from '../types';
 
 const DB_NAME = 'FinanceAllyDB';
 const DB_VERSION = 3; // Incremented for subscriptions store
@@ -357,6 +357,7 @@ export async function exportFullDataBackup(): Promise<string> {
   const trips = await loadTrips();
   const smsTemplates = await loadSmsTemplates();
   const subscriptions = await loadSubscriptions();
+  const periodNotes = await loadPeriodNotes();
   
   let profile = {};
   try {
@@ -378,6 +379,7 @@ export async function exportFullDataBackup(): Promise<string> {
     trips,
     smsTemplates,
     subscriptions,
+    periodNotes,
     profile,
     exportTimestamp: Date.now(),
     appVersion: '1.2.0'
@@ -464,7 +466,12 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
       });
     }
 
-    // 6. User Profile Store
+    // 6. Period Notes Store
+    if (data.periodNotes && Array.isArray(data.periodNotes)) {
+      localStorage.setItem('fa_period_notes', JSON.stringify(data.periodNotes));
+    }
+
+    // 7. User Profile Store
     if (data.profile && typeof data.profile === 'object' && data.profile.username) {
       await new Promise<void>((resolve, reject) => {
         const tx = db.transaction('userProfile', 'readwrite');
@@ -480,5 +487,41 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
   } catch (err) {
     console.error('Failed to import backup:', err);
     return false;
+  }
+}
+
+// ─── PERIOD NOTES API ─────────────────────────────────────────────────────────
+
+export async function loadPeriodNotes(): Promise<PeriodNote[]> {
+  try {
+    const raw = localStorage.getItem('fa_period_notes');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function savePeriodNote(note: PeriodNote): Promise<void> {
+  try {
+    const notes = await loadPeriodNotes();
+    const existingIndex = notes.findIndex(n => n.periodKey === note.periodKey);
+    if (existingIndex >= 0) {
+      notes[existingIndex] = note;
+    } else {
+      notes.push(note);
+    }
+    localStorage.setItem('fa_period_notes', JSON.stringify(notes));
+  } catch (e) {
+    console.error('Failed to save period note:', e);
+  }
+}
+
+export async function deletePeriodNote(periodKey: string): Promise<void> {
+  try {
+    const notes = await loadPeriodNotes();
+    const filtered = notes.filter(n => n.periodKey !== periodKey);
+    localStorage.setItem('fa_period_notes', JSON.stringify(filtered));
+  } catch (e) {
+    console.error('Failed to delete period note:', e);
   }
 }
