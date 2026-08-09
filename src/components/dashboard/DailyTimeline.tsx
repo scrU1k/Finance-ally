@@ -902,27 +902,6 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
           {/* DAY MODE */}
           {periodMode === 'day' && (
             <div className="space-y-6">
-              {/* Period Note Pill Card for Current / Drilled Month in Day Mode */}
-              {(() => {
-                const targetMonthKey = drilledFilter?.datePrefix || new Date().toISOString().substring(0, 7);
-                const targetMonthLabel = drilledFilter?.label || new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                const hasNote = periodNotes.some(n => n.periodKey === targetMonthKey && n.content.trim() !== '');
-
-                return (
-                  <div
-                    onClick={() => handleOpenNoteModal(targetMonthKey, 'month', `${targetMonthLabel} Note`)}
-                    className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-surface-card border border-hairline hover:border-brand-purple text-xs font-mono cursor-pointer transition-all shadow-sm hover:scale-[1.005] group"
-                  >
-                    <div className="flex items-center gap-2 text-brand-purple font-bold">
-                      <FileText className="w-4 h-4 shrink-0" />
-                      <span>{targetMonthLabel} Note</span>
-                    </div>
-                    <span className="text-[11px] font-mono text-muted-custom font-bold group-hover:text-brand-purple transition-colors">
-                      {hasNote ? 'Read / Edit Note' : '+ Add Month Note'}
-                    </span>
-                  </div>
-                );
-              })()}
 
               {visibleGroupedByDate.map(group => {
                 const isCollapsed = collapsedDates.has(group.date);

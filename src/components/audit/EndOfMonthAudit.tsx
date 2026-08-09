@@ -2,15 +2,15 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
 import { generateEndOfMonthAudit } from '../../services/insightsEngine';
-import { loadSubscriptions } from '../../services/db';
+import { loadSubscriptions, loadPeriodNotes, savePeriodNote, deletePeriodNote } from '../../services/db';
 import { formatCurrency } from '../../services/currency';
 import {
   PieChart, Award, AlertTriangle, CheckCircle, Calendar, HelpCircle,
-  Mail, Save, X, TrendingUp, Wallet, Clock,
+  Mail, Save, X, TrendingUp, Wallet, Clock, FileText, Edit2, Trash2,
 } from 'lucide-react';
 import { saveUserProfile } from '../../services/auth';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
-import { AuditDimensionScore, Subscription } from '../../types';
+import { AuditDimensionScore, Subscription, PeriodNote } from '../../types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -99,6 +99,11 @@ export const EndOfMonthAudit: React.FC = () => {
   const [isMonthModalOpen, setIsMonthModalOpen] = useState(false);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
 
+  // Period Notes state
+  const [periodNotes, setPeriodNotes] = useState<PeriodNote[]>([]);
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [noteEditContent, setNoteEditContent] = useState('');
+
   // Email config
   const [email, setEmail] = useState(user?.emailForReport || '');
   const [frequency, setFrequency] = useState(user?.reportFrequency || 'monthly');
@@ -108,6 +113,40 @@ export const EndOfMonthAudit: React.FC = () => {
   useEffect(() => {
     loadSubscriptions().then(setSubscriptions).catch(() => setSubscriptions([]));
   }, []);
+
+  useEffect(() => {
+    loadPeriodNotes().then(setPeriodNotes).catch(() => setPeriodNotes([]));
+  }, []);
+
+  // Sync note edit content when selected month changes
+  useEffect(() => {
+    const existing = periodNotes.find(n => n.periodKey === selectedMonth);
+    setNoteEditContent(existing?.content || '');
+    setIsEditingNote(false);
+  }, [selectedMonth, periodNotes]);
+
+  const handleSaveNote = async () => {
+    const newNote: PeriodNote = {
+      id: `note-${selectedMonth}`,
+      periodType: 'month',
+      periodKey: selectedMonth,
+      title: `${currentMonthLabel} ${year} Note`,
+      content: noteEditContent.trim(),
+      updatedAt: Date.now(),
+    };
+    await savePeriodNote(newNote);
+    const updated = await loadPeriodNotes();
+    setPeriodNotes(updated);
+    setIsEditingNote(false);
+  };
+
+  const handleDeleteNote = async () => {
+    await deletePeriodNote(selectedMonth);
+    const updated = await loadPeriodNotes();
+    setPeriodNotes(updated);
+    setNoteEditContent('');
+    setIsEditingNote(false);
+  };
 
   const auditReport = useMemo(
     () => generateEndOfMonthAudit(transactions, categories, selectedMonth, baseCurrency, subscriptions),
@@ -330,7 +369,73 @@ export const EndOfMonthAudit: React.FC = () => {
         </div>
       </div>
 
+      {/* Period Note Card */}
+      {(() => {
+        const existingNote = periodNotes.find(n => n.periodKey === selectedMonth);
+        return (
+          <div className="dotgui-card p-5 bg-surface-card space-y-3">
+            {/* Heading + Actions Row */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-brand-purple" />
+                <span>{currentMonthLabel} {year} Note:</span>
+              </h3>
+              <div className="flex items-center gap-2">
+                {existingNote && !isEditingNote && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteNote}
+                    className="p-1 text-brand-coral hover:opacity-80 cursor-pointer"
+                    title="Delete note"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {isEditingNote ? (
+                  <button
+                    type="button"
+                    onClick={handleSaveNote}
+                    className="px-3 py-1 rounded-full bg-brand-purple text-white text-[10px] font-mono font-bold shadow-sm hover:bg-brand-purple/90 cursor-pointer"
+                  >
+                    Save
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingNote(true)}
+                    className="p-1 text-muted-custom hover:text-brand-blue cursor-pointer"
+                    title="Edit note"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Note body */}
+            {isEditingNote ? (
+              <textarea
+                value={noteEditContent}
+                onChange={e => setNoteEditContent(e.target.value)}
+                placeholder="Add a personal note..."
+                rows={5}
+                autoFocus
+                className="w-full bg-surface-soft border border-hairline rounded-xl p-3 text-xs font-mono text-ink focus:outline-none focus:border-brand-purple leading-relaxed"
+              />
+            ) : (
+              <p className="text-xs font-mono leading-relaxed whitespace-pre-wrap">
+                {noteEditContent
+                  ? <span className="text-ink">{noteEditContent}</span>
+                  : <span className="text-muted-custom italic">Add a personal note...</span>
+                }
+              </p>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Email Report Settings */}
+
       <div className="dotgui-card p-5 bg-surface-card space-y-3">
         <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
           <Mail className="w-4 h-4 text-brand-mint" />

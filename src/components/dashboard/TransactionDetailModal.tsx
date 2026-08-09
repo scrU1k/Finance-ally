@@ -179,7 +179,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               className="flex items-center gap-1.5 px-5 py-2 rounded-full text-xs font-mono font-bold border border-ink text-ink hover:bg-surface-soft transition-all cursor-pointer shadow-sm"
             >
               <Edit3 className="w-3.5 h-3.5 text-brand-blue" />
-              <span>Edit Details</span>
+              <span>Edit</span>
             </button>
           </div>
         </div>
