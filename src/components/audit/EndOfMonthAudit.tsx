@@ -205,10 +205,10 @@ export const EndOfMonthAudit: React.FC = () => {
           </div>
 
           <div className={`flex items-center gap-2 border px-4 py-2 rounded-2xl ${gradeStyle}`}>
-            <Award className="w-6 h-6" />
+            <Award className="w-6 h-6 text-brand-purple" />
             <div>
               <div className="text-[9px] font-mono uppercase flex items-center gap-1 opacity-70">
-                <span>Overall Grade</span>
+                <span>{auditReport.budgetHealthScore === 'O' ? 'Building Baseline' : 'Overall Grade'}</span>
                 <button
                   onClick={() => setShowGradeExplanation(!showGradeExplanation)}
                   className="hover:opacity-80 cursor-pointer"
@@ -217,7 +217,12 @@ export const EndOfMonthAudit: React.FC = () => {
                   <HelpCircle className="w-3 h-3" />
                 </button>
               </div>
-              <div className="text-xl font-display font-bold">{auditReport.budgetHealthScore}</div>
+              <div className="text-xl font-display font-bold flex items-center gap-1.5">
+                {auditReport.budgetHealthScore}
+                {auditReport.budgetHealthScore === 'O' && (
+                  <span className="text-[10px] font-mono font-normal text-muted-custom">(Pending 3M Data)</span>
+                )}
+              </div>
             </div>
           </div>
         </div>

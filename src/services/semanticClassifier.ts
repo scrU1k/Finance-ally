@@ -153,59 +153,10 @@ export function categorizeNoteWithArcticFTS5(text: string): { categoryId: string
     }
   }
 
-  // 2. Cosine Vector Feature Similarity Fallback
-  const inputVector = computeSimpleFeatureVector(normalized);
-  let bestMatch = CATEGORY_ANCHORS[0];
-  let maxSimilarity = -1;
-
-  for (const anchor of CATEGORY_ANCHORS) {
-    const sim = cosineSimilarity(inputVector, anchor.vector);
-    if (sim > maxSimilarity) {
-      maxSimilarity = sim;
-      bestMatch = anchor;
-    }
-  }
-
-  if (maxSimilarity < 0.15) {
-    const othersAnchor = CATEGORY_ANCHORS.find(a => a.categoryId === 'cat-others') || CATEGORY_ANCHORS[CATEGORY_ANCHORS.length - 1];
-    return {
-      categoryId: othersAnchor.categoryId,
-      categoryName: othersAnchor.categoryName,
-      confidence: 65
-    };
-  }
-
-  const confidence = Math.min(Math.round(maxSimilarity * 100), 92);
-
+  // 2. Fallback to Others with low confidence if no keyword matches
   return {
-    categoryId: bestMatch.categoryId,
-    categoryName: bestMatch.categoryName,
-    confidence: Math.max(confidence, 65)
+    categoryId: 'cat-others',
+    categoryName: 'Others',
+    confidence: 50
   };
-}
-
-function computeSimpleFeatureVector(text: string): number[] {
-  let foodScore = /eat|dine|drink|food|sip|meal|snack|cup|table|dinner|lunch|coffee|burger|pizza|chocolate|candy|sweet|cake|biscuit|cookie/i.test(text) ? 0.8 : 0.1;
-  let moveScore = /drive|ride|travel|fly|commute|route|trip|cab|uber|petrol|fuel/i.test(text) ? 0.8 : 0.1;
-  let techScore = /tech|digital|device|gadget|wire|screen|laptop|phone|earbud|headphone/i.test(text) ? 0.8 : 0.1;
-  let wearScore = /wear|cloth|style|outfit|shoe|shirt|pant|jeans/i.test(text) ? 0.8 : 0.1;
-  let homeScore = /home|house|room|bill|pay|fee|water|light|wifi|rent/i.test(text) ? 0.8 : 0.1;
-  let funScore = /fun|play|game|music|video|watch|film|movie|show/i.test(text) ? 0.8 : 0.1;
-  let fitScore = /med|care|body|fit|cure|heal|doctor|pharma|gym|teeth|dentist/i.test(text) ? 0.8 : 0.1;
-  let tripScore = /stay|tour|visit|sight|suite|hotel|flight|resort/i.test(text) ? 0.8 : 0.1;
-
-  return [foodScore, moveScore, techScore, wearScore, homeScore, funScore, fitScore, tripScore];
-}
-
-function cosineSimilarity(vecA: number[], vecB: number[]): number {
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < vecA.length; i++) {
-    dotProduct += vecA[i] * vecB[i];
-    normA += vecA[i] * vecA[i];
-    normB += vecB[i] * vecB[i];
-  }
-  if (normA === 0 || normB === 0) return 0;
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }

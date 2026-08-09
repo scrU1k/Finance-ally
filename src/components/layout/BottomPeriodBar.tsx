@@ -4,7 +4,7 @@ import { PeriodType } from '../../types';
 import { PeriodNote } from '../../types';
 import { formatCurrency } from '../../services/currency';
 import { loadPeriodNotes, savePeriodNote, deletePeriodNote } from '../../services/db';
-import { TrendingDown, Plus, ChevronUp, FileText, X, Edit2, Trash2 } from 'lucide-react';
+import { Plus, ChevronUp, FileText, X, Edit2, Trash2 } from 'lucide-react';
 
 interface BottomPeriodBarProps {
   onOpenQuickAdd: () => void;

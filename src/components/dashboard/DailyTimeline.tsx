@@ -7,6 +7,8 @@ import { LiveSpendChart } from './LiveSpendChart';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { QuickLogBar } from './QuickLogBar';
 import { loadPeriodNotes, savePeriodNote, deletePeriodNote } from '../../services/db';
+import { searchTransactions } from '../../services/naturalSearchEngine';
+
 import {
   Search,
   Sparkles,
@@ -22,17 +24,12 @@ import {
   Grid,
   BarChart2,
   ChevronDown,
-  ChevronRight,
   Eye,
   CalendarRange,
   CalendarDays,
-  TrendingUp,
   Flame,
-  Filter,
-  ArrowRight,
   Copy,
   FileText,
-  Plus,
 } from 'lucide-react';
 import { BulkEditModal } from './BulkEditModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
@@ -95,7 +92,7 @@ function getWeekInfo(dateStr: string) {
 }
 
 export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _onOpenQuickAdd, onEditTransaction }) => {
-  const { filteredTransactions, categories, trips, deleteTx, editTransaction, addTransaction, baseCurrency, forexRates } = useFinance();
+  const { filteredTransactions, categories, trips, deleteTx, editTransaction, baseCurrency, forexRates } = useFinance();
 
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -327,15 +324,13 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
   }, [selectedTxIds, isSelectMode]);
 
   const processedTransactions = useMemo(() => {
-    return filteredTransactions.filter(tx => {
+    let list = filteredTransactions;
+    if (searchQuery && searchQuery.trim()) {
+      list = searchTransactions(list, searchQuery, categories, trips);
+    }
+
+    return list.filter(tx => {
       const matchCat = selectedCatFilter === 'all' || tx.categoryId === selectedCatFilter;
-      const query = searchQuery.toLowerCase().trim();
-      const matchQuery =
-        !query ||
-        tx.note.toLowerCase().includes(query) ||
-        tx.amount.toString().includes(query) ||
-        (tx.paymentMethod && tx.paymentMethod.toLowerCase().includes(query)) ||
-        tx.date.includes(query);
 
       let matchDrilled = true;
       if (drilledFilter) {
@@ -346,9 +341,9 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
         }
       }
 
-      return matchCat && matchQuery && matchDrilled;
+      return matchCat && matchDrilled;
     });
-  }, [filteredTransactions, selectedCatFilter, searchQuery, drilledFilter]);
+  }, [filteredTransactions, selectedCatFilter, searchQuery, drilledFilter, categories, trips]);
 
   // 1. Grouped by Day
   const groupedByDate = useMemo(() => {
@@ -771,7 +766,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search notes, merchants, amounts, dates..."
+                placeholder='Try "coffee over 50 a few weeks ago", "cash", "trip to paris"...'
                 autoFocus
                 className="w-full bg-surface-card border border-hairline text-ink rounded-xl pl-9 pr-8 py-2 text-xs font-mono focus:outline-none focus:border-ink placeholder:text-muted-custom shadow-sm"
               />

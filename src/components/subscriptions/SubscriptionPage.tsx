@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { Subscription, CurrencyCode } from '../../types';
 import { loadSubscriptions, saveSubscription, deleteSubscription as dbDeleteSub } from '../../services/db';
+import { triggerSystemNotification } from '../../services/notificationService';
 import { formatCurrency, TOP_CURRENCIES } from '../../services/currency';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { CustomDatePicker } from '../common/CustomDatePicker';
@@ -127,6 +128,14 @@ export const SubscriptionPage: React.FC = () => {
             paymentMethod: sub.paymentMethod,
             isAutoParsed: true,
           });
+
+          // Trigger System Notification
+          const formattedAmt = formatCurrency(sub.amount, sub.currency || baseCurrency);
+          triggerSystemNotification(
+            '🔄 Subscription Logged',
+            `${sub.name} subscription of ${formattedAmt} was automatically logged today.`,
+            `sub_${sub.id}_${today}`
+          );
 
           // Advance next due date based on selected cycle with month-end day clamping
           const [curY, curM, curD] = sub.nextDueDate.split('-').map(Number);

@@ -27,11 +27,6 @@ export const NotificationScannerModal: React.FC = () => {
     loadSmsTemplates().then(setUserTemplates);
   }, []);
 
-  // Background SMS Listener Simulator State
-  const [permissionGranted, setPermissionGranted] = useState(false);
-  const [listenerActive, setListenerActive] = useState(false);
-  const [simulatedAlert, setSimulatedAlert] = useState<{ title: string; text: string } | null>(null);
-
   // Editable Form State
   const [editAmount, setEditAmount] = useState<string>('');
   const [editMerchant, setEditMerchant] = useState<string>('');
@@ -106,30 +101,7 @@ export const NotificationScannerModal: React.FC = () => {
     });
 
     setLogged(true);
-    setSimulatedAlert(null);
   };
-
-  const handleRequestPermission = () => {
-    setPermissionGranted(true);
-    setListenerActive(true);
-  };
-
-  // Simulate an incoming transaction SMS after 3 seconds of turning on the listener
-  useEffect(() => {
-    if (listenerActive) {
-      const timer = setTimeout(() => {
-        const mockSms = {
-          title: "HDFC Bank Alert",
-          text: "Dear Customer, Rs 1200.00 debited from AC XXXXXX on 2026-08-06 to Swiggy. Ref: 204859."
-        };
-        setSimulatedAlert(mockSms);
-        handleTextChange(mockSms.text);
-      }, 3000);
-      return () => clearTimeout(timer);
-    } else {
-      setSimulatedAlert(null);
-    }
-  }, [listenerActive, handleTextChange]);
 
   return (
     <div className="space-y-6 pb-24 max-w-full overflow-hidden">
@@ -139,40 +111,31 @@ export const NotificationScannerModal: React.FC = () => {
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-brand-yellow" />
           <h2 className="text-xl font-display font-bold text-ink">
-            Notification Scanner
+            Notification Extraction
           </h2>
         </div>
       </div>
 
-      {/* 1. NATIVE NOTIFICATION / SMS LISTENER PANEL */}
-      <div className="dotgui-card p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {listenerActive ? <Bell className="w-5 h-5 text-brand-mint animate-bounce" /> : <BellOff className="w-5 h-5 text-muted-custom" />}
-            <div>
-              <h3 className="text-xs font-mono font-bold text-ink uppercase">Automated Background SMS / Notif Reader</h3>
-              <p className="text-[10px] font-mono text-muted-custom">
-                {listenerActive ? 'Active: Automatically parsing incoming banking & UPI alerts.' : 'Inactive: Tap to request notification access.'}
-              </p>
-            </div>
+      {/* 1. PRIVACY-FIRST NOTIFICATION & BANK SMS PARSER HEADER */}
+      <div className="dotgui-card p-5 space-y-2 bg-surface-card border border-hairline rounded-2xl">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-5 h-5 text-brand-blue" />
+          <div>
+            <h3 className="text-xs font-mono font-bold text-ink uppercase">Bank SMS & Notification Parser</h3>
+            <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+              Copy bank debit alerts or UPI messages from your SMS app and paste them below to extract expense details automatically.
+            </p>
           </div>
-
-          <button
-            onClick={handleRequestPermission}
-            className={`px-3 py-1.5 rounded-full text-xs font-mono font-bold transition-all border shrink-0 cursor-pointer ${
-              permissionGranted
-                ? 'border-brand-mint text-brand-mint bg-surface-soft'
-                : 'border-brand-blue text-brand-blue bg-surface-card hover:bg-surface-soft shadow-sm'
-            }`}
-          >
-            {permissionGranted ? 'Access Granted' : 'Grant Permission'}
-          </button>
         </div>
 
-        {/* Browser vs Native App Hint */}
-        <p className="text-[10px] font-mono text-muted-custom border-t border-hairline pt-2.5">
-          ℹ️ <strong>Native OS Integration:</strong> Direct SMS inbox reading is restricted inside browser sandboxes. Once installed as a native Android APK, the background listener intercepts banking alerts automatically, bypassing manual pasting.
-        </p>
+        <div className="flex items-center gap-4 text-[10px] font-mono text-muted-custom pt-2 border-t border-hairline">
+          <span className="flex items-center gap-1 text-brand-mint font-semibold">
+            <CheckCircle2 className="w-3 h-3 text-brand-mint" /> 100% Offline & Local
+          </span>
+          <span className="flex items-center gap-1 text-brand-blue font-semibold">
+            <Sparkles className="w-3 h-3 text-brand-blue" /> Zero Cloud Dependency
+          </span>
+        </div>
       </div>
 
       {/* 1.5 DYNAMIC SMS TEMPLATE BUILDER PANEL */}
@@ -279,18 +242,7 @@ export const NotificationScannerModal: React.FC = () => {
         )}
       </div>
 
-      {/* Simulated Incoming SMS Alert Banner */}
-      {simulatedAlert && (
-        <div className="border border-brand-blue/30 bg-surface-soft p-4 rounded-xl space-y-2 animate-in slide-in-from-top duration-200">
-          <div className="flex items-center gap-2 text-ink font-mono text-xs font-bold">
-            <MessageSquare className="w-4 h-4 text-brand-blue" />
-            <span>Simulated Incoming SMS Received!</span>
-          </div>
-          <p className="text-xs font-mono text-body-custom italic">
-            "{simulatedAlert.text}"
-          </p>
-        </div>
-      )}
+
 
       {/* Text Area Input / Paste Dropzone */}
       <div className="space-y-2">

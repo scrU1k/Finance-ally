@@ -6,7 +6,9 @@
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { exportFullDataBackup } from './db';
-import { encryptJSON } from './cryptoService';
+import { encryptHybridJSON, hasExportPin } from './cryptoService';
+import { triggerSystemNotification } from './notificationService';
+
 
 export type LocalSyncSchedule = 'daily' | 'weekly' | 'monthly' | 'off';
 
@@ -71,6 +73,69 @@ function saveSnapshotsList(list: LocalSnapshotMetadata[]) {
 }
 
 /**
+ * Scans the native filesystem for snapshots (in case App Data / localStorage was wiped)
+ * and repopulates the local cache metadata list.
+ */
+export async function syncSnapshotsFromFilesystem(): Promise<LocalSnapshotMetadata[]> {
+  if (!Capacitor.isNativePlatform()) return getLocalSnapshots();
+
+  try {
+    const res = await Filesystem.readdir({
+      path: 'Finance-Ally/Snapshots',
+      directory: Directory.Documents,
+    });
+
+    const validFiles = res.files.filter(f => f.name.endsWith('.json') || f.name.endsWith('.json.enc'));
+    if (validFiles.length === 0) return getLocalSnapshots();
+
+    // Rebuild metadata array
+    const rebuilt: LocalSnapshotMetadata[] = validFiles.map((f, i) => {
+      // Best-effort timestamp extraction from 'fa_autobackup_YYYY-MM-DD_ID.json'
+      const parts = f.name.split('_');
+      let timestamp = new Date(f.mtime || Date.now()).toLocaleString();
+      if (parts.length >= 3) {
+        timestamp = parts[2]; // The YYYY-MM-DD part as fallback
+      }
+      return {
+        id: `snap_recovered_${f.mtime || Date.now()}_${i}`,
+        filename: f.name,
+        timestamp,
+        schedule: 'off' as LocalSyncSchedule, // assume manual/unknown since config was lost
+        isEncrypted: f.name.endsWith('.json.enc'),
+        sizeBytes: f.size || 0,
+      };
+    });
+
+    // Sort by newest first
+    rebuilt.sort((a, b) => {
+      if (a.id > b.id) return -1;
+      if (a.id < b.id) return 1;
+      return 0;
+    });
+
+    // Merge with any existing local storage records (avoiding exact filename duplicates)
+    const existing = getLocalSnapshots();
+    const merged = [...existing];
+    for (const r of rebuilt) {
+      if (!merged.find(m => m.filename === r.filename)) {
+        merged.push(r);
+      }
+    }
+    
+    // Sort again
+    merged.sort((a, b) => b.id.localeCompare(a.id));
+    const finalMerged = merged.slice(0, 10); // keep up to max
+
+    saveSnapshotsList(finalMerged);
+    return finalMerged;
+
+  } catch (err) {
+    console.warn('Could not scan native filesystem for snapshots:', err);
+    return getLocalSnapshots();
+  }
+}
+
+/**
  * Determines if a new auto-backup is due based on schedule and last backup time.
  */
 export function isBackupDue(config: LocalAutoBackupConfig): boolean {
@@ -102,20 +167,19 @@ export function isBackupDue(config: LocalAutoBackupConfig): boolean {
 
 /**
  * Creates an offline local automated snapshot of the app database.
- * Pass a `pin` string to encrypt the snapshot with AES-256-GCM.
- * Automated (background) snapshots without a PIN remain plain JSON.
+ * If a Backup PIN is set, it automatically encrypts the snapshot using 
+ * the stored RSA Public Key (Hybrid Crypto) without needing the PIN in memory.
  */
 export async function createLocalAutoBackup(
-  manualTrigger = false,
-  pin?: string
+  manualTrigger = false
 ): Promise<{ success: boolean; snapshot?: LocalSnapshotMetadata; message: string }> {
   try {
     const config = getLocalAutoBackupConfig();
     const jsonStr = await exportFullDataBackup();
 
-    // Encrypt when a PIN is explicitly provided (manual triggered with PIN)
-    const isEncrypted = !!(pin && pin.length > 0);
-    const finalPayload = isEncrypted ? await encryptJSON(jsonStr, pin!) : jsonStr;
+    // Automatically encrypt if a PIN is set (uses stored RSA Public Key)
+    const isEncrypted = hasExportPin();
+    const finalPayload = isEncrypted ? await encryptHybridJSON(jsonStr) : jsonStr;
 
     const isoDate = new Date().toISOString().split('T')[0];
     const timestampStr = new Date().toLocaleString();
@@ -194,6 +258,15 @@ export async function createLocalAutoBackup(
     saveSnapshotsList(snapshots);
     saveLocalAutoBackupConfig({ lastBackupTime: Date.now() });
 
+    // Fire generic system notification for automated background backups
+    if (!manualTrigger) {
+      triggerSystemNotification(
+        'Automated Backup Created',
+        `Snapshot taken and saved to Finance-Ally/Snapshots/${filename}`,
+        `snap_notify_${newSnapshot.id}`
+      );
+    }
+
     return {
       success: true,
       snapshot: newSnapshot,
@@ -220,10 +293,36 @@ export async function checkAndPerformLocalAutoBackup(): Promise<void> {
 }
 
 /**
- * Gets payload for a specific snapshot ID.
+ * Gets payload for a specific snapshot. Tries cache first, then reads native filesystem.
  */
-export function getSnapshotPayload(snapshotId: string): string | null {
-  return localStorage.getItem(`fa_snap_data_${snapshotId}`);
+export async function getSnapshotPayload(snap: LocalSnapshotMetadata): Promise<string | null> {
+  const cached = localStorage.getItem(`fa_snap_data_${snap.id}`);
+  if (cached) return cached;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const result = await Filesystem.readFile({
+        path: `Finance-Ally/Snapshots/${snap.filename}`,
+        directory: Directory.Documents,
+        encoding: Encoding.UTF8
+      });
+      if (typeof result.data === 'string') return result.data;
+    } catch (e) {
+      console.warn(`Failed to read snapshot ${snap.filename} from Documents:`, e);
+      try {
+        const result2 = await Filesystem.readFile({
+          path: snap.filename,
+          directory: Directory.Cache,
+          encoding: Encoding.UTF8
+        });
+        if (typeof result2.data === 'string') return result2.data;
+      } catch (e2) {
+        console.warn(`Failed to read snapshot ${snap.filename} from Cache fallback:`, e2);
+      }
+    }
+  }
+  
+  return null;
 }
 
 /**

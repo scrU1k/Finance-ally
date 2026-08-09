@@ -14,6 +14,7 @@ Finance-Ally is a premium, beautifully crafted personal finance app designed for
 - **Stunning Glassmorphic Design**: Built with frosted glass surfaces, dynamic lighting, fluid micro-animations, and custom ambient glowing active tabs that feel alive.
 - **Smart Natural Language Quick Logging**: Simply type expenses the way you think (`450rs coffee 2nd aug 8pm`, `250 petrol tomorrow at 9a`, `1200 dinner at 8pn`) — Finance-Ally parses the amount, date, time, category, and payment method automatically.
 - **Scheduled Payments**: Set any expense for a future date and time. It registers as a scheduled payment, is excluded from your current total until due, and fires a native Android system notification the moment it activates — even if the app is closed.
+- **Notification Extraction**: 100% offline SMS & bank alert parsing via manual/clipboard entry.
 - **Trip Vaults**: Create dedicated trip vaults to track domestic & international travel spending in local currencies without mixing them into your daily home budget.
 - **Split Bills**: Manage shared group expenses with friends. Calculate tips/taxes, track who paid, and generate formatted summaries to share.
 - **Monthly Financial Audits**: Intelligent month-end reviews with automated letter grades (A+ to F), anomaly detection, top category breakdowns, and personalized savings suggestions.
@@ -49,7 +50,17 @@ Forget tedious multi-step form fields. Just type your expenses naturally into th
 
 ---
 
-### 2. Scheduled Payments
+## 2. Notification Extraction (Offline & Privacy-First)
+
+Finance-Ally features a dedicated **Notification Extraction** module designed to convert bank debit alerts, UPI messages, and transaction SMS text into logged expenses.
+
+### Extraction Capabilities
+- **One-Tap Clipboard Extraction**: Copy a debit alert from HDFC, ICICI, SBI, Axis, GPay, Paytm, Swiggy, etc., and tap **"Paste Clipboard"** to extract the amount, merchant name, currency, and category instantly.
+- **Custom Pattern Engine**: Create custom regex/placeholder templates (e.g. `Debited {CURRENCY} {AMOUNT} to {MERCHANT}`) to support any regional bank or payment app.
+
+---
+
+### 3. Scheduled Payments
 
 Any expense with a future date/time is automatically recognized as a **Scheduled Payment**.
 
@@ -60,21 +71,10 @@ Any expense with a future date/time is automatically recognized as a **Scheduled
 
 ---
 
-### 3. Multi-Log Mode
-
-Log multiple expenses to the same date quickly without re-typing the date each time.
-
-- **Change Date Easily**: Tap the date pill to open the calendar and select a different date.
-- **Exit Multi-Log**: Tap the **Multi-Log** chip again to deactivate. The chip turns purple while active to signal the mode is on.
-- **Scheduling Aware**: Selecting a future date in Multi-Log auto-schedules every expense in that session.
-
----
-
 ### 4. Complete Privacy & Security
 
 - **Startup App Lock**: Optional PIN lock card to guard your database from local access.
-- **AES-256 Encrypted Backups**: Export your complete financial backup as an encrypted `.json` file with optional PIN protection.
-- **Separated Settings Cards**: Password locking and backup PIN encryption are split into distinct cards for focused security customization.
+- **RSA-2048 + AES-256-GCM Encrypted Backups**: Export your complete financial backup as an encrypted `.json.enc` file with PIN protection.
 - **Zero Third-Party Tracking**: No analytics, no advertising SDKs, no external accounts — ever.
 
 ---
@@ -106,42 +106,29 @@ Managing shared expenses with friends made simple:
 - **Single-Line Controls Toolbar**: Built with icon-only **Search**, direct **Chart Jump**, **Multi-Log**, and **View** pill buttons — guaranteed to sit on a single line on any mobile screen without wrapping or truncation.
 - **Collapsible Daily Headers**: Click the cyan calendar icon or date text to collapse/expand that day's logs into a single compact line showing the date and total daily spend. When collapsed, the icon dynamically switches to a grey chevron down icon.
 - **Multi-Period Aggregated Views**: Tap the **View** button to open a floating glassmorphic popover menu offering 4 time grouping modes:
-  - **Day** (Default): Daily timeline logs with `Compact`, `List`, or `Grid` card layout options. Loads the last 30 active days by default with a `Load older history` button to prevent performance lag.
+  - **Day** (Default): Daily timeline logs with `Compact`, `List`, or `Grid` card layout options. Loads the last 30 active days by default with a `Load older history` button.
   - **Week**: Aggregated weekly spending cards displaying Week Number, Date Range (e.g. `Aug 3 – Aug 9, 2026`), active spending days, and total spend — no individual item clutter.
   - **Month**: Aggregated monthly cards showing Month Name (e.g. `August 2026`), total monthly spend, and daily average.
   - **Year**: Clean annual overview cards showing Year (e.g. `2026`), total yearly spend, total logs, and the **Highest Spending Month** highlight (e.g. `Highest: August (₹45,200)`).
 - **Log Duplication**: Long-pressing logs reveals a Copy icon button in the floating selection bar to bulk-duplicate old recurring payments into new draft logs. Detail view modals also feature a dedicated Copy button.
 - **Trip Tag Quick Logging**: Choose or switch Trip Tags directly inside the Quick Log preview chip bar before saving.
 - **Side-Swipe Month Date Picker**: In the custom calendar date selector, swipe left or right to seamlessly navigate between months.
-- **Monthly & Annual Review Notes**: Dedicated `<Month Name, Year> Note` and `<Year> Note` cards appear in timeline feeds. Clicking opens a glassmorphic popover to view, edit, or delete personal notes, financial goals, or monthly reviews.
-- **Hierarchical Card Drill-Down**: Tapping any card in high-level views seamlessly drills down into deeper detail:
-  - **Year Card Click** → Drills into **Month View** filtered to that year.
-  - **Month Card Click** → Drills into **Day View** filtered to that month.
-  - **Week Card Click** → Drills into **Day View** filtered to that week.
-- **Step-Back & Reset Navigation Banner**: Active drill-downs display a minimal banner (`View: August 2026 [ Reset ]`). Tapping the `View: <Label>` text steps back **one level up** to the parent period view; tapping `Reset` restores the all-time view.
+- **Monthly & Annual Review Notes**: Dedicated `<Month Name, Year> Note` and `<Year> Note` cards appear in timeline feeds. 
 
 ---
 
-### 8. Clipboard Auto-Detection
+### 8. Monthly Financial Audits & Smart Insights
 
-- **Sleek Auto-Detection Toast**: Copy a bank SMS or transaction notification to your clipboard — a floating banner appears automatically.
-- **1-Tap Log & Edit**: Quick-log instantly or tap Edit to open the Transaction Editor pre-filled with the parsed amount, merchant, currency, and category.
-- **Universal Currency Dictionary**: Supports INR, USD, CAD, AUD, SGD, EUR, GBP, JPY, CNY, CHF, AED, and more.
-
----
-
-### 9. Monthly Financial Audits & Smart Insights
-
-- **Financial Health Grade**: Monthly grade from `A+` to `F` based on budget adherence and spending consistency
-- **Top Spending Day**: Highlights your highest expenditure day of the month
-- **Anomaly Detection**: Warns about unusual spending spikes in specific categories
-- **Actionable Advice**: Tailored suggestions on subscriptions to cut or categories to optimize
+- **Financial Health Grade**: Monthly grade from `A+` to `F` based on budget adherence and spending consistency (with explicit `O (Building Baseline)` indicator for accounts under 3 months).
+- **Coefficient of Variation (CV) Volatility**: Measures week-to-week spend erraticness weighted by category spend share, with week bucketing capped at 4 to eliminate month-boundary distortions.
+- **Subscription Creep Anomaly Detection**: Cross-references transaction frequencies to flag unrecorded subscriptions while preventing false positives on common recurring purchases.
+- **Actionable Advice**: Tailored suggestions on subscriptions to cut or categories to optimize.
 
 ---
 
-### 10. Dynamic Tab Navigation
+### 9. Dynamic Tab Navigation
 
-- **Scrolling Tab Row**: Core tabs (`Expenditure`, `Subscriptions`, `Trip Manager`) and More Tools (`Notification Scanner`, `Financial Audit`, `Split Bills`, `Spend Insights`) are organized into a smart dynamic row.
+- **Scrolling Tab Row**: Core tabs (`Expenditure`, `Subscriptions`, `Trip Manager`) and More Tools (`Notification Extraction`, `Financial Audit`, `Split Bills`, `Spend Insights`) are organized into a smart dynamic row.
 - **Clutter-Free Dropdown**: Viewing a core tab shows a chevron dropdown for tools; viewing a tool shows the tool row with a dropdown back to core tabs — always one tap from anywhere.
 
 ---
@@ -153,16 +140,6 @@ Finance-Ally's Android build is a first-class native experience, not just a web 
 - **Native Notification Channel**: A dedicated Android notification channel is created on first launch with high-priority heads-up alerts.
 - **Runtime Permission Prompt**: The app requests `POST_NOTIFICATIONS` permission natively on Android 13+ devices, ensuring the system dialog appears immediately on first open.
 - **AlarmManager Background Scheduling**: Future scheduled payments register exact OS-level alarms via `AlarmManager.setExactAndAllowWhileIdle()`, firing system notifications even when the app is completely closed.
-
----
-
-## Version History
-
-| Version | Highlights |
-|---------|-----------|
-| **v1.2** | Log Duplication (selection bar & detail modal Copy buttons), Quick Log Trip Tag Selector, Side-Swipe Month Date Selector, Monthly & Annual Review Notes (`<Month/Year> Note` popovers), Multi-Period View Engine (Day/Week/Month/Year), Hierarchical Card Drill-Down (Year → Month → Day, Week → Day), Step-Back Banner Navigation (`View: <Label>`), 30-Day Active Window Pagination, Collapsible Daily Headers |
-| **v1.1** | Native AlarmManager background notifications (`ScheduledNotificationPlugin` + `NotificationReceiver`), Multi-Log mode with direct calendar popup, typo-tolerant time parsing (`8pn`, `8a.`, `8.30an`), contextual time inference, clean note extraction |
-| **v1.0** | Initial release — Quick Log NLP, Trip Vaults, Split Bills, Monthly Audit, Clipboard Detection, Glassmorphic UI |
 
 ---
 

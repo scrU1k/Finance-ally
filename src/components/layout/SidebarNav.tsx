@@ -21,7 +21,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
 
   // Secondary tools dropdown items
   const secondaryTabs: { id: NavTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'scanner', label: 'Notification Scanner', icon: <Sparkles className="w-4 h-4 text-brand-yellow shrink-0" /> },
+    { id: 'scanner', label: 'Notification Extraction', icon: <Sparkles className="w-4 h-4 text-brand-yellow shrink-0" /> },
     { id: 'audit', label: 'Financial Audit', icon: <PieChart className="w-4 h-4 text-brand-mint shrink-0" /> },
     { id: 'split', label: 'Split Bills', icon: <Users className="w-4 h-4 text-brand-blue shrink-0" /> },
     { id: 'insights', label: 'Spend Insights', icon: <Lightbulb className="w-4 h-4 text-brand-coral shrink-0" /> },

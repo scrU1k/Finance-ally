@@ -108,3 +108,20 @@ export async function triggerScheduledPaymentNotification(tx: Transaction, baseC
     }
   }
 }
+
+/**
+ * Fires an immediate native Android notification for general events.
+ */
+export async function triggerSystemNotification(title: string, body: string, idStr: string) {
+  const id = hashString(idStr);
+  try {
+    await ScheduledNotification.showNotification({ id, title, body });
+    console.log('[Native] Fired immediate generic notification for:', idStr);
+  } catch (e) {
+    console.warn('[Native] showNotification failed, trying web fallback:', e);
+    // Web fallback
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try { new Notification(title, { body, icon: '/favicon.ico', tag: idStr }); } catch {}
+    }
+  }
+}

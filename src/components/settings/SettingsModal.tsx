@@ -5,7 +5,7 @@ import { useTheme, ThemeMode, FontFamily } from '../../context/ThemeContext';
 import { TOP_CURRENCIES, convertCurrencyAmount, formatCurrency } from '../../services/currency';
 import { exportFullDataBackup, importFullDataBackup } from '../../services/db';
 import { exportTransactionsToCSV, importTransactionsFromCSV } from '../../services/csvParser';
-import { encryptJSON, decryptJSON, isEncryptedBackup, saveExportPin, verifyExportPin, hasExportPin, clearExportPin } from '../../services/cryptoService';
+import { encryptJSON, decryptJSON, isEncryptedBackup, saveExportPin, hasExportPin, clearExportPin } from '../../services/cryptoService';
 import {
   getLocalAutoBackupConfig,
   saveLocalAutoBackupConfig,
@@ -13,6 +13,7 @@ import {
   createLocalAutoBackup,
   getSnapshotPayload,
   deleteLocalSnapshot,
+  syncSnapshotsFromFilesystem,
   LocalAutoBackupConfig,
   LocalSnapshotMetadata
 } from '../../services/localAutoBackupService';
@@ -49,7 +50,7 @@ type SettingsSubPage = 'main' | 'security' | 'csv' | 'backup';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { user, toggleRequirePassword, changePassword } = useAuth();
-  const { baseCurrency, switchBaseCurrency, syncForexRates, forexRates, transactions, categories, addTransaction, reloadAllData } = useFinance();
+  const { baseCurrency, switchBaseCurrency, syncForexRates, forexRates, transactions, categories, addTransaction } = useFinance();
   const { theme, setTheme, fontFamily, setFontFamily } = useTheme();
 
   // Active Sub-Page Navigation State
@@ -61,6 +62,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       setActiveSubPage('main');
     }
   }, [isOpen]);
+
+  // Sync missing snapshots from native filesystem when backup tab opens
+  useEffect(() => {
+    if (activeSubPage === 'backup') {
+      syncSnapshotsFromFilesystem().then(list => setLocalSnapshotsState(list));
+    }
+  }, [activeSubPage]);
 
   // Embedded Converter State
   const [calcAmount, setCalcAmount] = useState('100');
@@ -110,8 +118,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [verifyPinLoading, setVerifyPinLoading] = useState(false);
   const [verifyPinError, setVerifyPinError] = useState('');
 
-  // Track whether the PIN modal is being used for snapshot creation vs import/restore
-  const [pendingSnapshotCreate, setPendingSnapshotCreate] = useState(false);
 
   if (!isOpen) return null;
 
@@ -168,13 +174,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   const handleExport = async (e?: React.MouseEvent) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
-    const backupStr = await exportFullDataBackup();
+    let backupStr = await exportFullDataBackup();
     if (pinEnabled && hasExportPin()) {
-      setPendingImportContent(null);
-      setExportModalData(backupStr);
-    } else {
-      setExportModalData(backupStr);
+      backupStr = await encryptJSON(backupStr, ''); // Uses Hybrid Crypto automatically
     }
+    setPendingImportContent(null);
+    setExportModalData(backupStr);
   };
 
   const handleExportCSV = () => {
@@ -257,6 +262,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.name.endsWith('.json') && !file.name.endsWith('.enc')) {
+      setImportStatus('Error: Please select a valid .json or .json.enc backup file.');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = async (event) => {
       const content = event.target?.result as string;
@@ -281,32 +291,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const handleVerifyPinAndImport = async (pin: string) => {
     setVerifyPinLoading(true);
     setVerifyPinError('');
-
-    // If this was triggered by a manual snapshot creation request, encrypt & save snapshot
-    if (pendingSnapshotCreate) {
-      try {
-        // Verify the PIN first before using it
-        const { verifyExportPin } = await import('../../services/cryptoService');
-        const valid = await verifyExportPin(pin);
-        if (!valid) {
-          setVerifyPinLoading(false);
-          setVerifyPinError('Incorrect PIN. Please try again.');
-          return;
-        }
-        setLocalBackupLoading(true);
-        const res = await createLocalAutoBackup(true, pin);
-        setLocalBackupLoading(false);
-        setLocalBackupMsg(res.message);
-        setLocalSnapshotsState(getLocalSnapshots());
-        setShowVerifyPinModal(false);
-        setPendingSnapshotCreate(false);
-        setVerifyPinLoading(false);
-      } catch {
-        setVerifyPinLoading(false);
-        setVerifyPinError('Error creating encrypted snapshot.');
-      }
-      return;
-    }
 
     if (!pendingImportContent) return;
     try {
@@ -341,14 +325,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   const handleManualLocalAutoBackup = async () => {
-    // If a PIN is set, ask for it first so the snapshot can be encrypted
-    if (hasExportPin()) {
-      setPendingSnapshotCreate(true);
-      setPendingImportContent(null);
-      setVerifyPinError('');
-      setShowVerifyPinModal(true);
-      return;
-    }
     setLocalBackupLoading(true);
     setLocalBackupMsg('');
     const res = await createLocalAutoBackup(true);
@@ -358,7 +334,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   const handleRestoreSnapshot = async (snap: LocalSnapshotMetadata) => {
-    const payload = getSnapshotPayload(snap.id);
+    setImportStatus('Loading snapshot data...');
+    const payload = await getSnapshotPayload(snap);
     if (!payload) {
       setImportStatus('Snapshot data not found in local cache.');
       return;
@@ -458,7 +435,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 {activeSubPage === 'backup' && 'Backup & Auto-Sync'}
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-purple/15 text-brand-purple border border-brand-purple/30 font-bold shrink-0">
-                v1.1
+                v1.2
               </span>
             </h2>
           </div>
@@ -933,7 +910,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
-                  accept=".json"
+                  accept="*/*"
                   className="hidden"
                 />
               </div>
@@ -1098,75 +1075,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
               <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
                 {pinEnabled
-                  ? 'Backup encryption is ON. Enter your Export PIN to encrypt the file, then choose a save method.'
+                  ? 'Backup is encrypted using Hybrid Cryptography. Choose a destination. On Android, Share is recommended if file downloads are blocked.'
                   : 'Export is ready! Choose a destination. On Android, Share is recommended if file downloads are blocked.'}
               </p>
-              {pinEnabled ? (
-                <ExportWithPinFlow
-                  plainData={exportModalData}
-                  onEncrypted={async (encryptedStr) => {
-                    const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
-                    if (Capacitor.isNativePlatform()) {
-                      try {
-                        await Filesystem.writeFile({
-                          path: `Finance-Ally/Backups/${filename}`,
-                          data: encryptedStr,
-                          directory: Directory.Documents,
-                          encoding: 'utf8' as any,
-                          recursive: true
-                        });
-                        const writeResult = await Filesystem.writeFile({ path: filename, data: encryptedStr, directory: Directory.Cache, encoding: 'utf8' as any });
-                        await Share.share({ title: 'Finance-Ally Encrypted Backup', url: writeResult.uri, dialogTitle: 'Save encrypted backup' });
-                      } catch { navigator.clipboard.writeText(encryptedStr); }
-                    } else {
-                      const a = document.createElement('a');
-                      a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(encryptedStr);
-                      a.download = filename;
-                      document.body.appendChild(a); a.click(); a.remove();
-                    }
-                    setImportStatus('Encrypted backup exported!');
-                    setExportModalData(null);
-                  }}
-                  onCancel={() => setExportModalData(null)}
-                />
-              ) : (
-                <div className="space-y-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
-                        if (Capacitor.isNativePlatform()) {
-                          const writeResult = await Filesystem.writeFile({ path: filename, data: exportModalData, directory: Directory.Cache, encoding: 'utf8' as any });
-                          await Share.share({ title: 'Finance-Ally Backup', url: writeResult.uri, dialogTitle: 'Select destination to save JSON file' });
-                          setImportStatus('Backup saved and shared!');
-                        } else if (navigator.share) {
-                          await navigator.share({ title: 'Finance-Ally Backup', text: exportModalData });
-                          setImportStatus('Backup shared!');
-                        } else {
-                          navigator.clipboard.writeText(exportModalData);
-                          setImportStatus('JSON backup copied to clipboard!');
-                        }
-                        setExportModalData(null);
-                      } catch (err: any) { setImportStatus(`Share error: ${err.message || err}`); }
-                    }}
-                    className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-                  >
-                    Share and Choose Destination
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { navigator.clipboard.writeText(exportModalData); setImportStatus('JSON backup copied to clipboard!'); setExportModalData(null); }}
-                    className="w-full bg-surface-soft border border-hairline text-ink hover:border-ink font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-                  >
-                    Copy JSON to Clipboard
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.json`;
-                        if (Capacitor.isNativePlatform()) {
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const ext = pinEnabled ? 'json.enc' : 'json';
+                      const filename = `finance-ally-backup-${new Date().toISOString().split('T')[0]}.${ext}`;
+                      if (Capacitor.isNativePlatform()) {
+                        try {
                           await Filesystem.writeFile({
                             path: `Finance-Ally/Backups/${filename}`,
                             data: exportModalData,
@@ -1174,23 +1094,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             encoding: 'utf8' as any,
                             recursive: true
                           });
-                          setImportStatus(`File saved to Documents: Finance-Ally/Backups/${filename}`);
-                        } else {
-                          const a = document.createElement('a');
-                          a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(exportModalData);
-                          a.download = filename;
-                          document.body.appendChild(a); a.click(); a.remove();
-                          setImportStatus('JSON file download triggered!');
-                        }
-                        setExportModalData(null);
-                      } catch (err: any) { setImportStatus(`Download failed: ${err.message || err}`); }
+                        } catch (err) { console.error('Failed to write to Documents', err); }
+                        
+                        const writeResult = await Filesystem.writeFile({ path: filename, data: exportModalData, directory: Directory.Cache, encoding: 'utf8' as any });
+                        await Share.share({ title: `Finance-Ally Backup`, url: writeResult.uri, dialogTitle: 'Select destination to save backup file' });
+                        setImportStatus('Backup saved and shared!');
+                      } else if (navigator.share) {
+                        await navigator.share({ title: 'Finance-Ally Backup', text: exportModalData });
+                        setImportStatus('Backup shared!');
+                      } else {
+                        // Fallback web download
+                        const a = document.createElement('a');
+                        a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(exportModalData);
+                        a.download = filename;
+                        document.body.appendChild(a); a.click(); a.remove();
+                        setImportStatus('Backup downloaded successfully!');
+                      }
+                      setExportModalData(null);
+                    } catch (err) {
+                      console.error('Export share failed', err);
+                    }
+                  }}
+                  className="w-full bg-surface-card hover:bg-surface-soft border border-brand-yellow text-ink py-2.5 rounded-xl font-mono text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md active:scale-[0.98]"
+                >
+                  <Upload className="w-3.5 h-3.5 text-brand-yellow" /> Share Backup File
+                </button>
+                {!Capacitor.isNativePlatform() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(exportModalData);
+                      setImportStatus('JSON backup copied to clipboard!');
+                      setExportModalData(null);
                     }}
-                    className="w-full border border-hairline text-muted-custom hover:text-ink font-mono text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                    className="w-full bg-surface-card hover:bg-surface-soft border border-hairline text-ink py-2 rounded-xl font-mono text-[10px] font-bold flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
                   >
-                    Save File to Local Storage
+                    Copy Raw Content
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1210,14 +1152,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         {showVerifyPinModal && (
           <PinModal
             mode="verify"
-            title={pendingSnapshotCreate ? "Enter PIN to Encrypt Snapshot" : "Enter Backup Encryption PIN"}
-            description={
-              pendingSnapshotCreate
-                ? "Your snapshot will be encrypted with AES-256-GCM using your backup PIN."
-                : "This backup is AES-256 encrypted. Enter the correct PIN to decrypt and restore your data."
-            }
+            title="Enter Backup Encryption PIN"
+            description="This backup is encrypted. Enter the correct PIN to decrypt and restore your data."
             onConfirm={handleVerifyPinAndImport}
-            onCancel={() => { setShowVerifyPinModal(false); setVerifyPinError(''); setPendingImportContent(null); setPendingSnapshotCreate(false); }}
+            onCancel={() => { setShowVerifyPinModal(false); setVerifyPinError(''); setPendingImportContent(null); }}
             loading={verifyPinLoading}
             error={verifyPinError}
           />
@@ -1227,62 +1165,5 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         </div>
       </div>
     </div>
-  );
-};
-
-const ExportWithPinFlow: React.FC<{
-  plainData: string;
-  onEncrypted: (encryptedStr: string) => void;
-  onCancel: () => void;
-}> = ({ plainData, onEncrypted, onCancel }) => {
-  const [pin, setPin] = React.useState('');
-  const [show, setShow] = React.useState(false);
-  const [err, setErr] = React.useState('');
-  const [loading, setLoading] = React.useState(false);
-
-  const handleGo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErr('');
-    if (!pin) { setErr('Enter your export PIN.'); return; }
-    setLoading(true);
-    try {
-      const ok = await verifyExportPin(pin);
-      if (!ok) { setErr('Incorrect PIN. Please try again.'); setLoading(false); return; }
-      const encrypted = await encryptJSON(plainData, pin);
-      setLoading(false);
-      onEncrypted(encrypted);
-    } catch {
-      setLoading(false);
-      setErr('Encryption failed. Please try again.');
-    }
-  };
-
-  return (
-    <form onSubmit={handleGo} className="space-y-3 pt-2">
-      <div className="space-y-1">
-        <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Your Export PIN</label>
-        <div className="relative">
-          <input
-            type={show ? 'text' : 'password'}
-            value={pin}
-            onChange={e => setPin(e.target.value)}
-            placeholder="enter pin"
-            autoFocus
-            className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-10 py-2 text-sm font-mono text-ink focus:outline-none focus:border-ink tracking-widest"
-          />
-          <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-2 text-muted-custom hover:text-ink cursor-pointer">
-            {show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-      </div>
-      {err && <p className="text-[10px] font-mono text-brand-coral font-bold">{err}</p>}
-      <div className="flex gap-2">
-        <button type="button" onClick={onCancel} className="flex-1 py-2 rounded-xl border border-hairline text-muted-custom text-xs font-mono font-bold hover:border-ink cursor-pointer">Cancel</button>
-        <button type="submit" disabled={loading} className="flex-1 py-2 rounded-xl border border-brand-blue text-brand-blue text-xs font-mono font-bold hover:bg-surface-soft cursor-pointer disabled:opacity-50">
-          {loading ? 'Encrypting...' : 'Encrypt and Export'}
-        </button>
-      </div>
-      <p className="text-[10px] font-mono text-muted-custom text-center">The encrypted file will be saved after PIN verification.</p>
-    </form>
   );
 };

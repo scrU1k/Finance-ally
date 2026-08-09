@@ -382,6 +382,7 @@ export async function exportFullDataBackup(): Promise<string> {
     periodNotes,
     profile,
     exportPin: localStorage.getItem('fa_export_pin') || null,
+    customKnowledgeRules: JSON.parse(localStorage.getItem('fa_custom_knowledge_rules') || '[]'),
     exportTimestamp: Date.now(),
     appVersion: '1.2.0'
   };
@@ -413,6 +414,10 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
         tx.onerror = () => reject(tx.error);
       });
       localStorage.setItem('fa_transactions', JSON.stringify(data.transactions));
+    }
+
+    if (data.customKnowledgeRules && Array.isArray(data.customKnowledgeRules)) {
+      localStorage.setItem('fa_custom_knowledge_rules', JSON.stringify(data.customKnowledgeRules));
     }
 
     // 2. Categories Store

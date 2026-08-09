@@ -1,4 +1,4 @@
-import { categorizeNoteWithArcticFTS5 } from './semanticClassifier';
+import { predict } from './localInferenceEngine';
 import { CurrencyCode } from '../types';
 
 export interface ParsedNaturalExpense {
@@ -7,12 +7,30 @@ export interface ParsedNaturalExpense {
   description: string;
   categoryId: string;
   categoryName: string;
+  paymentMethod?: string | null;
   date: string; // YYYY-MM-DD
   dateLabel: string;
   time: string; // HH:mm
   timeLabel: string;
   confidence: number;
   isNewCustomTag?: boolean;
+}
+
+// ─── Payment Method Patterns ──────────────────────────────────────────────────
+const PAYMENT_PATTERNS: [RegExp, string][] = [
+  [/\b(upi|gpay|phonepe|paytm|google pay)\b/i, 'UPI'],
+  [/\b(cash|paid cash|in cash)\b/i, 'Cash'],
+  [/\b(credit card|credit)\b/i, 'Credit Card'],
+  [/\b(debit card|debit)\b/i, 'Debit Card'],
+  [/\b(netbanking|net banking|neft|imps|rtgs)\b/i, 'Bank Transfer'],
+  [/\b(wallet|payzapp|mobikwik|freecharge)\b/i, 'Wallet'],
+];
+
+function extractPaymentMethod(text: string): string | null {
+  for (const [pattern, method] of PAYMENT_PATTERNS) {
+    if (pattern.test(text)) return method;
+  }
+  return null;
 }
 
 // ─── Exhaustive Time Parser ────────────────────────────────────────────────────
@@ -308,24 +326,20 @@ export function parseNaturalLanguageExpense(
 
   // Time parsing
   if (!lower.includes('now')) {
-    if (lower.includes('morning') && !parseExhaustiveTime(lower)) {
-      timeStr = '09:00';
-      timeLabel = 'Morning';
-    } else if (lower.includes('afternoon') && !parseExhaustiveTime(lower)) {
-      timeStr = '13:00';
-      timeLabel = 'Afternoon';
-    } else if (lower.includes('evening') && !parseExhaustiveTime(lower)) {
-      timeStr = '19:00';
-      timeLabel = 'Evening';
-    } else if (lower.includes('night') && !parseExhaustiveTime(lower)) {
-      timeStr = '22:00';
-      timeLabel = 'Night';
-    } else {
-      const parsedTime = parseExhaustiveTime(lower);
-      if (parsedTime) {
-        timeStr = parsedTime.h24;
-        timeLabel = parsedTime.label;
-      }
+    const parsedTime = parseExhaustiveTime(lower);
+    const hasExplicitTime = parsedTime !== null;
+
+    if (lower.includes('morning') && !hasExplicitTime) {
+      timeStr = '09:00'; timeLabel = 'Morning';
+    } else if (lower.includes('afternoon') && !hasExplicitTime) {
+      timeStr = '13:00'; timeLabel = 'Afternoon';
+    } else if (lower.includes('evening') && !hasExplicitTime) {
+      timeStr = '19:00'; timeLabel = 'Evening';
+    } else if (lower.includes('night') && !hasExplicitTime) {
+      timeStr = '22:00'; timeLabel = 'Night';
+    } else if (parsedTime) {
+      timeStr = parsedTime.h24;
+      timeLabel = parsedTime.label;
     }
   }
 
@@ -487,6 +501,7 @@ export function parseNaturalLanguageExpense(
   let categoryName = '';
   let confidence = 99;
   let isNewCustomTag = false;
+  let paymentMethod: string | undefined = undefined;
 
   if (explicitTagName) {
     const titleCasedTag = explicitTagName
@@ -510,23 +525,34 @@ export function parseNaturalLanguageExpense(
       confidence = 100;
     }
   } else {
-    const catResult = categorizeNoteWithArcticFTS5(text + ' ' + cleanDesc);
-    categoryId = catResult.categoryId;
-    categoryName = catResult.categoryName;
-    confidence = catResult.confidence;
+    // Check for explicit payment method in input string first
+    const explicitPaymentMethod = extractPaymentMethod(text);
+
+    // Use our ML Local Inference Engine
+    const catResult = predict(text + ' ' + cleanDesc);
+    paymentMethod = explicitPaymentMethod || catResult.paymentMethod || undefined;
+
+    if (catResult.categoryId) {
+      categoryId = catResult.categoryId;
+      // Resolve name from category ID
+      const resolved = existingCategories.find(c => c.id === categoryId);
+      categoryName = resolved ? resolved.name : catResult.categoryId;
+      confidence = catResult.confidence;
+    }
   }
 
   return {
-    amount: amount || 100,
+    amount,
     currency,
     description: cleanDesc,
     categoryId,
     categoryName,
+    paymentMethod,
     date: dateStr,
     dateLabel,
     time: timeStr,
     timeLabel,
     confidence,
-    isNewCustomTag,
+    isNewCustomTag
   };
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Settings, Lock, Plane, Tag } from 'lucide-react';
+import { Shield, Settings, Lock, Plane, Tag, Lightbulb } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { TOP_CURRENCIES } from '../../services/currency';
@@ -10,9 +10,10 @@ interface HeaderProps {
   onOpenQuickAdd?: () => void;
   onOpenScanner?: () => void;
   onTitleClick?: () => void;
+  onOpenSpendInsights?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories, onOpenScanner: _onOpenScanner, onTitleClick }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories, onOpenScanner: _onOpenScanner, onTitleClick, onOpenSpendInsights }) => {
   const { logout } = useAuth();
   const { baseCurrency, activeTripVault, setActiveTripVault } = useFinance();
 
@@ -43,8 +44,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories
             </button>
           ) : (
             <div className="hidden md:flex items-center gap-1.5 bg-surface-card border border-hairline px-2.5 py-0.5 rounded-full text-[11px] font-mono text-muted-custom">
-              <Shield className="w-3.5 h-3.5 text-brand-mint" />
-              <span>Offline & Sandboxed</span>
+              <Shield className="w-3 h-3 text-brand-mint shrink-0" />
+              <span>Offline Encryption Active</span>
             </div>
           )}
         </div>
@@ -61,9 +62,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories
             <Tag className="w-4 h-4" />
           </button>
 
-          {/* Base Currency Selector Pill */}
-          <div className="flex items-center gap-1 bg-surface-card border border-hairline px-2 py-1 rounded-full text-xs font-mono text-ink">
-            <span>{currencyConfig.flag}</span>
+          {/* Base Currency Selector Pill (Flag replaced with Spend Insight Lightbulb icon) */}
+          <div className="flex items-center gap-1.5 bg-surface-card border border-hairline px-2 py-1 rounded-full text-xs font-mono text-ink">
+            <button
+              onClick={onOpenSpendInsights}
+              className="hover:opacity-80 transition-opacity p-0.5 cursor-pointer flex items-center justify-center text-brand-coral"
+              title="Go directly to Spend Insights"
+            >
+              <Lightbulb className="w-3.5 h-3.5 text-brand-coral fill-brand-coral/30" />
+            </button>
             <span className="font-semibold">{currencyConfig.code}</span>
           </div>
 

@@ -79,6 +79,30 @@ function classifyCategory(
 
 // ─── Dimension Scorers ───────────────────────────────────────────────────────
 
+function computeDayOfWeekPattern(txs: Transaction[]): {
+  maxDayIndex: number;
+  multiplierVsWeekday: number;
+  hasMeaningfulPattern: boolean;
+} {
+  const dowSpend = [0, 0, 0, 0, 0, 0, 0];
+  const dowCount = [0, 0, 0, 0, 0, 0, 0];
+  txs.forEach(t => {
+    const dow = new Date(t.date).getDay();
+    dowSpend[dow] += t.amount;
+    dowCount[dow] += 1;
+  });
+  const dowAvg = dowSpend.map((s, i) => (dowCount[i] > 0 ? s / dowCount[i] : 0));
+  const wdAmts = [1, 2, 3, 4, 5].map(i => dowAvg[i]).filter(v => v > 0);
+  const wdAvg = wdAmts.length > 0 ? wdAmts.reduce((s, v) => s + v, 0) / wdAmts.length : 0;
+  const maxIdx = dowAvg.indexOf(Math.max(...dowAvg));
+  const multiplier = wdAvg > 0 ? dowAvg[maxIdx] / wdAvg : 0;
+  return {
+    maxDayIndex: maxIdx,
+    multiplierVsWeekday: Math.round(multiplier * 10) / 10,
+    hasMeaningfulPattern: wdAvg > 0 && multiplier >= 2.5
+  };
+}
+
 /**
  * Volatility Score: How erratic is spending week-to-week within categories?
  * Uses coefficient of variation (CV = σ/μ), weighted by spend share.
@@ -89,10 +113,10 @@ function computeVolatilityScore(monthTxs: Transaction[]): AuditDimensionScore {
     return { score: 100, label: 'Excellent', detail: 'No transactions to evaluate' };
   }
 
-  // Bucket transactions into week-of-month (1-indexed)
+  // Bucket transactions into week-of-month (1-indexed, capped at 4 to prevent phantom week 5)
   const weeklyMap: Record<number, Record<string, number>> = {};
   monthTxs.forEach(t => {
-    const weekNum = Math.ceil(new Date(t.date).getDate() / 7);
+    const weekNum = Math.min(4, Math.ceil(new Date(t.date).getDate() / 7));
     if (!weeklyMap[weekNum]) weeklyMap[weekNum] = {};
     weeklyMap[weekNum][t.categoryId] = (weeklyMap[weekNum][t.categoryId] || 0) + t.amount;
   });
@@ -278,23 +302,10 @@ export function generateSmartSpendingSuggestions(
 
   // Day-of-week pattern
   const DOW_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const dowSpend = [0, 0, 0, 0, 0, 0, 0];
-  const dowCount = [0, 0, 0, 0, 0, 0, 0];
-  monthTxs.forEach(t => {
-    const dow = new Date(t.date).getDay();
-    dowSpend[dow] += t.amount;
-    dowCount[dow] += 1;
-  });
-  const dowAvg = dowSpend.map((s, i) => (dowCount[i] > 0 ? s / dowCount[i] : 0));
-  const weekdayAmts = [1, 2, 3, 4, 5].map(i => dowAvg[i]).filter(v => v > 0);
-  const weekdayAvg =
-    weekdayAmts.length > 0 ? weekdayAmts.reduce((s, v) => s + v, 0) / weekdayAmts.length : 0;
-  const maxDowIdx = dowAvg.indexOf(Math.max(...dowAvg));
-
-  if (weekdayAvg > 0 && dowAvg[maxDowIdx] >= weekdayAvg * 2.5) {
-    const multiplier = Math.round((dowAvg[maxDowIdx] / weekdayAvg) * 10) / 10;
+  const dowPattern = computeDayOfWeekPattern(monthTxs);
+  if (dowPattern.hasMeaningfulPattern) {
     suggestions.push(
-      `Your highest spend is on ${DOW_NAMES[maxDowIdx]}s — averaging ${multiplier}× your weekday spend.`
+      `Your highest spend is on ${DOW_NAMES[dowPattern.maxDayIndex]}s — averaging ${dowPattern.multiplierVsWeekday}× your weekday spend.`
     );
   }
 
@@ -303,7 +314,7 @@ export function generateSmartSpendingSuggestions(
   if (autoParsedCount > 0) {
     const autoPct = Math.round((autoParsedCount / (monthTxs.length || 1)) * 100);
     suggestions.push(
-      `Notification Parser handled ${autoParsedCount} transactions automatically (${autoPct}% of this month's logging).`
+      `Quick Logs handled ${autoParsedCount} transactions automatically (${autoPct}% of this month's logging).`
     );
   }
 
@@ -417,21 +428,10 @@ export function generateEndOfMonthAudit(
   }
 
   // Day-of-week pattern
-  const dowSpend = [0, 0, 0, 0, 0, 0, 0];
-  const dowCount = [0, 0, 0, 0, 0, 0, 0];
-  monthTxs.forEach(t => {
-    const dow = new Date(t.date).getDay();
-    dowSpend[dow] += t.amount;
-    dowCount[dow] += 1;
-  });
-  const dowAvg = dowSpend.map((s, i) => (dowCount[i] > 0 ? s / dowCount[i] : 0));
-  const wdAmts = [1, 2, 3, 4, 5].map(i => dowAvg[i]).filter(v => v > 0);
-  const wdAvg = wdAmts.length > 0 ? wdAmts.reduce((s, v) => s + v, 0) / wdAmts.length : 0;
-  const maxDowIdx = dowAvg.indexOf(Math.max(...dowAvg));
-  if (wdAvg > 0 && dowAvg[maxDowIdx] >= wdAvg * 2.5) {
-    const multiplier = Math.round((dowAvg[maxDowIdx] / wdAvg) * 10) / 10;
+  const dowPattern = computeDayOfWeekPattern(monthTxs);
+  if (dowPattern.hasMeaningfulPattern) {
     insights.push(
-      `${DOW_NAMES[maxDowIdx]}s are your highest-spend day — averaging ${multiplier}× weekday spend.`
+      `${DOW_NAMES[dowPattern.maxDayIndex]}s are your highest-spend day — averaging ${dowPattern.multiplierVsWeekday}× weekday spend.`
     );
   }
 
@@ -453,35 +453,43 @@ export function generateEndOfMonthAudit(
   // Subscription creep cross-reference (requires ≥2 months of data)
   if (monthsOfData >= 2) {
     const seen = new Set<string>(); // prevent duplicate anomalies
-    const amountFreq: Record<string, { amount: number; months: Set<string>; catName: string }> = {};
+    const monthFreq: Record<string, Record<string, number>> = {};
+    const keyInfo: Record<string, { amount: number; catName: string }> = {};
 
     allTransactions.forEach(t => {
-      // Fuzzy round to nearest 5 to catch minor variance
       const rounded = Math.round(t.amount / 5) * 5;
       const key = `${rounded}-${t.categoryId}`;
-      if (!amountFreq[key]) {
-        amountFreq[key] = {
+      const monthK = t.date.substring(0, 7);
+
+      if (!monthFreq[key]) monthFreq[key] = {};
+      monthFreq[key][monthK] = (monthFreq[key][monthK] || 0) + 1;
+
+      if (!keyInfo[key]) {
+        keyInfo[key] = {
           amount: t.amount,
-          months: new Set(),
           catName: categories.find(c => c.id === t.categoryId)?.name ?? 'Unknown',
         };
       }
-      amountFreq[key].months.add(t.date.substring(0, 7));
     });
 
-    Object.values(amountFreq).forEach(({ amount, months, catName }) => {
-      if (months.size >= 2) {
-        const isKnown = subscriptions?.some(
-          s => Math.abs(s.amount - amount) / Math.max(s.amount, 1) < 0.05
-        );
-        if (!isKnown) {
-          const key = `${Math.round(amount)}-${catName}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            anomalies.push(
-              `Possible untracked subscription: ${formatCurrency(amount, currency)}/month in ${catName}.`
-            );
-          }
+    Object.entries(monthFreq).forEach(([key, monthCounts]) => {
+      const months = Object.keys(monthCounts);
+      if (months.length < 2) return;
+      // Must appear no more than twice per month to qualify as a subscription pattern
+      const appearsAtRegularFrequency = months.every(m => monthCounts[m] <= 2);
+      if (!appearsAtRegularFrequency) return;
+
+      const { amount, catName } = keyInfo[key];
+      const isKnown = subscriptions?.some(
+        s => Math.abs(s.amount - amount) / Math.max(s.amount, 1) < 0.05
+      );
+      if (!isKnown) {
+        const displayKey = `${Math.round(amount)}-${catName}`;
+        if (!seen.has(displayKey)) {
+          seen.add(displayKey);
+          anomalies.push(
+            `Possible untracked subscription: ${formatCurrency(amount, currency)}/month in ${catName}.`
+          );
         }
       }
     });

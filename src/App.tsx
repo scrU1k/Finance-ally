@@ -61,6 +61,7 @@ const MainAppContent: React.FC = () => {
         }}
         onOpenScanner={() => setActiveTab('scanner')}
         onTitleClick={() => setActiveTab('dashboard')}
+        onOpenSpendInsights={() => setActiveTab('insights')}
       />
 
       {/* Automatic SMS Transaction Detector Banner */}
@@ -109,7 +110,15 @@ const MainAppContent: React.FC = () => {
           {activeTab === 'scanner' && <LazyNotificationScannerModal />}
           {activeTab === 'audit' && <LazyEndOfMonthAudit />}
           {activeTab === 'split' && <LazySplitBillModal />}
-          {activeTab === 'insights' && <LazySmartSuggestions />}
+          {activeTab === 'insights' && (
+            <LazySmartSuggestions
+              onSelectTransaction={tx => {
+                setEditingTransaction(tx);
+                setIsQuickAddOpen(true);
+                setActiveTab('dashboard');
+              }}
+            />
+          )}
         </React.Suspense>
       </main>
 

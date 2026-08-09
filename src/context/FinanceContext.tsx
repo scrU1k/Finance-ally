@@ -5,6 +5,7 @@ import { getStoredForexRates, fetchLiveExchangeRates, switchAppBaseCurrency, con
 import { useAuth } from './AuthContext';
 import { isPendingScheduledTx, isFutureDateTime } from '../utils/scheduledUtils';
 import { requestNotificationPermission, triggerScheduledPaymentNotification, scheduleFutureNativeNotification } from '../services/notificationService';
+import { trainModel } from '../services/localInferenceEngine';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -79,6 +80,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     reloadAllData();
   }, []);
+
+  // Train the Local ML Inference Engine whenever transactions are loaded/updated
+  useEffect(() => {
+    if (transactions.length > 0) {
+      trainModel(transactions);
+    }
+  }, [transactions]);
 
   // Fix 10: Auto-refresh forex rates if they are too old on startup
   useEffect(() => {
