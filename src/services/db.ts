@@ -1,4 +1,6 @@
 import { Category, Transaction, Trip, Subscription, PeriodNote } from '../types';
+import { loadUserRulesIntoTrie } from './userRuleService';
+import { syncRulesToWorker } from '../workers/workerOrchestrator';
 
 const DB_NAME = 'FinanceAllyDB';
 const DB_VERSION = 3; // Incremented for subscriptions store
@@ -382,6 +384,7 @@ export async function exportFullDataBackup(): Promise<string> {
     periodNotes,
     profile,
     exportPin: localStorage.getItem('fa_export_pin') || null,
+    userTagRules: JSON.parse(localStorage.getItem('fa_user_tag_rules') || '[]'),
     customKnowledgeRules: JSON.parse(localStorage.getItem('fa_custom_knowledge_rules') || '[]'),
     exportTimestamp: Date.now(),
     appVersion: '1.2.0'
@@ -414,6 +417,16 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
         tx.onerror = () => reject(tx.error);
       });
       localStorage.setItem('fa_transactions', JSON.stringify(data.transactions));
+    }
+
+    if (data.userTagRules && Array.isArray(data.userTagRules)) {
+      localStorage.setItem('fa_user_tag_rules', JSON.stringify(data.userTagRules));
+      try {
+        loadUserRulesIntoTrie();
+        syncRulesToWorker(data.userTagRules);
+      } catch (e) {
+        console.warn('Rules trie sync failed on import:', e);
+      }
     }
 
     if (data.customKnowledgeRules && Array.isArray(data.customKnowledgeRules)) {
