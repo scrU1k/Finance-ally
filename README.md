@@ -14,7 +14,7 @@ Finance-Ally is a premium, beautifully crafted personal finance app designed for
 - **Stunning Glassmorphic Design**: Built with frosted glass surfaces, dynamic lighting, fluid micro-animations, and custom ambient glowing active tabs that feel alive.
 - **Smart Natural Language Quick Logging**: Simply type expenses the way you think (`450rs coffee 2nd aug 8pm`, `250 petrol tomorrow at 9a`, `1200 dinner at 8pn`) — Finance-Ally parses the amount, date, time, category, and payment method automatically.
 - **Scheduled Payments**: Set any expense for a future date and time. It registers as a scheduled payment, is excluded from your current total until due, and fires a native Android system notification the moment it activates — even if the app is closed.
-- **Notification Extraction**: 100% offline SMS & bank alert parsing via manual/clipboard entry.
+- **Knowledge Assistant & Auto-Tag Rules**: Teach the app custom regional words, slang, or translations (`rule - doodh or dudh is Groceries`, `rule - chai is Food & Drinks`). Supports Devanagari script (`दूध`, `चहा`), French (`café`), Spanish, etc., with sub-millisecond O(L) Trie auto-detection during Quick Logging.
 - **Trip Vaults**: Create dedicated trip vaults to track domestic & international travel spending in local currencies without mixing them into your daily home budget.
 - **Split Bills**: Manage shared group expenses with friends. Calculate tips/taxes, track who paid, and generate formatted summaries to share.
 - **Monthly Financial Audits**: Intelligent month-end reviews with automated letter grades (A+ to F), anomaly detection, top category breakdowns, and personalized savings suggestions.
@@ -130,6 +130,20 @@ Managing shared expenses with friends made simple:
 
 - **Scrolling Tab Row**: Core tabs (`Expenditure`, `Subscriptions`, `Trip Manager`) and More Tools (`Notification Extraction`, `Financial Audit`, `Split Bills`, `Spend Insights`) are organized into a smart dynamic row.
 - **Clutter-Free Dropdown**: Viewing a core tab shows a chevron dropdown for tools; viewing a tool shows the tool row with a dropdown back to core tabs — always one tap from anywhere.
+
+---
+
+### 10. Knowledge Assistant & Multilingual Rules Engine
+
+Finance-Ally features an offline **Knowledge Assistant** equipped with a custom rules parser, interactive command launcher, and dynamic Trie dictionary.
+
+- **Commands Pop-Over Modal**: Tap the **Commands** button below the Assistant to open an interactive popover modal displaying working examples, clean syntax cards, and descriptions for all available commands. Tapping any command card automatically inserts it into the input box.
+- **Auto-Detect Word Rules (`rule - ...`)**: Register personal slang, brand nicknames, or regional terms to automatically tag specific categories during Quick Logging (e.g., `rule - doodh or dudh is Groceries`, `rule - chaha or chai is Food & Drinks`).
+- **Full Multilingual & Devanagari Script Support**: Powered by a 512-slot Unicode Trie memory engine. Create and match rules in **Devanagari script** (`rule - दूध or चहा is Groceries`), **French** (`café`, `croissant`), Spanish, German, Marathi, Hindi, etc.
+- **Flexible Rule Deletion (`del rule ...`)**: Delete saved rules using any punctuation delimiter (`del rule - dudh`, `del rule: dudh`, `del rule = dudh`). If a keyword matches multiple rules, the Assistant presents a list of matching rules for precise selection.
+- **Unified `list rules` Command**: Displays both Auto-Tag Word Rules and Knowledge Base Rules in clean, structured bullet points.
+- **Tag Discovery (`list tags`)**: Instantly inspect all active category tags, including built-in and user-created custom tags.
+- **100% Case-Insensitive Commands**: All commands execute seamlessly regardless of uppercase or lowercase input.
 
 ---
 
