@@ -31,6 +31,11 @@ function initWorkers() {
   }
 }
 
+export function getSemanticWorkerSingleton(): Worker | null {
+  initWorkers();
+  return semanticWorker;
+}
+
 export function syncRulesToWorker(rules: any[]) {
   initWorkers();
   if (deterministicWorker) {

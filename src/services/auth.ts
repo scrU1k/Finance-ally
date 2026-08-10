@@ -79,6 +79,7 @@ export async function createInitialUser(username: string, password: string, base
     theme: 'dotgui-dark',
     fontFamily: 'geist',
     monthlyBudget: 3000,
+    requirePassword: true,
     isUnlocked: true,
   };
   localStorage.setItem(USER_KEY, JSON.stringify(profile));

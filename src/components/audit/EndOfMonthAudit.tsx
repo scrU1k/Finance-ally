@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 import { generateEndOfMonthAudit } from '../../services/insightsEngine';
 import { loadSubscriptions, loadPeriodNotes, savePeriodNote, deletePeriodNote } from '../../services/db';
 import { formatCurrency } from '../../services/currency';
+import { getCustomRules } from '../../services/localKnowledgeBase';
 import {
   PieChart, Award, AlertTriangle, CheckCircle, Calendar, HelpCircle,
-  Mail, Save, X, TrendingUp, Wallet, Clock, FileText, Edit2, Trash2,
+  Mail, Save, X, TrendingUp, Wallet, Clock, FileText, Edit2, Trash2, ShieldCheck,
 } from 'lucide-react';
 import { saveUserProfile } from '../../services/auth';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
@@ -83,6 +84,191 @@ const ScoreDimensionCard: React.FC<ScoreDimensionCardProps> = ({ title, icon, sc
       </div>
 
       <p className="text-[11px] font-mono text-muted-custom leading-relaxed">{score.detail}</p>
+    </div>
+  );
+};
+
+const UserRuleComplianceCard: React.FC<{ selectedMonth: string }> = ({ selectedMonth }) => {
+  const { transactions, categories, baseCurrency } = useFinance();
+  const customRules = useMemo(() => getCustomRules(), []);
+
+  const monthTxs = useMemo(() => {
+    return transactions.filter(t => t.date.startsWith(selectedMonth));
+  }, [transactions, selectedMonth]);
+
+  const fmt = (amt: number) => formatCurrency(amt, baseCurrency);
+
+  // Pre-built 109-Rule Evaluators
+  const prebuiltAudits = useMemo(() => {
+    if (monthTxs.length === 0) return [];
+    const results: { id: string; ruleTitle: string; detail: string; status: 'compliant' | 'warning' | 'info'; pct?: number }[] = [];
+
+    const totalSpent = monthTxs.reduce((sum, t) => sum + t.amount, 0);
+
+    // 1. 50/30/20 Rule (budget-fifty-thirty-twenty-001)
+    const wantsCategories = new Set(
+      categories.filter(c => /dining|restaurant|food delivery|shopping|entertainment|movie|leisure|travel|hobby/i.test(c.name)).map(c => c.id)
+    );
+    const wantsSpent = monthTxs.filter(t => wantsCategories.has(t.categoryId)).reduce((sum, t) => sum + t.amount, 0);
+    const wantsPct = totalSpent > 0 ? Math.round((wantsSpent / totalSpent) * 100) : 0;
+
+    results.push({
+      id: '50-30-20-rule',
+      ruleTitle: '50/30/20 Framework (Wants Target <= 30%)',
+      detail: `Discretionary spend is ${fmt(wantsSpent)} (${wantsPct}% of monthly total)`,
+      status: wantsPct <= 35 ? 'compliant' : 'warning',
+      pct: wantsPct
+    });
+
+    // 2. Weekend Spike Pattern (pattern-weekend-spend-001)
+    let weekendSpent = 0;
+    let weekdaySpent = 0;
+    let weekendDays = 0;
+    let weekdayDays = 0;
+
+    monthTxs.forEach(t => {
+      const d = new Date(t.date).getDay();
+      const isWeekend = d === 0 || d === 6;
+      if (isWeekend) {
+        weekendSpent += t.amount;
+        weekendDays++;
+      } else {
+        weekdaySpent += t.amount;
+        weekdayDays++;
+      }
+    });
+
+    const weekendAvg = weekendDays > 0 ? weekendSpent / weekendDays : 0;
+    const weekdayAvg = weekdayDays > 0 ? weekdaySpent / weekdayDays : 0;
+    const multiplier = weekdayAvg > 0 ? (weekendAvg / weekdayAvg).toFixed(1) : '1.0';
+
+    if (parseFloat(multiplier) >= 2.0 && weekendSpent > 1000) {
+      results.push({
+        id: 'weekend-spike-rule',
+        ruleTitle: 'Weekend Spend Leakage (pattern-weekend-spend-001)',
+        detail: `Weekend daily spend is ${multiplier}x weekday average (${fmt(weekendSpent)} total)`,
+        status: 'warning'
+      });
+    } else {
+      results.push({
+        id: 'weekend-spike-rule',
+        ruleTitle: 'Weekend Spend Balance (pattern-weekend-spend-001)',
+        detail: `Weekend spending is well-balanced (${fmt(weekendSpent)} total)`,
+        status: 'compliant'
+      });
+    }
+
+    // 3. Food Delivery Premium (pattern-food-delivery-001)
+    const foodCatIds = new Set(categories.filter(c => /food|dining|restaurant|zomato|swiggy/i.test(c.name)).map(c => c.id));
+    const foodSpent = monthTxs.filter(t => foodCatIds.has(t.categoryId)).reduce((sum, t) => sum + t.amount, 0);
+    const foodPct = totalSpent > 0 ? Math.round((foodSpent / totalSpent) * 100) : 0;
+
+    results.push({
+      id: 'food-delivery-rule',
+      ruleTitle: 'Food & Dining Ceiling (pattern-food-delivery-001)',
+      detail: `Food expenses represent ${foodPct}% of monthly total (${fmt(foodSpent)})`,
+      status: foodPct <= 25 ? 'compliant' : 'warning',
+      pct: foodPct
+    });
+
+    return results;
+  }, [monthTxs, categories, baseCurrency]);
+
+  return (
+    <div className="dotgui-card p-5 bg-surface-card space-y-4 border border-hairline rounded-2xl">
+      <div className="flex items-center justify-between border-b border-hairline pb-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-brand-purple shrink-0" />
+          <h3 className="text-xs font-mono font-bold text-ink uppercase">
+            {customRules.length > 0 ? 'Custom & Pre-built Rules Audit' : 'Financial Rules Compliance Audit'}
+          </h3>
+        </div>
+        <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-brand-purple/10 text-brand-purple border border-brand-purple/20">
+          {customRules.length > 0 ? `${customRules.length} Custom + Pre-built Rules` : '109 Pre-built Rules Active'}
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {/* Custom User Rules (If defined) */}
+        {customRules.map((rule) => {
+          const text = rule.text;
+          const capMatch = text.match(/(?:max|limit|cap|budget|under)\s+(?:rs\.?|₹|inr)?\s*(\d+[\d,]*)\s+(?:on|for)\s+(.+)/i);
+
+          if (capMatch) {
+            const capAmount = parseFloat(capMatch[1].replace(/,/g, ''));
+            const catSearch = capMatch[2].trim().toLowerCase();
+            const matchedCat = categories.find(c => c.name.toLowerCase().includes(catSearch));
+
+            if (matchedCat) {
+              const catSpent = monthTxs.filter(t => t.categoryId === matchedCat.id).reduce((s,t) => s + t.amount, 0);
+              const isExceeded = catSpent > capAmount;
+              const pct = Math.min(100, Math.round((catSpent / (capAmount || 1)) * 100));
+
+              return (
+                <div key={rule.id} className="p-3 bg-surface-soft rounded-xl border border-hairline space-y-2">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="font-bold text-ink flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-brand-purple bg-brand-purple/10 px-1.5 py-0.5 rounded">CUSTOM</span>
+                      {text}
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      isExceeded
+                        ? 'bg-brand-coral/10 text-brand-coral border-brand-coral/30'
+                        : 'bg-brand-mint/10 text-brand-mint border-brand-mint/30'
+                    }`}>
+                      {isExceeded ? '⚠️ Exceeded' : '✅ Compliant'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[11px] font-mono text-muted-custom">
+                    <span>Spent: {fmt(catSpent)}</span>
+                    <span>Cap: {fmt(capAmount)} ({pct}%)</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-surface-card rounded-full overflow-hidden border border-hairline">
+                    <div
+                      className={`h-full rounded-full transition-all ${isExceeded ? 'bg-brand-coral' : 'bg-brand-mint'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            }
+          }
+
+          return (
+            <div key={rule.id} className="p-3 bg-surface-soft rounded-xl border border-hairline flex items-center justify-between text-xs font-mono">
+              <span className="text-ink font-medium">📋 [CUSTOM] {text}</span>
+              <span className="text-[10px] font-bold text-brand-blue bg-brand-blue/10 border border-brand-blue/20 px-2 py-0.5 rounded-full">
+                Active Rule
+              </span>
+            </div>
+          );
+        })}
+
+        {/* Pre-built Financial Rules Audits */}
+        {prebuiltAudits.map((item) => (
+          <div key={item.id} className="p-3 bg-surface-soft rounded-xl border border-hairline space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <span className="font-bold text-ink">{item.ruleTitle}</span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                item.status === 'warning'
+                  ? 'bg-brand-coral/10 text-brand-coral border-brand-coral/30'
+                  : 'bg-brand-mint/10 text-brand-mint border-brand-mint/30'
+              }`}>
+                {item.status === 'warning' ? '⚠️ Attention' : '✅ Compliant'}
+              </span>
+            </div>
+            <p className="text-[11px] font-mono text-muted-custom">{item.detail}</p>
+            {item.pct !== undefined && (
+              <div className="w-full h-1.5 bg-surface-card rounded-full overflow-hidden border border-hairline">
+                <div
+                  className={`h-full rounded-full transition-all ${item.status === 'warning' ? 'bg-brand-coral' : 'bg-brand-mint'}`}
+                  style={{ width: `${Math.min(100, item.pct)}%` }}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -372,6 +558,9 @@ export const EndOfMonthAudit: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Custom Rules Compliance Audit Card */}
+        <UserRuleComplianceCard selectedMonth={selectedMonth} />
       </div>
 
       {/* Period Note Card */}

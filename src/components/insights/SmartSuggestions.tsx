@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Transaction } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { generateSmartSpendingSuggestions } from '../../services/insightsEngine';
@@ -8,10 +8,12 @@ import {
   deleteKnowledgeRule,
   deleteKnowledgeRuleByText,
   queryKnowledgeBase,
+  attachKBWorkerListener,
   KnowledgeRule
 } from '../../services/localKnowledgeBase';
-import { generateDynamicUsageRules } from '../../services/dynamicContextGenerator';
+import { runExpertSystem } from '../../services/expertSystem';
 import { parseAndExecuteLocalQuery } from '../../services/localQueryParser';
+import { getSemanticWorkerSingleton } from '../../workers/workerOrchestrator';
 import { formatCurrency } from '../../services/currency';
 import { Lightbulb, Sparkles, BrainCircuit, X, Trash2, ArrowRight, Tag, Terminal } from 'lucide-react';
 
@@ -22,9 +24,11 @@ interface SmartSuggestionsProps {
 export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTransaction }) => {
   const { filteredTransactions, categories, baseCurrency, addCategoryItem } = useFinance();
 
+  const [insightTimeframe, setInsightTimeframe] = useState<'week' | 'month' | 'year'>('month');
+
   const suggestions = useMemo(() => {
-    return generateSmartSpendingSuggestions(filteredTransactions, categories, baseCurrency);
-  }, [filteredTransactions, categories, baseCurrency]);
+    return generateSmartSpendingSuggestions(filteredTransactions, categories, baseCurrency, insightTimeframe);
+  }, [filteredTransactions, categories, baseCurrency, insightTimeframe]);
 
   // Knowledge Base State
   const [queryInput, setQueryInput] = useState('');
@@ -32,14 +36,24 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
   const [showRulesOverlay, setShowRulesOverlay] = useState(false);
   const [showCommandsModal, setShowCommandsModal] = useState(false);
   const [currentRules, setCurrentRules] = useState<KnowledgeRule[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Attach listener to worker singleton once on mount
+  useEffect(() => {
+    const worker = getSemanticWorkerSingleton();
+    if (worker) {
+      attachKBWorkerListener(worker);
+    }
+  }, []);
 
   const handleQuerySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!queryInput.trim()) return;
 
     const input = queryInput.trim();
+    setIsLoading(true);
 
-    // 1. Check for Direct Local Command / Transaction Query (Instant Math & Rules Engine)
+    // LAYER 1: Check for Direct Local Command / Transaction Query (Instant Math & Rules Engine)
     const localQueryResult = await parseAndExecuteLocalQuery(input, filteredTransactions, categories, baseCurrency);
     if (localQueryResult.matched) {
       setAnswerResult(
@@ -56,36 +70,71 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
         </div>
       );
       setQueryInput('');
+      setIsLoading(false);
       return;
     }
 
-    // 4. General LLM-lite Query
-    // Generate dynamic context based on current transactions
-    const dynamicRules = generateDynamicUsageRules(filteredTransactions, categories, baseCurrency);
-    const results = queryKnowledgeBase(input, dynamicRules);
-    
-    if (results.length > 0) {
+    // LAYER 2: Intent-Driven Expert System (Sync, Instant)
+    const expertResult = runExpertSystem(input, filteredTransactions, categories, baseCurrency);
+    if (expertResult.matched) {
       setAnswerResult(
-        <div className="space-y-3">
-          <div className="text-xs font-mono text-muted-custom uppercase font-bold tracking-wider mb-2">
-            Knowledge Engine Found:
+        <div className="p-4 bg-brand-purple/10 border border-brand-purple/20 rounded-xl space-y-2">
+          <div className="flex items-center gap-2 text-brand-purple font-mono text-xs uppercase font-bold tracking-wider">
+            <BrainCircuit className="w-4 h-4" /> Financial Advisor
           </div>
-          {results.map((res, i) => (
-            <div key={i} className="p-3 bg-surface-card rounded-xl border border-hairline flex items-start gap-3">
-              <BrainCircuit className="w-4 h-4 text-brand-purple shrink-0 mt-0.5" />
-              <p className="text-sm text-ink">{res.rule.text}</p>
-            </div>
-          ))}
+          <div className="text-sm font-sans text-ink whitespace-pre-line leading-relaxed">
+            {expertResult.answer}
+          </div>
+          {expertResult.actionable && (
+            <p className="text-xs text-muted-custom font-sans pt-2 border-t border-hairline/30 leading-normal">
+              💡 <strong>Recommendation:</strong> {expertResult.actionable}
+            </p>
+          )}
         </div>
       );
-    } else {
-      setAnswerResult(
-        <div className="text-sm font-mono text-muted-custom p-3 bg-surface-card rounded-xl border border-hairline">
-          No matching rules found in your local knowledge base.
-        </div>
-      );
+      setQueryInput('');
+      setIsLoading(false);
+      return;
     }
+
+    // LAYER 3: Semantic Vector Search (Async via ONNX Worker)
+    const worker = getSemanticWorkerSingleton();
+    if (worker) {
+      try {
+        const results = await queryKnowledgeBase(input, worker, { maxResults: 1, similarityThreshold: 0.40 });
+        if (results.length > 0) {
+          const top = results[0];
+          setAnswerResult(
+            <div className="p-4 bg-surface-card border border-hairline rounded-xl space-y-2">
+              <div className="flex items-center gap-2 text-brand-purple font-mono text-xs uppercase font-bold tracking-wider">
+                <BrainCircuit className="w-4 h-4" /> Knowledge Insight
+              </div>
+              <p className="text-sm text-ink leading-relaxed font-sans">{top.rule.text}</p>
+              {top.rule.actionable && (
+                <p className="text-xs text-muted-custom font-sans pt-2 border-t border-hairline/30">
+                  💡 {top.rule.actionable}
+                </p>
+              )}
+            </div>
+          );
+        } else {
+          setAnswerResult(
+            <div className="text-sm font-mono text-muted-custom p-3 bg-surface-card rounded-xl border border-hairline">
+              No matching financial rule or concept found for your query.
+            </div>
+          );
+        }
+      } catch {
+        setAnswerResult(
+          <div className="text-sm font-mono text-muted-custom p-3 bg-surface-card rounded-xl border border-hairline">
+            Could not process query. Please try again.
+          </div>
+        );
+      }
+    }
+
     setQueryInput('');
+    setIsLoading(false);
   };
 
   const handleDeleteRule = (id: string) => {
@@ -383,6 +432,23 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
             <h2 className="text-lg sm:text-xl font-display font-bold text-ink">
               Spending Insights
             </h2>
+          </div>
+
+          {/* Timeframe Toggle Button: Week / Month / Year */}
+          <div className="flex items-center gap-1 bg-surface-soft p-1 rounded-xl border border-hairline">
+            {(['week', 'month', 'year'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setInsightTimeframe(mode)}
+                className={`px-2.5 py-1 text-xs font-mono font-bold rounded-lg transition-all capitalize ${
+                  insightTimeframe === mode
+                    ? 'bg-brand-purple text-white shadow-sm'
+                    : 'text-muted-custom hover:text-ink hover:bg-surface-card'
+                }`}
+              >
+                {mode === 'month' ? 'Month' : mode === 'week' ? 'Week' : 'Year'}
+              </button>
+            ))}
           </div>
         </div>
 

@@ -2,7 +2,7 @@ import { Transaction, Category, CurrencyCode } from '../types';
 import { formatCurrency } from './currency';
 import { dispatchSpeculativeRace } from '../workers/workerOrchestrator';
 import { parseCFGQuerySlots } from './cfgParser';
-import { addUserTagRule, getUserRules, deleteUserTagRule } from './userRuleService';
+import { addUserTagRule, getUserRules, deleteUserTagRule, sanitizeKeyword } from './userRuleService';
 import { getAllRules, deleteKnowledgeRule, addKnowledgeRule } from './localKnowledgeBase';
 
 export interface LocalQueryResult {
@@ -10,6 +10,14 @@ export interface LocalQueryResult {
   answer: string;
   detail?: string;
 }
+
+interface PendingRuleChoice {
+  type: 'tag' | 'kb';
+  id: string;
+  display: string;
+}
+
+let pendingDeleteChoices: PendingRuleChoice[] | null = null;
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -101,29 +109,133 @@ export async function parseAndExecuteLocalQuery(
   const cleanQ = query.toLowerCase().replace(/[?.,!/\\`~()]/g, ' ').trim();
   const q = cleanQ;
 
+  // ── BYPASS LAYER 1 FOR CONSULTATION & ADVICE INTENTS ──────────────
+  const isConsultationQuery =
+    q.includes('afford') ||
+    q.includes('should i buy') ||
+    q.includes('should i spend') ||
+    q.includes('should i take') ||
+    q.includes('should i choose') ||
+    q.includes('can i buy') ||
+    q.includes('is it ok') ||
+    q.includes('is it okay') ||
+    q.includes('am i doing') ||
+    q.includes('am i spending') ||
+    q.includes('how am i doing') ||
+    q.includes('how are my finances') ||
+    q.includes('financial health') ||
+    q.includes('financial checkup') ||
+    q.includes('financial score') ||
+    q.includes('am i managing') ||
+    q.includes('thinking of buying') ||
+    q.includes('want to buy') ||
+    q.includes('planning to buy') ||
+    q.includes('worth') ||
+    q.includes('than') ||
+    q.includes('better than') ||
+    q.includes('worse than') ||
+    q.includes('instead of') ||
+    q.includes('rather than') ||
+    q.includes('good idea') ||
+    q.includes('bad idea') ||
+    q.includes('smart move') ||
+    q.includes('make sense') ||
+    q.includes('drowning') ||
+    q.includes('too many emi') ||
+    q.includes('emergency fund') ||
+    q.includes('saving enough') ||
+    q.includes('how much should i save') ||
+    q.includes('why do i spend') ||
+    (q.includes('or') && (q.includes('should') || q.includes('take') || q.includes('choose'))) ||
+    q.includes(' vs ') ||
+    q.includes('versus');
+
+  if (isConsultationQuery) {
+    return { matched: false, answer: '' };
+  }
+
+  // ── NUMBERED RULE SELECTION / DELETE BY INDEX ─────────────────
+  // Handles: "1", "2", "del 1", "del rule 1", "delete rule #1", "del #2"
+  const isPureNumber = /^\s*#?(\d+)\.?\s*$/.test(query.trim());
+  const numMatch = query.trim().match(/^(?:del\s*rule|delete\s*rule|del|delete)\s*#?\s*(\d+)\.?$/i);
+
+  if ((pendingDeleteChoices && isPureNumber) || numMatch) {
+    const rawNum = isPureNumber ? query.trim().replace(/[#.]/g, '') : numMatch![1];
+    const targetIdx = parseInt(rawNum, 10) - 1;
+
+    // 1. First check pending choice list if active
+    if (pendingDeleteChoices && targetIdx >= 0 && targetIdx < pendingDeleteChoices.length) {
+      const choice = pendingDeleteChoices[targetIdx];
+      pendingDeleteChoices = null;
+      if (choice.type === 'tag') {
+        deleteUserTagRule(choice.id);
+      } else {
+        deleteKnowledgeRule(choice.id);
+      }
+      return {
+        matched: true,
+        answer: `Deleted rule: ${choice.display}`,
+        detail: 'The selected rule has been removed.'
+      };
+    }
+
+    // 2. Fall back to global rule list index
+    const userRules = getUserRules();
+    const kbRules = getAllRules();
+    const totalCount = userRules.length + kbRules.length;
+
+    if (targetIdx >= 0 && targetIdx < totalCount) {
+      pendingDeleteChoices = null;
+      if (targetIdx < userRules.length) {
+        const ruleToDelete = userRules[targetIdx];
+        deleteUserTagRule(ruleToDelete.id);
+        const display = `${ruleToDelete.keywords.map(k => `"${sanitizeKeyword(k)}"`).join(', ')} ➔ ${ruleToDelete.categoryName}`;
+        return {
+          matched: true,
+          answer: `Deleted auto-tag rule #${targetIdx + 1}: ${display}`,
+          detail: 'This rule will no longer auto-tag in Quick Log.'
+        };
+      } else {
+        const kbIdx = targetIdx - userRules.length;
+        const ruleToDelete = kbRules[kbIdx];
+        deleteKnowledgeRule(ruleToDelete.id);
+        return {
+          matched: true,
+          answer: `Deleted knowledge rule #${targetIdx + 1}: "${ruleToDelete.text}"`,
+          detail: 'Rule removed from local Knowledge Base.'
+        };
+      }
+    }
+
+    return {
+      matched: true,
+      answer: `Invalid rule number "${rawNum}".`,
+      detail: 'Type "list rules" to view all active rules and their numbers.'
+    };
+  }
+
   // ── USER RULE DEFINITION INTERCEPTOR ─────────────────
-  // Syntax: "rule - dudh or dooth is groceries", "rule: doodh is Groceries", "tag swiggy as Food", "map petrol to Transport"
-  const ruleMatch = query.match(/^(?:rule\s*[:-=]?\s*|tag\s+|map\s+|set\s+)(.+?)\s+(?:is\s+tagged\s+as|tagged\s+as|is|to|as|=|->)\s+(.+)$/i);
+  // Syntax: "rule - dudh or dooth is groceries", "rule= chai, cha, chaha is groceries", "rule: \"coke-zero!\" is Groceries"
+  const ruleMatch = query.match(/^(?:rule|tag|map|set)[\s\-_:=]*(.+?)\s+(?:is\s+tagged\s+as|tagged\s+as|is|to|as|=|->)\s+(.+)$/i);
   if (ruleMatch) {
     const rawWords = ruleMatch[1].trim();
     const rawCategory = ruleMatch[2].trim();
 
-    // Split words by "or", "and", ",", "/"
-    const keywords = rawWords.split(/\s*(?:or|and|,|\/)\s*/i).map(w => w.trim()).filter(Boolean);
-    const result = addUserTagRule(keywords, rawCategory, categories);
+    const result = addUserTagRule(rawWords, rawCategory, categories);
+    const registeredWordsFormatted = result.rule?.keywords.map(k => `"${k}"`).join(' or ') || rawWords;
 
     return {
       matched: true,
       answer: result.message,
-      detail: `Custom Rule Active! Whenever you use ${keywords.map(k => `"${k}"`).join(' or ')} in Quick Log, it will auto-detect as ${result.rule?.categoryName || rawCategory}.`
+      detail: `Custom Rule Active! Whenever you use ${registeredWordsFormatted} in Quick Log, it will auto-detect as ${result.rule?.categoryName || rawCategory}. (Tip: For slang containing special symbols like "coke-zero!", enclose in double quotes)`
     };
   }
 
   // ── GENERAL KNOWLEDGE RULE DEFINITION ─────────────────
-  // Syntax: "rule: 5% tax on dining", "rule - save 10% monthly"
-  const kbRuleMatch = query.match(/^rule\s*[:-=]?\s*(.+)/i);
+  // Syntax: "rule: 5% tax on dining", "rule - save 10% monthly", "rule= save 10% monthly"
+  const kbRuleMatch = query.match(/^rule[\s\-_:=]+(.+)/i);
   if (kbRuleMatch) {
-    const text = kbRuleMatch[1].trim();
+    const text = sanitizeKeyword(kbRuleMatch[1]);
     if (text) {
       addKnowledgeRule(text);
       return {
@@ -135,25 +247,48 @@ export async function parseAndExecuteLocalQuery(
   }
 
   // ── DELETE RULE COMMAND ─────────────────
-  // Syntax: "del rule - dudh", "del rule: dudh", "del rule dudh", "delete rule dudh"
-  const delMatch = query.match(/^(?:del\s*rule|delete\s*rule)\s*[:-=]?\s*(.+)$/i);
+  // Syntax: "del rule - dudh", "del rule: dudh", "del rule dudh", "delete rule dudh", "del rule chai groceries"
+  const delMatch = query.match(/^(?:del\s*rule|delete\s*rule)[\s\-_:=]*(.+)$/i);
   if (delMatch) {
-    const searchTerm = delMatch[1].trim().toLowerCase();
+    const rawSearch = delMatch[1].trim();
+    const searchTerm = sanitizeKeyword(rawSearch).toLowerCase();
     if (!searchTerm) {
       return {
         matched: true,
-        answer: 'Please specify a keyword to delete. Example: "del rule - dudh"',
-        detail: 'Type "list rules" to see all active rule keywords.'
+        answer: 'Please specify a keyword or number to delete. Example: "del rule 1" or "del rule dudh"',
+        detail: 'Type "list rules" to see all active rules.'
       };
     }
 
     const tagRules = getUserRules();
     const kbRules = getAllRules();
 
-    const matchedTagRules = tagRules.filter(r => 
-      r.keywords.some(k => k.toLowerCase().includes(searchTerm)) || 
-      r.categoryName.toLowerCase().includes(searchTerm)
-    );
+    // Check if user specified multi-token search (e.g. "chai groceries") to target exact keyword + category
+    const searchTokens = rawSearch.toLowerCase().split(/\s+/).map(t => sanitizeKeyword(t)).filter(Boolean);
+    let matchedTagRules = tagRules;
+
+    if (searchTokens.length > 1) {
+      const exactCatMatches = tagRules.filter(r => {
+        const catLower = r.categoryName.toLowerCase();
+        const kwMatch = r.keywords.some(k => searchTokens.some(st => sanitizeKeyword(k).toLowerCase().includes(st)));
+        const catMatch = searchTokens.some(st => catLower.includes(st));
+        return kwMatch && catMatch;
+      });
+
+      if (exactCatMatches.length === 1) {
+        matchedTagRules = exactCatMatches;
+      } else {
+        matchedTagRules = tagRules.filter(r => 
+          r.keywords.some(k => sanitizeKeyword(k).toLowerCase().includes(searchTerm)) || 
+          r.categoryName.toLowerCase().includes(searchTerm)
+        );
+      }
+    } else {
+      matchedTagRules = tagRules.filter(r => 
+        r.keywords.some(k => sanitizeKeyword(k).toLowerCase().includes(searchTerm)) || 
+        r.categoryName.toLowerCase().includes(searchTerm)
+      );
+    }
 
     const matchedKbRules = kbRules.filter(r => 
       r.text.toLowerCase().includes(searchTerm)
@@ -170,12 +305,13 @@ export async function parseAndExecuteLocalQuery(
     }
 
     if (totalMatches === 1) {
+      pendingDeleteChoices = null;
       if (matchedTagRules.length === 1) {
         const ruleToDelete = matchedTagRules[0];
         deleteUserTagRule(ruleToDelete.id);
         return {
           matched: true,
-          answer: `Deleted auto-tag rule: ${ruleToDelete.keywords.map(k => `"${k}"`).join(', ')} ➔ ${ruleToDelete.categoryName}`,
+          answer: `Deleted auto-tag rule: ${ruleToDelete.keywords.map(k => `"${sanitizeKeyword(k)}"`).join(', ')} ➔ ${ruleToDelete.categoryName}`,
           detail: 'This keyword will no longer auto-tag in Quick Log.'
         };
       } else {
@@ -189,14 +325,28 @@ export async function parseAndExecuteLocalQuery(
       }
     }
 
-    // Multiple rules matched
-    const tagList = matchedTagRules.map(r => `• "del rule: ${r.keywords[0]}" (maps to ${r.categoryName})`).join('\n');
-    const kbList = matchedKbRules.map(r => `• "del rule: ${r.text.substring(0, 30)}..."`).join('\n');
+    // Multiple rules matched — format numbered options for selection
+    pendingDeleteChoices = [
+      ...matchedTagRules.map(r => ({
+        type: 'tag' as const,
+        id: r.id,
+        display: `${r.keywords.map(k => `"${sanitizeKeyword(k)}"`).join(', ')} ➔ ${r.categoryName}`
+      })),
+      ...matchedKbRules.map(r => ({
+        type: 'kb' as const,
+        id: r.id,
+        display: `"${r.text}"`
+      }))
+    ];
+
+    const choicesFormatted = pendingDeleteChoices
+      .map((c, i) => `  ${i + 1}. ${c.display}`)
+      .join('\n');
 
     return {
       matched: true,
-      answer: `Multiple rules match "${searchTerm}". Please specify the exact keyword to delete:\n\n${[tagList, kbList].filter(Boolean).join('\n')}`,
-      detail: 'Type "del rule: [exact keyword]" to delete.'
+      answer: `Multiple rules match "${searchTerm}". Please specify the number to delete:\n\n${choicesFormatted}`,
+      detail: 'Type the choice number (e.g. "1" or "del rule 1") to delete.'
     };
   }
 
@@ -210,22 +360,30 @@ export async function parseAndExecuteLocalQuery(
       return {
         matched: true,
         answer: "No custom rules configured yet.",
-        detail: 'Type "rule - dudh is Groceries" to auto-tag keywords, or "rule: [text]" to save knowledge base rules.'
+        detail: 'Type "rule - dudh is Groceries" to auto-tag keywords, or "rule: [text]" to save knowledge base rules. Tip: Enclose slang with special symbols in double-quotes (e.g. "coke-zero").'
       };
     }
 
+    let counter = 1;
+
     const tagRulesText = userRules.length > 0
-      ? `📋 Auto-Tag Word Rules:\n` + userRules.map(r => `  • ${r.keywords.map(k => `"${k}"`).join(', ')} ➔ ${r.categoryName}`).join('\n')
+      ? `📋 Auto-Tag Word Rules:\n` + userRules.map(r => {
+          const num = counter++;
+          return `  ${num}. ${r.keywords.map(k => `"${sanitizeKeyword(k)}"`).join(', ')} ➔ ${r.categoryName}`;
+        }).join('\n')
       : '';
 
     const kbRulesText = kbRules.length > 0
-      ? `🧠 Knowledge Base Rules:\n` + kbRules.map(r => `  • ${r.text}`).join('\n')
+      ? `🧠 Knowledge Base Rules:\n` + kbRules.map(r => {
+          const num = counter++;
+          return `  ${num}. "${r.text}"`;
+        }).join('\n')
       : '';
 
     return {
       matched: true,
       answer: [tagRulesText, kbRulesText].filter(Boolean).join('\n\n'),
-      detail: `Active: ${userRules.length} word rule(s), ${kbRules.length} knowledge rule(s).`
+      detail: `Active: ${userRules.length} word rule(s), ${kbRules.length} knowledge rule(s). Type "del rule 1" to delete by number.`
     };
   }
 
@@ -314,6 +472,42 @@ export async function parseAndExecuteLocalQuery(
     if (q.includes('this week') || q.includes('current week')) return { txs: txsForPeriod('thisWeek'), label: 'this week' };
     if (q.includes('last month')) return { txs: txsForPeriod('lastMonth'), label: 'last month' };
     if (q.includes('this month') || q.includes('current month')) return { txs: txsForPeriod('thisMonth'), label: 'this month' };
+    if (q.includes('all time') || q.includes('all-time') || q.includes('lifetime') || q.includes('overall') || q.includes('since beginning') || q.includes('since start') || q.includes('total ever') || q.includes('ever spent')) {
+      return { txs: transactions, label: 'all time' };
+    }
+
+    // Dynamic relative ranges: "past 3 months", "last 2 weeks", "in the past 10 days", "last 2 years"
+    const wordToNum: Record<string, number> = {
+      one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
+      seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12
+    };
+
+    const rangeMatch = q.match(/(?:past|last|previous|in the last|in the past)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)?\s*(day|days|week|weeks|month|months|year|years)\b/i);
+
+    if (rangeMatch) {
+      const rawCount = rangeMatch[1] ? rangeMatch[1].toLowerCase() : '1';
+      const count = !isNaN(parseInt(rawCount, 10)) ? parseInt(rawCount, 10) : (wordToNum[rawCount] || 1);
+      const unit = rangeMatch[2].toLowerCase();
+
+      const cutoff = new Date(now);
+      if (unit.startsWith('day')) {
+        cutoff.setDate(cutoff.getDate() - count);
+      } else if (unit.startsWith('week')) {
+        cutoff.setDate(cutoff.getDate() - (count * 7));
+      } else if (unit.startsWith('month')) {
+        cutoff.setMonth(cutoff.getMonth() - count);
+      } else if (unit.startsWith('year')) {
+        cutoff.setFullYear(cutoff.getFullYear() - count);
+      }
+
+      const cutoffISO = cutoff.toISOString().substring(0, 10);
+      const labelStr = `in the past ${count} ${unit}`;
+
+      return {
+        txs: transactions.filter(t => t.date >= cutoffISO),
+        label: labelStr
+      };
+    }
 
     // Specific date check: "17 july", "july 17", "17th july"
     const monthRegex = '(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|october|oct|november|nov|december|dec)';
@@ -491,12 +685,28 @@ export async function parseAndExecuteLocalQuery(
     }
 
     // Daily average
+    const totalSpent = sumTxs(txs);
     const activeDays = uniqueActiveDays(txs);
-    const dailyAvg = activeDays > 0 ? sumTxs(txs) / activeDays : 0;
+    const activeDayAvg = activeDays > 0 ? totalSpent / activeDays : 0;
+
+    // Calculate calendar days elapsed in period
+    const now = new Date();
+    const isThisMonth = label === 'this month';
+    const calendarDays = isThisMonth ? now.getDate() : activeDays;
+    const calendarDailyBurn = calendarDays > 0 ? totalSpent / calendarDays : 0;
+
+    if (isThisMonth) {
+      return {
+        matched: true,
+        answer: `Your daily burn rate this month is ${fmt(calendarDailyBurn)}/day (${fmt(totalSpent)} total across ${calendarDays} days elapsed).`,
+        detail: `On days you actually logged transactions (${activeDays} active days), your average spend was ${fmt(activeDayAvg)}/spending day.`
+      };
+    }
+
     return {
       matched: true,
-      answer: `Your average daily spend is ${fmt(dailyAvg)} (${label}).`,
-      detail: `You spent on ${activeDays} out of the tracked days. Total: ${fmt(sumTxs(txs))}.`
+      answer: `Your average daily spend is ${fmt(calendarDailyBurn)}/day (${label}).`,
+      detail: `Total spent: ${fmt(totalSpent)} across ${activeDays} active spending days.`
     };
   }
 

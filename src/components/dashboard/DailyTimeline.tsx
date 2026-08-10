@@ -1207,7 +1207,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                         <div>
                           <h4 className="text-sm font-mono font-bold text-ink group-hover:text-brand-purple transition-colors">{m.monthName}</h4>
                           <p className="text-[11px] font-mono text-muted-custom">
-                            {m.txCount} total logs • ~{formatCurrency(m.dailyAvg, baseCurrency)}/day
+                            {m.txCount} total logs • ~{formatCurrency(m.dailyAvg, baseCurrency)}/day (days passed)
                           </p>
                         </div>
                       </div>

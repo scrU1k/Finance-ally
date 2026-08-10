@@ -79,27 +79,43 @@ function classifyCategory(
 
 // ─── Dimension Scorers ───────────────────────────────────────────────────────
 
+function getDayOfWeekLocal(dateStr: string): number {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (y && m && d) {
+    return new Date(y, m - 1, d).getDay();
+  }
+  return new Date(dateStr).getDay();
+}
+
 function computeDayOfWeekPattern(txs: Transaction[]): {
   maxDayIndex: number;
   multiplierVsWeekday: number;
   hasMeaningfulPattern: boolean;
 } {
   const dowSpend = [0, 0, 0, 0, 0, 0, 0];
-  const dowCount = [0, 0, 0, 0, 0, 0, 0];
+  const dowDates: Set<string>[] = [
+    new Set(), new Set(), new Set(), new Set(), new Set(), new Set(), new Set()
+  ];
+
   txs.forEach(t => {
-    const dow = new Date(t.date).getDay();
+    const dow = getDayOfWeekLocal(t.date);
     dowSpend[dow] += t.amount;
-    dowCount[dow] += 1;
+    dowDates[dow].add(t.date);
   });
-  const dowAvg = dowSpend.map((s, i) => (dowCount[i] > 0 ? s / dowCount[i] : 0));
+
+  const dowAvg = dowSpend.map((s, i) => (dowDates[i].size > 0 ? s / dowDates[i].size : 0));
   const wdAmts = [1, 2, 3, 4, 5].map(i => dowAvg[i]).filter(v => v > 0);
   const wdAvg = wdAmts.length > 0 ? wdAmts.reduce((s, v) => s + v, 0) / wdAmts.length : 0;
   const maxIdx = dowAvg.indexOf(Math.max(...dowAvg));
   const multiplier = wdAvg > 0 ? dowAvg[maxIdx] / wdAvg : 0;
+  
+  // Require at least 2 distinct calendar days of that weekday before declaring a pattern
+  const hasMultipleOccurrences = dowDates[maxIdx].size >= 2;
+
   return {
     maxDayIndex: maxIdx,
     multiplierVsWeekday: Math.round(multiplier * 10) / 10,
-    hasMeaningfulPattern: wdAvg > 0 && multiplier >= 2.5
+    hasMeaningfulPattern: wdAvg > 0 && multiplier >= 2.5 && hasMultipleOccurrences
   };
 }
 
@@ -239,7 +255,8 @@ function computeSavingsPressureScore(
 export function generateSmartSpendingSuggestions(
   rawTransactions: Transaction[],
   categories: Category[],
-  currency: CurrencyCode
+  currency: CurrencyCode,
+  timeframe: 'week' | 'month' | 'year' = 'month'
 ): string[] {
   const transactions = rawTransactions.filter(t => !isPendingScheduledTx(t));
   const suggestions: string[] = [];
@@ -249,16 +266,44 @@ export function generateSmartSpendingSuggestions(
   }
 
   const now = new Date();
-  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const monthTxs = transactions.filter(t => t.date.startsWith(currentMonthKey));
-  const monthTotal = monthTxs.reduce((acc, t) => acc + t.amount, 0);
 
-  const prevMonthKeys = getPreviousMonthKeys(currentMonthKey, 3);
-  const hasPrevData = prevMonthKeys.some(m => transactions.some(t => t.date.startsWith(m)));
+  // Filter transactions according to selected timeframe
+  let periodTxs: Transaction[] = [];
+  let daysElapsed = 1;
+  let periodLabel = 'this month';
 
-  // Top category — with trend direction if history available
+  if (timeframe === 'week') {
+    const dayOfWeek = now.getDay();
+    const diffToMon = (dayOfWeek + 6) % 7;
+    const mon = new Date(now);
+    mon.setDate(now.getDate() - diffToMon);
+    mon.setHours(0, 0, 0, 0);
+    const monISO = mon.toISOString().substring(0, 10);
+
+    periodTxs = transactions.filter(t => t.date >= monISO);
+    daysElapsed = diffToMon + 1;
+    periodLabel = 'this week';
+  } else if (timeframe === 'year') {
+    const yearKey = `${now.getFullYear()}-01-01`;
+    periodTxs = transactions.filter(t => t.date >= yearKey);
+
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const diffTime = Math.abs(now.getTime() - startOfYear.getTime());
+    daysElapsed = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    periodLabel = 'this year';
+  } else {
+    // month
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    periodTxs = transactions.filter(t => t.date.startsWith(monthKey));
+    daysElapsed = now.getDate();
+    periodLabel = 'this month';
+  }
+
+  const periodTotal = periodTxs.reduce((acc, t) => acc + t.amount, 0);
+
+  // Top category — with trend direction for month, or top category for week/year
   const catMap: Record<string, number> = {};
-  monthTxs.forEach(t => { catMap[t.categoryId] = (catMap[t.categoryId] || 0) + t.amount; });
+  periodTxs.forEach(t => { catMap[t.categoryId] = (catMap[t.categoryId] || 0) + t.amount; });
 
   let topCatId = '';
   let topCatAmount = 0;
@@ -267,60 +312,37 @@ export function generateSmartSpendingSuggestions(
   });
 
   const topCategoryObj = categories.find(c => c.id === topCatId);
-  if (topCategoryObj && monthTotal > 0) {
-    const pct = Math.round((topCatAmount / monthTotal) * 100);
+  if (topCategoryObj && periodTotal > 0) {
+    const pct = Math.round((topCatAmount / periodTotal) * 100);
+    suggestions.push(
+      `${topCategoryObj.name} is your top category ${periodLabel} (${formatCurrency(topCatAmount, currency)}, ${pct}% of total spend).`
+    );
+  }
 
-    if (hasPrevData) {
-      const prevPcts = prevMonthKeys
-        .map(m => {
-          const mTxs = transactions.filter(t => t.date.startsWith(m));
-          const mTotal = mTxs.reduce((s, t) => s + t.amount, 0);
-          const mCat = mTxs.filter(t => t.categoryId === topCatId).reduce((s, t) => s + t.amount, 0);
-          return mTotal > 0 ? (mCat / mTotal) * 100 : null;
-        })
-        .filter((p): p is number => p !== null);
-
-      if (prevPcts.length > 0) {
-        const avgPrevPct = Math.round(prevPcts.reduce((s, p) => s + p, 0) / prevPcts.length);
-        const delta = pct - avgPrevPct;
-        if (delta >= 5) {
-          suggestions.push(
-            `${topCategoryObj.name} is up ${delta}% vs your ${prevPcts.length}-month average (${avgPrevPct}% → ${pct}% of spend).`
-          );
-        } else if (pct > 35) {
-          suggestions.push(
-            `${topCategoryObj.name} is ${pct}% of spend — consistent with your average of ${avgPrevPct}%.`
-          );
-        }
-      }
-    } else if (pct > 35) {
+  // Day-of-week pattern (if month or year)
+  if (timeframe !== 'week') {
+    const DOW_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dowPattern = computeDayOfWeekPattern(periodTxs);
+    if (dowPattern.hasMeaningfulPattern) {
       suggestions.push(
-        `${topCategoryObj.name} makes up ${pct}% of your monthly spend — consider reviewing this category.`
+        `Your highest spend is on ${DOW_NAMES[dowPattern.maxDayIndex]}s — averaging ${dowPattern.multiplierVsWeekday}× your weekday spend.`
       );
     }
   }
 
-  // Day-of-week pattern
-  const DOW_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const dowPattern = computeDayOfWeekPattern(monthTxs);
-  if (dowPattern.hasMeaningfulPattern) {
-    suggestions.push(
-      `Your highest spend is on ${DOW_NAMES[dowPattern.maxDayIndex]}s — averaging ${dowPattern.multiplierVsWeekday}× your weekday spend.`
-    );
-  }
-
   // Auto-parsed transactions
-  const autoParsedCount = monthTxs.filter(t => t.isAutoParsed).length;
+  const autoParsedCount = periodTxs.filter(t => t.isAutoParsed).length;
   if (autoParsedCount > 0) {
-    const autoPct = Math.round((autoParsedCount / (monthTxs.length || 1)) * 100);
+    const autoPct = Math.round((autoParsedCount / (periodTxs.length || 1)) * 100);
     suggestions.push(
-      `Quick Logs handled ${autoParsedCount} transactions automatically (${autoPct}% of this month's logging).`
+      `Quick Logs handled ${autoParsedCount} transactions automatically (${autoPct}% of ${periodLabel}'s logging).`
     );
   }
 
-  // Daily burn rate (factual)
+  // Daily burn rate (factual based on days elapsed)
+  const dailyBurn = Math.round(periodTotal / (daysElapsed || 1));
   suggestions.push(
-    `Daily average: ${formatCurrency(Math.round(monthTotal / (now.getDate() || 1)), currency)}/day — ${monthTxs.length} transactions logged this month.`
+    `Daily burn rate: ${formatCurrency(dailyBurn, currency)}/day (${periodLabel}, based on ${daysElapsed} days elapsed) — ${periodTxs.length} transactions logged.`
   );
 
   return suggestions;

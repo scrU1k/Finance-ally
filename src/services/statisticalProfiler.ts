@@ -147,7 +147,7 @@ export function computeProjections(
       comparisonText = `which is well within your typical spending baseline (${formatCurrency(profile.spendBands.median, baseCurrency)}).`;
     }
   } else {
-    comparisonText = `at your current pace of ${formatCurrency(Math.round(dailyRate), baseCurrency)}/day.`;
+    comparisonText = `at your current pace of ${formatCurrency(Math.round(dailyRate), baseCurrency)}/day (based on ${dayOfMonth} days elapsed).`;
   }
 
   const summarySentence = `Based on your pace so far this month, you're projected to spend approximately ${formatCurrency(projectedTotal, baseCurrency)} ${comparisonText}`;
@@ -205,28 +205,34 @@ export function detectFrictionPoints(
 
   // 2. Day of Week Pattern (Weekend vs Weekday)
   const dayTotals: number[] = [0, 0, 0, 0, 0, 0, 0]; // Sun-Sat
-  const dayCounts: number[] = [0, 0, 0, 0, 0, 0, 0];
+  const dayDates: Set<string>[] = [
+    new Set(), new Set(), new Set(), new Set(), new Set(), new Set(), new Set()
+  ];
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   currentMonthTxs.forEach(t => {
-    const d = new Date(t.date);
-    if (!isNaN(d.getTime())) {
-      const dayIdx = d.getDay();
+    const [y, m, d] = t.date.split('-').map(Number);
+    if (y && m && d) {
+      const dayIdx = new Date(y, m - 1, d).getDay();
       dayTotals[dayIdx] += t.amount;
-      dayCounts[dayIdx] += 1;
+      dayDates[dayIdx].add(t.date);
     }
   });
 
-  const dayAverages = dayTotals.map((tot, idx) => (dayCounts[idx] > 0 ? tot / dayCounts[idx] : 0));
-  const overallDayAvg = dayTotals.reduce((a, b) => a + b, 0) / 7;
+  const dayAverages = dayTotals.map((tot, idx) => (dayDates[idx].size > 0 ? tot / dayDates[idx].size : 0));
+  const activeDaysTotal = dayDates.reduce((sum, set) => sum + set.size, 0);
+  const totalMonthSpend = dayTotals.reduce((a, b) => a + b, 0);
+  const overallDayAvg = activeDaysTotal > 0 ? totalMonthSpend / activeDaysTotal : 0;
 
   dayAverages.forEach((avg, idx) => {
-    if (avg > overallDayAvg * 2.2 && dayTotals[idx] > 0) {
+    // Require at least 2 distinct calendar days of that weekday logged before flagging a pattern
+    if (dayDates[idx].size >= 2 && overallDayAvg > 0 && avg > overallDayAvg * 2.2) {
+      const mult = (avg / overallDayAvg).toFixed(1);
       frictionPoints.push({
         id: `fric-day-${idx}`,
         type: 'day_pattern',
         title: `${dayNames[idx]} Spending Pattern`,
-        observation: `Your spending on ${dayNames[idx]}s averages ${formatCurrency(Math.round(avg), baseCurrency)}, which is over double your daily average.`,
+        observation: `Your spending on ${dayNames[idx]}s averages ${formatCurrency(Math.round(avg), baseCurrency)}, which is ${mult}x your daily average (${formatCurrency(Math.round(overallDayAvg), baseCurrency)}/day).`,
         suggestion: `Weekend and leisure spending tends to clump on ${dayNames[idx]}s. Planning activities ahead can smooth this out.`,
         magnitude: dayTotals[idx]
       });

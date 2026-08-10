@@ -1,18 +1,114 @@
-// Local Knowledge Base (LLM-lite Vector DB)
+// Local Knowledge Base (Semantic Vector DB & Rules Manager)
+import { cosineSimilarity384 } from './localArcticEmbed';
 
 export interface KnowledgeRule {
   id: string;
-  text: string;
-  isCustom: boolean;
-  timestamp: number;
+  intent?: string;
   scope?: 'personal_data' | 'general_finance' | 'both';
+  requiresBaseline?: boolean;
+  templateVars?: string[];
+  text: string;
+  actionable?: string;
+  vector384?: number[];
+  isCustom?: boolean;
+  timestamp?: number;
 }
 
-const DEFAULT_KNOWLEDGE_RULES: KnowledgeRule[] = [];
+let rulesDB: KnowledgeRule[] | null = null;
+
+async function loadRulesDB(): Promise<KnowledgeRule[]> {
+  if (rulesDB) return rulesDB;
+  try {
+    const res = await fetch('/financialRulesDB.json');
+    if (!res.ok) throw new Error('DB file not found');
+    rulesDB = await res.json();
+    return rulesDB!;
+  } catch {
+    console.warn('[KB] Could not load financialRulesDB.json, using empty vector cache.');
+    return [];
+  }
+}
+
+const pendingEmbedRequests = new Map<string, (vec: Float32Array) => void>();
+
+export function attachKBWorkerListener(worker: Worker) {
+  worker.addEventListener('message', (e: MessageEvent) => {
+    if (e.data.type === 'embed' && e.data.success) {
+      const resolver = pendingEmbedRequests.get(e.data.id);
+      if (resolver) {
+        resolver(new Float32Array(e.data.result.vector));
+        pendingEmbedRequests.delete(e.data.id);
+      }
+    }
+  });
+}
+
+function requestEmbedding(worker: Worker, text: string): Promise<Float32Array> {
+  return new Promise((resolve) => {
+    const id = `kb_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    pendingEmbedRequests.set(id, resolve);
+    worker.postMessage({ id, type: 'embed', text });
+
+    // 5s timeout safety fallback
+    setTimeout(() => {
+      if (pendingEmbedRequests.has(id)) {
+        pendingEmbedRequests.delete(id);
+        resolve(new Float32Array(384));
+      }
+    }, 5000);
+  });
+}
+
+export async function queryKnowledgeBase(
+  query: string,
+  worker: Worker,
+  options: {
+    maxResults?: number;
+    scopeFilter?: 'personal_data' | 'general_finance' | 'both';
+    similarityThreshold?: number;
+  } = {}
+): Promise<{ rule: KnowledgeRule; score: number }[]> {
+  const {
+    maxResults = 3,
+    scopeFilter,
+    similarityThreshold = 0.35
+  } = options;
+
+  const [dbRules, queryVec] = await Promise.all([
+    loadRulesDB(),
+    requestEmbedding(worker, query)
+  ]);
+
+  // Combine pre-computed DB rules with user custom rules
+  const customRules = getCustomRules();
+  const candidates = [...dbRules, ...customRules].filter(r => {
+    if (!scopeFilter || scopeFilter === 'both') return true;
+    return r.scope === scopeFilter || r.scope === 'both';
+  });
+
+  const scored = candidates.map(rule => {
+    let score = 0;
+    if (rule.vector384 && rule.vector384.length === 384) {
+      score = cosineSimilarity384(queryVec, new Float32Array(rule.vector384));
+    } else {
+      // Basic text matching fallback for custom user rules without vectors
+      const qLower = query.toLowerCase();
+      if (rule.text.toLowerCase().includes(qLower)) score = 0.6;
+    }
+    return { rule, score };
+  });
+
+  return scored
+    .filter(res => res.score >= similarityThreshold)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxResults);
+}
+
+// ── CUSTOM USER RULES STORAGE (localStorage) ─────────────────────────
 
 const LOCAL_RULES_KEY = 'fa_custom_knowledge_rules';
 
-function getCustomRules(): KnowledgeRule[] {
+export function getCustomRules(): KnowledgeRule[] {
   try {
     const raw = localStorage.getItem(LOCAL_RULES_KEY);
     if (raw) return JSON.parse(raw);
@@ -22,17 +118,12 @@ function getCustomRules(): KnowledgeRule[] {
   return [];
 }
 
-function saveCustomRules(rules: KnowledgeRule[]) {
-  localStorage.setItem(LOCAL_RULES_KEY, JSON.stringify(rules));
-}
-
 export function getAllRules(): KnowledgeRule[] {
-  return [...DEFAULT_KNOWLEDGE_RULES, ...getCustomRules()].sort((a, b) => b.timestamp - a.timestamp);
+  return getCustomRules().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 }
 
 export function addKnowledgeRule(text: string): KnowledgeRule {
   const custom = getCustomRules();
-  // Don't add exact duplicates
   const existing = custom.find(r => r.text.toLowerCase().trim() === text.toLowerCase().trim());
   if (existing) return existing;
 
@@ -40,10 +131,11 @@ export function addKnowledgeRule(text: string): KnowledgeRule {
     id: `rule_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
     text: text.trim(),
     isCustom: true,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    scope: 'personal_data'
   };
   custom.push(newRule);
-  saveCustomRules(custom);
+  localStorage.setItem(LOCAL_RULES_KEY, JSON.stringify(custom));
   return newRule;
 }
 
@@ -51,7 +143,7 @@ export function deleteKnowledgeRule(id: string): boolean {
   const custom = getCustomRules();
   const filtered = custom.filter(r => r.id !== id);
   if (filtered.length !== custom.length) {
-    saveCustomRules(filtered);
+    localStorage.setItem(LOCAL_RULES_KEY, JSON.stringify(filtered));
     return true;
   }
   return false;
@@ -60,115 +152,10 @@ export function deleteKnowledgeRule(id: string): boolean {
 export function deleteKnowledgeRuleByText(text: string): boolean {
   const custom = getCustomRules();
   const search = text.toLowerCase().trim();
-  // Find the closest match to the text provided
   const target = custom.find(r => r.text.toLowerCase().includes(search));
   if (target) {
-    saveCustomRules(custom.filter(r => r.id !== target.id));
+    localStorage.setItem(LOCAL_RULES_KEY, JSON.stringify(custom.filter(r => r.id !== target.id)));
     return true;
   }
   return false;
-}
-
-/**
- * Tokenizes text, removes basic stopwords, and stems slightly.
- */
-function tokenize(text: string): string[] {
-  const stops = new Set(['the', 'is', 'at', 'which', 'on', 'in', 'a', 'an', 'and', 'or', 'to', 'with', 'for', 'of', 'how', 'what', 'best', 'use']);
-  return text.toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
-    .filter(w => w.length > 2 && !stops.has(w));
-}
-
-/**
- * Computes TF (Term Frequency)
- */
-function computeTF(tokens: string[]): Record<string, number> {
-  const tf: Record<string, number> = {};
-  for (const t of tokens) {
-    tf[t] = (tf[t] || 0) + 1;
-  }
-  const maxFreq = Math.max(...Object.values(tf));
-  for (const k in tf) {
-    tf[k] = tf[k] / maxFreq; // Normalized
-  }
-  return tf;
-}
-
-/**
- * Simple retrieval function using a TF-IDF inspired score.
- * Returns the top matching rules.
- */
-export function queryKnowledgeBase(
-  query: string, 
-  dynamicRules: KnowledgeRule[] = [], 
-  maxResults = 3,
-  scopeFilter?: 'personal_data' | 'general_finance' | 'both'
-): { rule: KnowledgeRule; score: number }[] {
-  const queryTokens = tokenize(query);
-  if (queryTokens.length === 0) return [];
-
-  const allCandidateRules = [...dynamicRules, ...getAllRules()];
-  const rules = allCandidateRules.filter(r => {
-    if (!scopeFilter || scopeFilter === 'both') return true;
-    const ruleScope = r.scope || (r.isCustom ? 'personal_data' : 'general_finance');
-    return ruleScope === scopeFilter || ruleScope === 'both';
-  });
-
-  const docTokens = rules.map(r => tokenize(r.text));
-
-  // Compute IDF
-  const documentCount = rules.length;
-  const df: Record<string, number> = {};
-  
-  docTokens.forEach(tokens => {
-    const unique = new Set(tokens);
-    unique.forEach(t => {
-      df[t] = (df[t] || 0) + 1;
-    });
-  });
-
-  const idf: Record<string, number> = {};
-  for (const t in df) {
-    idf[t] = Math.log(documentCount / (df[t] + 1)) + 1;
-  }
-
-  // Score each rule based on query tokens
-  const scored = rules.map((rule, idx) => {
-    const tf = computeTF(docTokens[idx]);
-    let score = 0;
-    
-    // Check exact matches (very strong signal)
-    const exactMatchStr = query.toLowerCase();
-    if (rule.text.toLowerCase().includes(exactMatchStr)) {
-        score += 5.0; // Huge boost for exact phrasing
-    }
-
-    // TF-IDF scoring
-    for (const qt of queryTokens) {
-      if (tf[qt]) {
-        score += tf[qt] * (idf[qt] || 1.0);
-      }
-    }
-    return { rule, score };
-  });
-
-  const lowerQ = query.toLowerCase();
-  const isAskingLowest = lowerQ.includes('least') || lowerQ.includes('lowest') || lowerQ.includes('smallest') || lowerQ.includes('minimum') || lowerQ.includes('cheapest');
-  const isAskingHighest = lowerQ.includes('highest') || lowerQ.includes('largest') || lowerQ.includes('biggest') || lowerQ.includes('most');
-
-  return scored
-    .filter(res => res.score > 0.1)
-    .filter(res => {
-      const textLower = res.rule.text.toLowerCase();
-      if (isAskingLowest && (textLower.includes('highest') || textLower.includes('largest') || textLower.includes('biggest') || textLower.includes('most spending') || textLower.includes('total spending'))) {
-        return false;
-      }
-      if (isAskingHighest && (textLower.includes('lowest') || textLower.includes('least') || textLower.includes('smallest'))) {
-        return false;
-      }
-      return true;
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, maxResults);
 }

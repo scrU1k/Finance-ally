@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, CurrencyCode } from '../types';
 import { getStoredUserProfile, createInitialUser, verifyUserPassword, saveUserProfile, changeUserPassword } from '../services/auth';
 import { setAccountCreatedAt } from '../services/localAutoBackupService';
+import { App } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 
 const LOCKOUT_KEY = 'fa_login_lockout';
 const LOCKOUT_TIERS_MS = [30_000, 120_000, 600_000, 1_800_000]; // 30s, 2m, 10m, 30m
@@ -50,17 +52,79 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Module-level flag to suppress auto-locking when system dialogs (file pickers/share sheets) are active
+let isSystemPickerActive = false;
+let systemPickerTimeout: any = null;
+
+export function suppressLockForSystemPicker() {
+  isSystemPickerActive = true;
+  if (systemPickerTimeout) clearTimeout(systemPickerTimeout);
+  systemPickerTimeout = setTimeout(() => {
+    isSystemPickerActive = false;
+  }, 120_000); // 2-minute safety window for picking files or using share dialogs
+}
+
+export function resetSystemPickerBypass() {
+  isSystemPickerActive = false;
+  if (systemPickerTimeout) clearTimeout(systemPickerTimeout);
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => getStoredUserProfile());
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean>(() => !getStoredUserProfile());
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
     const existing = getStoredUserProfile();
     if (!existing) return false;
-    return existing.requirePassword !== true;
+    // Password protection is required by default unless explicitly disabled
+    return existing.requirePassword === false;
   });
 
   // Lockout state — initialize from persisted storage
   const [lockoutState, setLockoutState] = useState<LockoutState>(() => getLockout());
+
+  // Listen for App Background / Foreground events (Capacitor native & Web visibilitychange)
+  useEffect(() => {
+    const lockIfRequired = () => {
+      if (isSystemPickerActive) {
+        // Skip locking when opening system file pickers or share dialogs
+        return;
+      }
+      const stored = getStoredUserProfile();
+      if (stored && stored.requirePassword !== false) {
+        setIsUnlocked(false);
+      }
+    };
+
+    // 1. Capacitor Native App Lifecycle Listener (Android / iOS)
+    let appStateListener: { remove: () => void } | null = null;
+    if (Capacitor.isNativePlatform()) {
+      App.addListener('appStateChange', ({ isActive }) => {
+        if (!isActive) {
+          lockIfRequired();
+        }
+      }).then(handle => {
+        appStateListener = handle;
+      }).catch(err => {
+        console.warn('Failed to register Capacitor appStateChange listener:', err);
+      });
+    }
+
+    // 2. Web / Browser Visibility Change Listener
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        lockIfRequired();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      if (appStateListener) {
+        appStateListener.remove();
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const login = async (password: string): Promise<boolean> => {
     // Check if currently locked out

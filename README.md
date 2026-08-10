@@ -133,17 +133,33 @@ Managing shared expenses with friends made simple:
 
 ---
 
-### 10. Knowledge Assistant & Multilingual Rules Engine
+### 10. Knowledge Assistant & Offline RAG Vector Engine
 
-Finance-Ally features an offline **Knowledge Assistant** equipped with a custom rules parser, interactive command launcher, and dynamic Trie dictionary.
+Finance-Ally 2.0 features a state-of-the-art, 100% offline **Financial Knowledge Engine** powered by `Xenova/bge-small-en-v1.5` ONNX WebAssembly embeddings, an intent-driven expert system, and an auto-tag rules parser.
 
-- **Commands Pop-Over Modal**: Tap the **Commands** button below the Assistant to open an interactive popover modal displaying working examples, clean syntax cards, and descriptions for all available commands. Tapping any command card automatically inserts it into the input box.
-- **Auto-Detect Word Rules (`rule - ...`)**: Register personal slang, brand nicknames, or regional terms to automatically tag specific categories during Quick Logging (e.g., `rule - doodh or dudh is Groceries`, `rule - chaha or chai is Food & Drinks`).
-- **Full Multilingual & Devanagari Script Support**: Powered by a 512-slot Unicode Trie memory engine. Create and match rules in **Devanagari script** (`rule - दूध or चहा is Groceries`), **French** (`café`, `croissant`), Spanish, German, Marathi, Hindi, etc.
-- **Flexible Rule Deletion (`del rule ...`)**: Delete saved rules using any punctuation delimiter (`del rule - dudh`, `del rule: dudh`, `del rule = dudh`). If a keyword matches multiple rules, the Assistant presents a list of matching rules for precise selection.
-- **Unified `list rules` Command**: Displays both Auto-Tag Word Rules and Knowledge Base Rules in clean, structured bullet points.
-- **Tag Discovery (`list tags`)**: Instantly inspect all active category tags, including built-in and user-created custom tags.
-- **100% Case-Insensitive Commands**: All commands execute seamlessly regardless of uppercase or lowercase input.
+- **109 Embedded Master Financial Rules**: Pre-compiled 384-dimensional unit vector database covering 11 core financial domains:
+  - `investment_basics` (SIP, Index funds, EPF, NPS, ELSS, Sovereign Gold Bonds, rebalancing)
+  - `debt_management` (Debt avalanche, snowball, credit card minimum pay trap, gold loans, BNPL)
+  - `budgeting_framework` (50/30/20 rule, zero-based budgeting, envelope method)
+  - `spending_pattern` (Food delivery premiums, UPI blind spots, salary day splurges, weekend spikes)
+  - `savings_advice` (3–6 month emergency funds, liquid funds vs savings, paying yourself first)
+  - `credit_health` (CIBIL mechanics, 30% utilization rule, old card preservation)
+  - `forex_travel` (Zero-forex markup cards, DCC traps, forex cards)
+  - `large_purchase`, `subscription_audit`, `category_trend`, `financial_concepts`
+- **Hybrid Custom & Pre-built Rules Hierarchy**: Evaluates user-defined custom rules first (e.g. `[CUSTOM] max 5000 on Food`), then seamlessly defaults to the 109 pre-built financial rules to audit discretionary spending and budget health.
+- **Natural Language Dynamic Range Queries**: Parse expenses and totals across any custom date range (e.g. *"in the past 3 months"*, *"last 2 weeks"*, *"past 10 days"*, *"in the last 2 years"*).
+- **All-Time & Lifetime Spend Insights**: Instantly compute overall expenditure, top category spend, and transaction velocity since account creation (*"What is my all-time total spend?"*).
+- **Multi-Point Structured Financial Assessment**: Holistic questions (*"Am I doing good?"*, *"Am I spending wisely?"*) generate a detailed 4-point breakdown:
+  1. Financial Health Score (0–100) + Status Badge (**Excellent**, **Healthy**, **Fair**, **Needs Attention**)
+  2. Monthly Budget & Pace (MTD spent, projected month-end, historical ceiling, % delta)
+  3. Category Concentration (Top category % of spend)
+  4. Active Rules Compliance Audit & Actionable Recommendation
+- **Dual-Metric Daily Average Rate**: Resolves ambiguities by clearly distinguishing between:
+  - **Calendar Daily Burn Rate**: `Total Month Spend / Days Elapsed in Month` (e.g. `₹82/day`).
+  - **Active Spending Day Average**: `Total Month Spend / Unique Purchase Days` (e.g. `₹203.75/spending day`).
+- **Interactive Timeframe Toggle (`Week` | `Month` | `Year`)**: Toggle spending insight cards dynamically between weekly, monthly, and yearly velocity.
+- **Multilingual & Devanagari Script Support**: Powered by a 512-slot Unicode Trie memory engine. Create auto-tagging rules in Devanagari script (`rule - दूध is Groceries`), French, Hindi, Spanish, Marathi, etc.
+- **Commands Pop-Over Modal**: Tap **Commands** to open an interactive cheat sheet of all natural language commands. All commands execute seamlessly regardless of uppercase or lowercase input.
 
 ---
 

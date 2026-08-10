@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, suppressLockForSystemPicker, resetSystemPickerBypass } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useTheme, ThemeMode, FontFamily } from '../../context/ThemeContext';
 import { TOP_CURRENCIES, convertCurrencyAmount, formatCurrency } from '../../services/currency';
@@ -183,6 +183,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   const handleExportCSV = () => {
+    suppressLockForSystemPicker();
     const csvStr = exportTransactionsToCSV(transactions, categories);
     const filename = `finance-ally-export-${new Date().toISOString().split('T')[0]}.csv`;
 
@@ -228,13 +229,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   const handleCSVFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    suppressLockForSystemPicker();
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      resetSystemPickerBypass();
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = async (event) => {
       const content = event.target?.result as string;
-      if (!content) return;
+      if (!content) {
+        resetSystemPickerBypass();
+        return;
+      }
 
       const res = importTransactionsFromCSV(content, categories, baseCurrency);
       if (res.success) {
@@ -254,23 +262,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       } else {
         setCsvStatus(`Error: ${res.errors.join(', ')}`);
       }
+      resetSystemPickerBypass();
     };
     reader.readAsText(file);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    suppressLockForSystemPicker();
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      resetSystemPickerBypass();
+      return;
+    }
 
     if (!file.name.endsWith('.json') && !file.name.endsWith('.enc')) {
       setImportStatus('Error: Please select a valid .json or .json.enc backup file.');
+      resetSystemPickerBypass();
       return;
     }
 
     const reader = new FileReader();
     reader.onload = async (event) => {
       const content = event.target?.result as string;
-      if (!content) return;
+      if (!content) {
+        resetSystemPickerBypass();
+        return;
+      }
 
       if (isEncryptedBackup(content)) {
         setPendingImportContent(content);
@@ -282,6 +299,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           setTimeout(() => window.location.reload(), 1200);
         } else {
           setImportStatus('Error: Invalid JSON backup file.');
+          resetSystemPickerBypass();
         }
       }
     };
@@ -695,7 +713,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                 <button
                   type="button"
-                  onClick={() => toggleRequirePassword(user?.requirePassword === false ? true : false)}
+                  onClick={() => toggleRequirePassword(user?.requirePassword === false)}
                   className={`px-4 py-2 rounded-full text-xs font-mono font-bold transition-all border shrink-0 cursor-pointer ${
                     user?.requirePassword === false
                       ? 'bg-surface-card text-muted-custom border-hairline hover:border-ink'
@@ -849,7 +867,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 {/* CSV Import */}
                 <button
                   type="button"
-                  onClick={() => csvFileInputRef.current?.click()}
+                  onClick={() => { suppressLockForSystemPicker(); csvFileInputRef.current?.click(); }}
                   className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2.5 shadow-sm cursor-pointer font-bold"
                 >
                   <Upload className="w-4 h-4 shrink-0" />
@@ -900,7 +918,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => { suppressLockForSystemPicker(); fileInputRef.current?.click(); }}
                   className="border border-brand-blue text-brand-blue hover:bg-surface-card font-mono text-xs py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer font-bold active:scale-95"
                 >
                   <Upload className="w-3.5 h-3.5 shrink-0" />

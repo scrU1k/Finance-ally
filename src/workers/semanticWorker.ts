@@ -14,7 +14,7 @@ let anchorVectorsCache: { anchor: any, vector: Float32Array }[] | null = null;
 // Initialize the pipeline lazily
 async function getPipeline() {
   if (!extractorPromise) {
-    extractorPromise = pipeline('feature-extraction', 'Xenova/snowflake-arctic-embed-xs', {
+    extractorPromise = pipeline('feature-extraction', 'Xenova/bge-small-en-v1.5', {
       quantized: true // INT8 Quantization (22MB)
     });
   }
@@ -42,6 +42,21 @@ self.onmessage = async (e: MessageEvent) => {
   if (type === 'abort') return;
 
   try {
+    // Raw embedding request for Knowledge Base Vector Search
+    if (type === 'embed') {
+      const extractor = await getPipeline();
+      const output = await extractor(text, { pooling: 'cls', normalize: true });
+      self.postMessage({
+        id,
+        success: true,
+        type: 'embed',
+        result: {
+          vector: Array.from(output.data as Float32Array)
+        }
+      });
+      return;
+    }
+
     const normalizedText = text.toLowerCase();
     
     // 1. FAST PATH: Exact/Fuzzy BM25 Keyword Search

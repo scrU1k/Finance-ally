@@ -1,0 +1,983 @@
+[
+  {
+    "id": "debt-avalanche-001",
+    "intent": "debt_management",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "The debt avalanche method targets the highest interest rate debt first while making minimum payments on all others. It is mathematically optimal and minimizes total interest paid over time.",
+    "actionable": "List every debt with its interest rate. Direct every spare rupee to the highest-rate debt until it is gone, then cascade to the next. Do not deviate — the math only works if you stay consistent."
+  },
+  {
+    "id": "debt-snowball-001",
+    "intent": "debt_management",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "The debt snowball method targets the smallest balance first regardless of interest rate. It costs more mathematically but generates faster psychological wins that help people stay on track.",
+    "actionable": "If you have tried the avalanche and quit, try the snowball instead. Close your smallest debt first. The momentum from early wins often leads to better long-term follow-through than the mathematically optimal path you abandon."
+  },
+  {
+    "id": "debt-emi-overload-001",
+    "intent": "debt_management",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "If your total EMI obligations exceed 40 percent of your monthly take-home income, you are in a financially fragile position. Any income disruption creates immediate default risk.",
+    "actionable": "Add up every active EMI. Divide by take-home pay. If above 40 percent, avoid new loans until at least one EMI closes. Consider prepaying the highest-rate loan if you have a lump sum available."
+  },
+  {
+    "id": "debt-minimum-payments-001",
+    "intent": "debt_management",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Paying only the minimum on a credit card means most of your payment goes to interest, not principal. At 36 to 42 percent annual interest rates common in India, a ₹10,000 balance paid at minimums can take years to clear.",
+    "actionable": "Always pay more than the minimum. Even paying 2x the minimum dramatically cuts your payoff timeline. If you cannot pay the full balance, pay as much above the minimum as possible."
+  },
+  {
+    "id": "debt-personal-loan-vs-cc-001",
+    "intent": "debt_management",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Personal loans in India typically carry 10 to 18 percent annual interest, versus 36 to 42 percent for credit cards. Taking a personal loan to clear a credit card balance is almost always the right move if you can qualify.",
+    "actionable": "Check your bank or NBFC for a personal loan rate. If it is below your credit card APR, use the loan to clear the card, then close or freeze the card to prevent re-accumulation."
+  },
+  {
+    "id": "debt-prepayment-001",
+    "intent": "debt_management",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Prepaying a home loan in India saves significant interest because most banks front-load interest in the early years of the loan. Even one extra EMI per year dramatically reduces the loan tenure.",
+    "actionable": "Check your loan agreement for prepayment charges. Most floating-rate home loans allow free prepayment. Direct any annual bonus or windfall to principal prepayment before spending it elsewhere."
+  },
+  {
+    "id": "debt-bnpl-trap-001",
+    "intent": "debt_management",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Buy Now Pay Later services like LazyPay, ZestMoney, and Simpl charge zero interest only if you pay within the no-cost window. Miss the window and effective APRs can exceed 24 percent.",
+    "actionable": "Treat BNPL as a convenience tool, not a credit facility. Set a calendar reminder for the repayment date the moment you use it. Never use BNPL for discretionary spending you cannot afford outright."
+  },
+  {
+    "id": "debt-gold-loan-001",
+    "intent": "debt_management",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Gold loans in India offer interest rates of 7 to 15 percent, making them one of the cheapest secured credit options available. They are a legitimate tool for short-term cash flow gaps if you own physical gold.",
+    "actionable": "If you need emergency funds and own gold jewelry, compare a gold loan rate from a bank like Muthoot or IIFL against your credit card APR. The gold loan will almost always be cheaper for amounts above ₹20,000."
+  },
+  {
+    "id": "debt-consolidation-001",
+    "intent": "debt_management",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Debt consolidation combines multiple high-interest debts into a single lower-interest loan. It simplifies repayment and reduces total interest, but only works if you stop adding new debt after consolidating.",
+    "actionable": "List all debts and their rates. If a consolidation loan rate is at least 5 percentage points lower than your weighted average debt rate, consolidation makes financial sense. Cut up the cards you clear to prevent re-accumulation."
+  },
+  {
+    "id": "debt-psychological-001",
+    "intent": "debt_management",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Debt creates financial stress that impairs decision-making — research shows people in debt make worse financial choices than when debt-free. Getting out of debt is not just a math problem; it is a mental health priority.",
+    "actionable": "If debt is causing significant anxiety, focus on one small win first regardless of financial optimality. Closing even one small account reduces the cognitive load and improves subsequent financial decisions."
+  },
+  {
+    "id": "purchase-affordability-001",
+    "intent": "large_purchase",
+    "scope": "personal_data",
+    "requiresBaseline": true,
+    "templateVars": [],
+    "text": "Before a large discretionary purchase, check whether it pushes your projected monthly total above your personal 75th percentile spend band. If yes, your budget is already stretched and adding more increases financial stress risk.",
+    "actionable": "Check if adding this purchase brings your projected total above your typical monthly spend ceiling. If you are above it, defer to next month when you reset to zero."
+  },
+  {
+    "id": "purchase-defer-logic-001",
+    "intent": "large_purchase",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Deferring a large purchase by one month is almost never a real sacrifice. The item will still exist next month. But spending above your budget this month creates a compounding stress effect that affects the next month too.",
+    "actionable": "If you are uncertain whether to buy something large now, write it down and revisit in 48 hours. If you still want it after 48 hours, check your budget. If the budget allows it, buy it. If not, wait for next month."
+  },
+  {
+    "id": "purchase-electronics-001",
+    "intent": "large_purchase",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Electronics depreciate rapidly. A phone or laptop bought today for ₹80,000 may be worth ₹40,000 in two years. Factor depreciation into the real cost when evaluating whether a purchase makes financial sense.",
+    "actionable": "For electronics above ₹20,000, check if a refurbished or previous-generation model meets your actual needs. The functional difference between a current and 1-year-old flagship device is often negligible."
+  },
+  {
+    "id": "purchase-emi-true-cost-001",
+    "intent": "large_purchase",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "No-cost EMI schemes in India are not truly free. The interest is baked into the product price via a removed discount. You are paying for financing — it is just hidden.",
+    "actionable": "Before taking a no-cost EMI, check if the same item is available at a discount for full payment. If the discount exceeds the notional interest, paying upfront is cheaper. If not, the no-cost EMI is a reasonable tool."
+  },
+  {
+    "id": "purchase-want-vs-need-001",
+    "intent": "large_purchase",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "The want versus need distinction is blurred by marketing. A more useful filter is: does this purchase solve a problem I currently have, or does it solve a problem I imagine having after I own it?",
+    "actionable": "Describe the specific problem this purchase solves in one sentence. If you cannot articulate it clearly, the purchase is likely a want, not a need. Wants are valid — but classify them honestly."
+  },
+  {
+    "id": "purchase-sinking-fund-001",
+    "intent": "large_purchase",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "A sinking fund is a dedicated savings bucket for a planned future expense. Instead of absorbing a large purchase as a budget shock, you save a small amount monthly and spend from the fund when ready.",
+    "actionable": "Identify your next large planned expense and its approximate cost. Divide by the number of months until you need it. Set that amount aside monthly in a separate savings account or FD. The purchase then costs nothing in the month you make it."
+  },
+  {
+    "id": "savings-emergency-fund-001",
+    "intent": "savings_advice",
+    "scope": "personal_data",
+    "requiresBaseline": true,
+    "templateVars": [],
+    "text": "An emergency fund should cover 3 to 6 months of essential living expenses. It is the single most important financial buffer — without it, any unexpected event forces you into debt.",
+    "actionable": "Aim for a 3-month safety target first, then build up to a 6-month reserve. Keep this in a liquid instrument: savings account, liquid mutual fund, or short-term FD."
+  },
+  {
+    "id": "savings-where-to-keep-001",
+    "intent": "savings_advice",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Emergency funds in India should be kept in instruments that are liquid within 24 hours and carry zero market risk. High-yield savings accounts, liquid mutual funds, or sweep FDs are the right vehicles — not equity or crypto.",
+    "actionable": "Liquid mutual funds in India currently yield 6 to 7 percent annually with T+1 redemption. This outperforms most savings accounts while remaining fully accessible. Consider Parag Parikh Liquid Fund or similar low-expense options."
+  },
+  {
+    "id": "savings-rate-baseline-001",
+    "intent": "savings_advice",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "A savings rate of 20 percent of take-home income is the widely recommended minimum. In India's salaried workforce, EPF contributions count toward this — but only if you do not withdraw them at job changes.",
+    "actionable": "Calculate your current savings rate: (income minus total spending) divided by income. If below 20 percent, identify the largest discretionary category and set a specific reduction target for next month."
+  },
+  {
+    "id": "savings-automate-001",
+    "intent": "savings_advice",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Automating savings on salary day eliminates the willpower required to save. Treat savings as a fixed expense paid first, not whatever is left over at month-end.",
+    "actionable": "Set up a standing instruction to transfer your savings target amount to a separate account on the day your salary credits. This is called paying yourself first. What remains in your primary account is what you spend."
+  },
+  {
+    "id": "savings-fd-rates-001",
+    "intent": "savings_advice",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Fixed Deposits in India currently offer 6.5 to 7.5 percent interest for tenures of 1 to 3 years at major banks, with small finance banks offering 8 to 9 percent. FDs above ₹5 lakh per bank are not fully insured by DICGC.",
+    "actionable": "For amounts above ₹5 lakh, distribute across multiple banks to stay within the DICGC insurance limit. For short-term parking, compare FD rates against liquid fund returns — liquid funds may offer better post-tax returns if you are in the 30 percent bracket."
+  },
+  {
+    "id": "savings-ppf-001",
+    "intent": "savings_advice",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Public Provident Fund (PPF) in India offers tax-free returns, currently around 7.1 percent, with sovereign guarantee. Contributions up to ₹1.5 lakh per year qualify for Section 80C deduction. Lock-in is 15 years with partial withdrawal allowed after year 7.",
+    "actionable": "If you have a 10 to 15 year horizon and are in the 20 to 30 percent tax bracket, PPF is one of the best risk-free instruments available. Contribute the maximum ₹1.5 lakh annually if your 80C is not already exhausted."
+  },
+  {
+    "id": "savings-lifestyle-inflation-001",
+    "intent": "savings_advice",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Lifestyle inflation occurs when spending rises proportionally with income, leaving savings unchanged in percentage terms. It is the primary reason people with high incomes remain financially vulnerable.",
+    "actionable": "When you receive a raise, commit to saving at least 50 percent of the increase before adjusting your lifestyle. If your take-home rises by ₹10,000, increase your savings by ₹5,000 before spending more."
+  },
+  {
+    "id": "savings-goal-based-001",
+    "intent": "savings_advice",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Saving without a specific goal is psychologically harder than saving toward something concrete. Goal-based saving with named accounts or funds significantly improves follow-through.",
+    "actionable": "Name each savings goal specifically: Europe trip fund, MacBook fund, car down payment. The specificity creates a psychological anchor that makes the savings feel purposeful rather than deprivational."
+  },
+  {
+    "id": "budget-fifty-thirty-twenty-001",
+    "intent": "budgeting_framework",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "The 50/30/20 rule allocates 50 percent of take-home income to needs, 30 percent to wants, and 20 percent to savings or debt repayment. It is a starting framework, not a rigid prescription.",
+    "actionable": "Calculate what 50, 30, and 20 percent of your take-home pay equals in rupees. Compare against your actual spending in each category. The goal is awareness first — adjustment comes after you see where you actually stand."
+  },
+  {
+    "id": "budget-zero-based-001",
+    "intent": "budgeting_framework",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Zero-based budgeting assigns every rupee of income to a specific category until income minus all allocations equals zero. Nothing is unallocated, which eliminates the invisible spending that erodes savings.",
+    "actionable": "On the first of each month, list your income. Assign amounts to every expense category including savings. The total must equal your income exactly. Any unassigned amount gets explicitly allocated — do not leave it floating."
+  },
+  {
+    "id": "budget-envelope-001",
+    "intent": "budgeting_framework",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "The envelope method pre-allocates cash or digital budget buckets for each spending category. When a bucket is empty, spending in that category stops until next month. It makes budget limits tangible and real.",
+    "actionable": "In a digital context, create a separate savings pocket or UPI wallet for each major category. Transfer the budgeted amount at the start of the month. When it is gone, it is gone. This friction prevents overspending better than tracking after the fact."
+  },
+  {
+    "id": "budget-irregular-income-001",
+    "intent": "budgeting_framework",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Budgeting on irregular income requires a different approach. Budget based on your lowest expected monthly income, save the excess in good months, and draw from that buffer in lean months.",
+    "actionable": "Calculate your minimum guaranteed monthly income. Build your essential expenses budget around that number only. In months where you earn more, transfer the surplus to a buffer account before spending any of it."
+  },
+  {
+    "id": "budget-cash-flow-timing-001",
+    "intent": "budgeting_framework",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Many budget failures are cash flow timing problems, not overspending problems. A salary credited on the 1st but rent due on the 5th and annual insurance on the 15th can create apparent shortfalls that do not reflect actual overspending.",
+    "actionable": "Map every recurring expense to its due date. Ensure your account balance before each due date covers that expense. If timing mismatches cause stress, negotiate due dates or maintain a one-month buffer in your account."
+  },
+  {
+    "id": "budget-buffer-account-001",
+    "intent": "budgeting_framework",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Maintaining one month's essential expenses as a permanent buffer in your salary account eliminates the anxiety of living paycheck to paycheck. You are always spending last month's salary on this month's expenses.",
+    "actionable": "Save one month's essential expenses as a permanent floor in your account. Treat it as if it does not exist. Once established, this buffer absorbs timing mismatches and small emergencies without disrupting your monthly budget."
+  },
+  {
+    "id": "budget-annual-expenses-001",
+    "intent": "budgeting_framework",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Annual expenses like insurance premiums, vehicle registration, memberships, and vacation costs appear predictable but are frequently forgotten in monthly budgeting, creating apparent overspending in the month they hit.",
+    "actionable": "List every annual or semi-annual expense. Sum them. Divide by 12. Include this amount as a monthly line item called annual expenses or irregular expenses. Transfer it to a separate account each month so the money is ready when needed."
+  },
+  {
+    "id": "pattern-weekend-spend-001",
+    "intent": "spending_pattern",
+    "scope": "personal_data",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Weekend spending spikes are one of the most common sources of budget leakage because they feel earned and justified in the moment. The pattern is often invisible until you see the data.",
+    "actionable": "Setting a specific cash or UPI limit for weekends before the weekend starts is more effective than trying to moderate in the moment."
+  },
+  {
+    "id": "pattern-food-delivery-001",
+    "intent": "spending_pattern",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Food delivery apps like Zomato and Swiggy add 20 to 40 percent to the base cost of a meal through delivery charges, platform fees, and surge pricing. Frequent use creates a significant invisible food expense that most people underestimate.",
+    "actionable": "Pull your last 30 days of Zomato and Swiggy transactions. Calculate the total. Compare against what the same meals would cost eating at the restaurant or cooking at home. The gap is your convenience premium — decide consciously if it is worth it."
+  },
+  {
+    "id": "pattern-small-frequent-001",
+    "intent": "spending_pattern",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Small frequent purchases are the most common source of invisible spending erosion. A ₹150 coffee five days a week is ₹3,000 per month and ₹36,000 per year — roughly the cost of a flight.",
+    "actionable": "Identify any merchant or category where you have more than 8 transactions in a month. Calculate the monthly and annual total. Then ask whether that amount, spent differently, would create more value in your life."
+  },
+  {
+    "id": "pattern-impulse-buying-001",
+    "intent": "spending_pattern",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Impulse purchases follow a predictable pattern: trigger, craving, action. Online shopping apps are engineered to compress the time between trigger and action. The most effective counter is introducing friction.",
+    "actionable": "Delete shopping apps from your phone's home screen. Use a 24-hour rule for any non-essential purchase above ₹500 — add to cart, wait 24 hours, then decide. Most impulse desires fade completely within a few hours."
+  },
+  {
+    "id": "pattern-discretionary-drift-001",
+    "intent": "spending_pattern",
+    "scope": "personal_data",
+    "requiresBaseline": true,
+    "templateVars": [],
+    "text": "A rising discretionary spending ratio is the earliest warning signal of budget pressure — it appears weeks before the actual cash crunch. Catching it early allows a small adjustment rather than a painful correction.",
+    "actionable": "Review your discretionary spend percentage this month against your average. Identify the single largest discretionary category and set a specific target reduction for the rest of the month."
+  },
+  {
+    "id": "pattern-upi-blind-spots-001",
+    "intent": "spending_pattern",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "UPI payments feel lower-friction than cash, which increases spending frequency and average transaction size. The psychological pain of parting with physical cash is absent in UPI, creating invisible budget creep.",
+    "actionable": "Review your UPI transaction history in your bank app for the last 30 days. Categorize every payment above ₹200. Many people discover 15 to 25 percent of UPI spending they had no recollection of."
+  },
+  {
+    "id": "pattern-subscription-invisible-001",
+    "intent": "spending_pattern",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Subscriptions are designed to be forgettable. Auto-renewal ensures continued payment even when usage has dropped to zero. Most people underestimate their total subscription spend by 40 to 60 percent.",
+    "actionable": "Open your last 3 bank statements. Highlight every recurring charge — same amount, same merchant, appearing monthly. List them all. Cancel any subscription you have not used in the last 30 days."
+  },
+  {
+    "id": "pattern-salary-day-splurge-001",
+    "intent": "spending_pattern",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Salary day spending spikes are a near-universal pattern. The relief of receiving income triggers reward-seeking behavior, leading to disproportionate spending in the first 3 days after credit.",
+    "actionable": "On salary day, execute savings transfers and bill payments first. What remains is genuinely available to spend. If you find yourself spending heavily in the first 3 days, move your savings transfer to an automatic standing instruction that fires the moment salary credits."
+  },
+  {
+    "id": "trend-category-drift-001",
+    "intent": "category_trend",
+    "scope": "personal_data",
+    "requiresBaseline": true,
+    "templateVars": [],
+    "text": "Consistent category growth over 3 or more consecutive months is a strong signal of lifestyle inflation rather than a one-off spike. Each month of unchecked drift makes course correction harder.",
+    "actionable": "Identify what changed in month one. Was it a specific trigger — a new habit, a new relationship, a new convenience — that you can consciously evaluate?"
+  },
+  {
+    "id": "trend-food-creep-001",
+    "intent": "category_trend",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Food spending is the most common category to drift upward silently. The individual transactions feel small, but the monthly total can grow 30 to 50 percent before the pattern becomes visible.",
+    "actionable": "Set a specific monthly food budget in total — home cooking, groceries, restaurants, and delivery combined. Track it as one number. When you can see the total in real time, individual ordering decisions feel different."
+  },
+  {
+    "id": "trend-transport-fuel-001",
+    "intent": "category_trend",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Transport costs in Indian cities typically grow when someone transitions from public transport to cab services for convenience. The gap between metro and cab costs for daily commuting often reaches ₹3,000 to ₹6,000 per month.",
+    "actionable": "Calculate your actual monthly transport cost. Compare against what public transport for the same routes would cost. If the gap exceeds your comfort level, identify which specific rides are genuinely inconvenient by public transport and which are pure convenience."
+  },
+  {
+    "id": "trend-entertainment-subscription-stack-001",
+    "intent": "category_trend",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Entertainment subscriptions stack silently: Netflix, Spotify, Amazon Prime, Hotstar, Apple Music, YouTube Premium, and gaming subscriptions can collectively reach ₹3,000 to ₹5,000 per month before anyone notices.",
+    "actionable": "List every entertainment subscription you pay for. Mark each one you have used in the last 14 days. Cancel everything unmarked. Revisit in 30 days — if you missed something, resubscribe then. You will likely find you do not miss most of them."
+  },
+  {
+    "id": "trend-health-neglect-001",
+    "intent": "category_trend",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Declining health spending is often a silent indicator of financial stress — people skip doctor visits, delay medication refills, and cancel gym memberships when money feels tight. This creates larger health costs later.",
+    "actionable": "Health spending should be treated as essential, not discretionary. If health costs are declining, examine why. If it is due to budget pressure, health is the last category to cut — the downstream costs of deferred healthcare always exceed the savings."
+  },
+  {
+    "id": "trend-housing-cost-anchor-001",
+    "intent": "category_trend",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Housing costs in Indian cities typically represent 30 to 40 percent of take-home income for renters. When rent rises faster than income, it triggers cascading cuts in other categories to compensate.",
+    "actionable": "If rent exceeds 35 percent of take-home pay, your budget has limited flexibility. Consider whether a location change, shared accommodation, or negotiating rent renewal could create meaningful relief — even a 10 percent rent reduction has outsized budget impact."
+  },
+  {
+    "id": "subscription-audit-001",
+    "intent": "subscription_audit",
+    "scope": "personal_data",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Subscription creep is a form of financial entropy — it increases naturally unless actively managed.",
+    "actionable": "Cross-reference your subscription list against your last bank statement. Any recurring charge not on your list is an untracked subscription. Add it or cancel it — leaving it untracked means it will keep billing silently."
+  },
+  {
+    "id": "subscription-sharing-001",
+    "intent": "subscription_audit",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Family plan subscriptions offer significant savings when shared with 2 to 5 people. Netflix, Spotify, Apple One, and Amazon Prime all offer family or duo plans that cut per-person cost by 50 to 70 percent.",
+    "actionable": "Identify subscriptions that offer family plans. Coordinate with family or trusted friends to share. A ₹800 individual plan split among 4 people costs ₹200 per person — a ₹600 monthly saving per person."
+  },
+  {
+    "id": "subscription-annual-vs-monthly-001",
+    "intent": "subscription_audit",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Annual subscription plans typically offer 15 to 30 percent savings over monthly billing. For services you use consistently, switching to annual billing is a guaranteed return on investment if you can afford the upfront cost.",
+    "actionable": "For each subscription you have used every month for the past 6 months, calculate the annual plan savings. If the annual plan saves more than 15 percent and you can afford it, switch at your next renewal."
+  },
+  {
+    "id": "subscription-free-trials-001",
+    "intent": "subscription_audit",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Free trials that require credit card details convert to paid subscriptions automatically. The business model relies on forgetting. Most people do not cancel before the trial ends.",
+    "actionable": "Set a calendar reminder for 2 days before any free trial ends. Use a virtual card with a spending limit for trial signups so the charge fails automatically if you forget. Treat trial end dates like bill due dates."
+  },
+  {
+    "id": "subscription-streaming-audit-001",
+    "intent": "subscription_audit",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "No household needs more than 2 streaming video subscriptions at once. The content libraries of Netflix, Prime, Hotstar, and SonyLiv are large enough that rotating between them seasonally costs less than maintaining all simultaneously.",
+    "actionable": "Pick 2 streaming services to keep active. Pause or cancel the others. Reactivate one when you finish the content you wanted on the current ones. Rotating quarterly saves ₹1,200 to ₹2,400 annually."
+  },
+  {
+    "id": "credit-utilization-001",
+    "intent": "credit_health",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Credit utilization — your card balance divided by your total credit limit — should stay below 30 percent to avoid credit score damage. Above 30 percent, CIBIL scores drop measurably. Above 75 percent, the impact becomes severe.",
+    "actionable": "If your total credit limit is ₹1,00,000, keep your statement balance below ₹30,000 before the billing cycle closes. If you regularly exceed this, request a limit increase from your bank — a higher limit with the same spending automatically improves your utilization ratio."
+  },
+  {
+    "id": "credit-cibil-score-001",
+    "intent": "credit_health",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "CIBIL scores in India range from 300 to 900. Scores above 750 qualify you for the best loan rates. The primary factors are payment history (35 percent weight), utilization (30 percent), age of credit (15 percent), and credit mix (10 percent).",
+    "actionable": "Check your CIBIL score free once per year at cibil.com. If below 700, focus on: never missing payments, reducing utilization, and not closing old credit cards. These three actions have the highest impact."
+  },
+  {
+    "id": "credit-autopay-001",
+    "intent": "credit_health",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "A single missed credit card payment stays on your CIBIL report for 7 years and can drop your score by 50 to 100 points. Setting autopay for at least the minimum payment eliminates this risk entirely.",
+    "actionable": "Enable autopay for the full statement balance on every credit card you hold. If cash flow prevents paying the full amount, enable autopay for the minimum to protect your credit score, then manually pay more when you can."
+  },
+  {
+    "id": "credit-card-rewards-001",
+    "intent": "credit_health",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Credit card rewards in India — cashback, reward points, airline miles — only have positive value if you pay your full statement balance every month. Carrying a balance at 36 percent APR eliminates any rewards benefit within days.",
+    "actionable": "Use credit cards for rewards only if you can and do pay the full statement balance every month without exception. If you ever carry a balance, switch to a debit card until the balance is cleared — the rewards are not worth the interest."
+  },
+  {
+    "id": "credit-hard-enquiry-001",
+    "intent": "credit_health",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Every credit application triggers a hard enquiry on your CIBIL report, which temporarily reduces your score by 5 to 10 points. Multiple applications within a short period signal credit-seeking behavior and increase lender risk perception.",
+    "actionable": "Space credit applications at least 6 months apart unless necessary. When shopping for a home loan or car loan, submit all applications within a 14-day window — credit bureaus treat rate-shopping enquiries as a single enquiry if clustered."
+  },
+  {
+    "id": "credit-old-cards-001",
+    "intent": "credit_health",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Closing old credit cards reduces your average credit age and total available limit, which negatively impacts your CIBIL score. An old card with no annual fee should generally be kept open with minimal usage.",
+    "actionable": "If you have an old credit card you want to close due to an annual fee, call the bank and request a downgrade to a no-fee card instead. This preserves the credit age and limit without the annual cost."
+  },
+  {
+    "id": "credit-mix-001",
+    "intent": "credit_health",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "A healthy credit mix — having both revolving credit (credit cards) and installment loans (home loan, car loan, personal loan) — contributes positively to your CIBIL score. Lenders prefer borrowers with demonstrated experience managing multiple credit types.",
+    "actionable": "Do not take out loans specifically to improve credit mix — the cost outweighs the benefit. But if you need a loan for a legitimate purpose, recognize that responsible repayment will improve your credit profile over time."
+  },
+  {
+    "id": "invest-index-funds-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Index funds track a market index like Nifty 50 or Sensex and have expense ratios of 0.05 to 0.1 percent. Actively managed large-cap funds have expense ratios of 1 to 2 percent and underperform their benchmark index in 80 to 90 percent of rolling 10-year periods in India.",
+    "actionable": "For large-cap equity exposure, choose a Nifty 50 or Nifty 100 index fund. UTI Nifty 50 Index Fund and Nippon India Index Fund are established options with low expense ratios. Invest through SIP for rupee cost averaging."
+  },
+  {
+    "id": "invest-sip-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Systematic Investment Plans (SIPs) in mutual funds automate monthly investing. They eliminate the need to time the market and enforce saving discipline by treating the investment as a recurring expense rather than a discretionary choice.",
+    "actionable": "Start a SIP on the day after your salary credit. Even ₹500 per month in a Nifty 50 index fund, started at age 25, compounds to approximately ₹20 lakh by age 55 at a 12 percent annual return. The amount matters less than starting."
+  },
+  {
+    "id": "invest-compound-interest-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Compound interest rewards early starters disproportionately. ₹10,000 invested at 12 percent annually becomes ₹93,000 in 20 years and ₹3 lakh in 30 years. The last 10 years generate more wealth than the first 20.",
+    "actionable": "The single most impactful investment decision is starting before you feel ready. A 25-year-old who starts today and a 35-year-old who starts in 10 years with double the monthly amount will likely end with the same result — but the 25-year-old invested half as much total capital."
+  },
+  {
+    "id": "invest-epf-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Employee Provident Fund (EPF) in India offers 8.15 to 8.5 percent interest, tax-free at maturity, with both employee and employer contributions. It is one of the best guaranteed return instruments available to salaried employees.",
+    "actionable": "Never withdraw your EPF at job changes. Transfer it to your new employer's EPF account using the UAN portal. Early withdrawals lose the employer contribution benefit and create a tax liability. Treat EPF as a retirement corpus, not an emergency fund."
+  },
+  {
+    "id": "invest-nps-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "National Pension System (NPS) offers an additional ₹50,000 tax deduction under Section 80CCD(1B) beyond the ₹1.5 lakh 80C limit. This effectively reduces your taxable income by ₹50,000 with a government-guaranteed pension structure.",
+    "actionable": "If you are in the 20 or 30 percent tax bracket, contributing ₹50,000 per year to NPS saves ₹10,000 to ₹15,000 in tax annually. Use Tier 1 for the tax benefit. The lock-in until retirement is the trade-off."
+  },
+  {
+    "id": "invest-equity-vs-debt-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Asset allocation between equity and debt should reflect your investment horizon. For goals more than 7 years away, equity-heavy allocation (70 to 80 percent) is appropriate. For goals within 3 years, debt-heavy allocation (70 to 80 percent) protects capital.",
+    "actionable": "Map each financial goal to a timeline. Invest the goal's corpus in instruments matching its horizon. Do not put a 2-year emergency fund in equity — market corrections can cut it by 30 percent precisely when you need the money."
+  },
+  {
+    "id": "invest-elss-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Equity Linked Saving Schemes (ELSS) offer Section 80C tax benefits with the lowest lock-in period among eligible instruments — just 3 years. They invest primarily in equity and have historically generated 12 to 15 percent returns over long periods.",
+    "actionable": "If your 80C limit is not exhausted and you can tolerate equity risk, ELSS is superior to traditional tax-saving instruments like NSC or 5-year FDs. Invest via SIP over the year rather than a lump sum in March."
+  },
+  {
+    "id": "invest-gold-allocation-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Gold as an investment in India has returned approximately 10 to 12 percent annually over the last 20 years. It provides portfolio diversification and rupee depreciation hedging. Physical gold is inefficient — digital gold, Gold ETFs, or Sovereign Gold Bonds are better.",
+    "actionable": "Sovereign Gold Bonds (SGBs) offer the gold price return plus 2.5 percent additional annual interest, with no capital gains tax on redemption at maturity. They are the most efficient form of gold investment for Indian investors."
+  },
+  {
+    "id": "invest-insurance-separation-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Endowment plans, ULIPs, and money-back policies mix insurance and investment, doing both poorly. The returns are typically 4 to 6 percent, below inflation, with high charges and lock-in. Term insurance plus mutual funds is always superior.",
+    "actionable": "If you hold any ULIP or endowment policy, calculate the effective annual return including all charges. If it is below 8 percent, consider surrendering after the lock-in period and redirecting the premium to a term plan plus index fund SIP."
+  },
+  {
+    "id": "invest-tax-loss-harvesting-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Tax loss harvesting means selling loss-making investments before March 31 to offset capital gains and reduce your tax liability. It is particularly useful for equity mutual fund investors in years with significant gains.",
+    "actionable": "Before March 31, review your portfolio for unrealized losses. If you have realized gains from other sales, selling loss-making positions can offset them. Consult a tax advisor before executing — the rules around wash sale periods apply."
+  },
+  {
+    "id": "forex-travel-forex-card-001",
+    "intent": "forex_travel",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Forex cards for international travel lock in an exchange rate at loading and eliminate dynamic currency conversion fees at POS terminals. They are typically superior to cash exchange at airport kiosks, which charge 5 to 8 percent above interbank rates.",
+    "actionable": "Load a multi-currency forex card before your trip at a bank or fintech like Niyo or BookMyForex. Compare the offered rate against the day's interbank rate — a good forex card should be within 1 to 2 percent. Avoid airport money changers entirely."
+  },
+  {
+    "id": "forex-zero-markup-card-001",
+    "intent": "forex_travel",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Several Indian credit and debit cards charge zero forex markup on international transactions — Niyo Global, IDFC First WOW, and Scapia are among the most accessible. These cards use the real interbank rate, saving 3 to 5 percent on every foreign transaction.",
+    "actionable": "If you travel internationally more than once a year, a zero-forex-markup card is worth having. Apply before your next trip — they typically take 7 to 10 days to arrive. Use it for all in-country spending abroad and decline all offers to pay in INR."
+  },
+  {
+    "id": "forex-dcc-trap-001",
+    "intent": "forex_travel",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Dynamic Currency Conversion (DCC) is when a foreign merchant or ATM offers to charge you in Indian Rupees instead of local currency. It always uses a worse exchange rate than your card's own conversion. Always pay in local currency.",
+    "actionable": "When using your card abroad, if asked whether to pay in INR or local currency, always choose local currency. The DCC option benefits the merchant at your expense. This applies to ATM withdrawals as well — always withdraw in local currency."
+  },
+  {
+    "id": "forex-trip-vault-001",
+    "intent": "forex_travel",
+    "scope": "personal_data",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Tracking international travel expenses in the local currency of the destination gives you accurate per-category spending visibility. Converting everything to home currency at varying daily rates distorts category analysis.",
+    "actionable": "Use the Trip Vault feature to log expenses in the destination currency. Set the trip budget in local currency. The app will handle home currency conversion for overall net worth tracking while preserving local currency accuracy for trip analysis."
+  },
+  {
+    "id": "forex-remittance-001",
+    "intent": "forex_travel",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Sending money internationally using bank wire transfers typically costs 2 to 5 percent above the mid-market rate. Services like Wise (formerly TransferWise), Remitly, and Western Digital use near-interbank rates, saving significant amounts on large transfers.",
+    "actionable": "For international transfers above ₹50,000, compare Wise's quoted rate and fee against your bank's rate. Wise typically saves 2 to 4 percentage points. On a ₹1 lakh transfer, that is ₹2,000 to ₹4,000 in savings."
+  },
+  {
+    "id": "forex-currency-risk-001",
+    "intent": "forex_travel",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "The Indian Rupee has depreciated against the US Dollar at approximately 3 to 4 percent annually over the last 20 years. For goals denominated in foreign currency — international education, immigration — this means saving in INR progressively falls short.",
+    "actionable": "For foreign-currency-denominated goals more than 3 years away, consider allocating a portion to USD-denominated instruments like international mutual funds or US-listed ETFs available through platforms like MF Utility or Zerodha's foreign stocks feature."
+  },
+  {
+    "id": "general-opportunity-cost-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Every spending decision has an opportunity cost — the return you could have earned if that money were invested instead. ₹5,000 spent today is not just ₹5,000; at 12 percent annual return, it is ₹17,000 in 10 years.",
+    "actionable": "Use opportunity cost as a thinking tool, not a reason to never spend. For large discretionary purchases above ₹10,000, mentally calculate what that amount would be worth in 10 years at 12 percent. Then decide consciously whether the purchase is worth more than the future value."
+  },
+  {
+    "id": "general-net-worth-tracking-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Net worth — assets minus liabilities — is the only complete measure of financial health. Monthly income and spending are cash flow; net worth is the scoreboard. Tracking it quarterly reveals whether your financial position is actually improving.",
+    "actionable": "Create a simple net worth tracker. List every asset: bank balances, EPF, mutual funds, real estate value, gold, vehicle. List every liability: home loan balance, car loan, credit card balance, personal loans. Subtract liabilities from assets. Update quarterly."
+  },
+  {
+    "id": "general-inflation-impact-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "India's average inflation rate has been 5 to 6 percent annually. Money in a savings account earning 3 to 4 percent is losing purchasing power in real terms. Beating inflation requires investing at returns above the inflation rate.",
+    "actionable": "Any money not needed within 3 years should be invested in instruments that beat inflation: equity mutual funds, ELSS, or government bonds. Money needed within 1 year should prioritize safety over returns."
+  },
+  {
+    "id": "general-tax-planning-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Tax planning in India has two regimes: old regime with deductions (80C, HRA, home loan interest) and new regime with lower slab rates but no deductions. The better regime depends on your individual deduction profile.",
+    "actionable": "Calculate your tax liability under both regimes using a tax calculator before each financial year. If your eligible deductions under the old regime exceed ₹2.5 to ₹3 lakh, the old regime is typically better. Otherwise, the new regime likely saves more tax."
+  },
+  {
+    "id": "general-insurance-term-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Term life insurance provides pure life cover at a low premium with no investment component. A 30-year-old non-smoker can get ₹1 crore cover for approximately ₹8,000 to ₹12,000 per year. This is the only life insurance most people need.",
+    "actionable": "Your term insurance cover should be at least 10 to 15 times your annual income. Buy it online directly — offline premiums include agent commission markups. Compare PolicyBazaar, Ditto, or directly from ICICI Prudential, HDFC Life, or Max Life."
+  },
+  {
+    "id": "general-health-insurance-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "A medical emergency without health insurance is the single most common cause of financial devastation in Indian families. Employer-provided insurance covers you only while employed and typically excludes pre-existing conditions.",
+    "actionable": "Maintain a personal health insurance policy independent of your employer. ₹10 lakh family floater coverage costs approximately ₹12,000 to ₹20,000 annually for a family of three under 35. Buy it before you have a health condition — pre-existing conditions are excluded for 2 to 4 years after purchase."
+  },
+  {
+    "id": "general-wills-nomination-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Nomination ensures your financial assets transfer to your intended beneficiaries without legal complications. Bank accounts, mutual funds, EPF, and insurance policies all require separate nominations. An unfilled nomination can freeze assets for years in legal proceedings.",
+    "actionable": "Check the nominee on every financial account you hold. Log into your bank app, mutual fund platform, EPF UAN portal, and insurance portal. Update nominees to reflect your current wishes. This takes 30 minutes and prevents enormous problems."
+  },
+  {
+    "id": "general-budget-review-cadence-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "A budget reviewed only at month-end is a historical document, not a management tool. Weekly 10-minute reviews catch drift early when small corrections are possible, rather than requiring large corrections at month-end.",
+    "actionable": "Schedule a 10-minute weekly money review — every Sunday evening works well. Check your spending-to-date against your monthly budget. Adjust planned spending for the coming week if you are ahead of pace. This habit alone prevents most budget overruns."
+  },
+  {
+    "id": "general-financial-partner-alignment-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Financial misalignment between partners is one of the most common sources of relationship conflict. Couples with different spending values who do not discuss money explicitly tend to accumulate resentment rather than wealth.",
+    "actionable": "If you have a financial partner, schedule a monthly money conversation — 20 minutes, same time each month. Cover: what came in, what went out, how you feel about it, and one financial goal to focus on next month. Structure removes the emotional charge."
+  },
+  {
+    "id": "pattern-cash-withdrawal-001",
+    "intent": "spending_pattern",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Large cash withdrawals create invisible spending — cash spent leaves no transaction trail and disappears from budget tracking. People who withdraw ₹5,000 frequently often cannot account for where it went.",
+    "actionable": "Shift cash spending to UPI wherever possible for tracking visibility. For cash you must carry, note the purpose of withdrawal and track what you spend it on. If you cannot account for more than 10 percent of a cash withdrawal, the tracking gap is a budget problem."
+  },
+  {
+    "id": "invest-mutual-fund-categories-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "SEBI categorizes Indian mutual funds into 5 types: equity, debt, hybrid, solution-oriented, and others. Within equity, large-cap funds are least volatile, small-cap most volatile, and flexi-cap offers flexibility. The right category depends on your goal horizon and risk tolerance.",
+    "actionable": "For a first-time investor: start with a Nifty 50 index fund (large-cap, low cost) and a liquid fund (cash management). Add a flexi-cap or mid-cap fund only after you have held your first investment through at least one market correction without panic-selling."
+  },
+  {
+    "id": "invest-direct-vs-regular-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Direct mutual fund plans have no distributor commission, resulting in expense ratios 0.5 to 1 percent lower than regular plans. On a 20-year horizon, this difference compounds to 10 to 15 percent more corpus.",
+    "actionable": "Invest only in direct plans — available through MF Central, Kuvera, Zerodha Coin, or directly through fund house websites. If your existing investments are in regular plans, check whether the switch cost (exit loads) justifies moving to direct."
+  },
+  {
+    "id": "pattern-grocery-delivery-inflation-001",
+    "intent": "spending_pattern",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Quick commerce platforms like Blinkit, Zepto, and Instamart charge a 15 to 25 percent premium over supermarket prices when handling fees, delivery charges, and platform fees are included. Convenience has a measurable and significant cost.",
+    "actionable": "For planned grocery purchases, a weekly supermarket trip costs 15 to 25 percent less than daily quick commerce orders. Reserve quick commerce for genuine emergencies — running out of cooking gas at 10 PM is an emergency. Tomatoes for dinner are not."
+  },
+  {
+    "id": "savings-liquid-fund-vs-savings-account-001",
+    "intent": "savings_advice",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Liquid mutual funds yield 6.5 to 7.5 percent annually with T+1 redemption into your bank account. Most savings accounts yield 3 to 4 percent. For money you will not need within 24 hours, liquid funds are strictly superior.",
+    "actionable": "Keep one month's expenses in your savings account for daily use. Move the remaining emergency fund to a liquid mutual fund. The difference in returns on ₹2 lakh over one year is approximately ₹6,000 to ₹8,000 — for zero additional risk."
+  },
+  {
+    "id": "budget-tracking-friction-001",
+    "intent": "budgeting_framework",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Budget tracking fails most often not because the system is wrong but because logging is too effortful. A tracking system that takes more than 30 seconds per transaction will be abandoned within 2 weeks by most people.",
+    "actionable": "Your expense logging system should require minimal effort. Natural language logging — typing a short phrase — should be all it takes. Review and categorize in batches once a day rather than immediately after every purchase."
+  },
+  {
+    "id": "credit-reward-redemption-001",
+    "intent": "credit_health",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Credit card reward points expire — typically in 2 to 3 years — and have redemption values that degrade over time as banks quietly reduce redemption rates. Points sitting unused are slowly losing value.",
+    "actionable": "Log into your credit card portal and check your reward points balance and expiry dates. Redeem points at their highest-value option — typically statement credit or flight miles rather than merchandise. Set a calendar reminder to check and redeem quarterly."
+  },
+  {
+    "id": "invest-crypto-risk-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Cryptocurrency is a highly speculative asset class with 60 to 80 percent drawdowns in bear markets. In India, crypto gains are taxed at 30 percent with no deduction for losses. It is not appropriate as a core investment strategy.",
+    "actionable": "If you choose to invest in crypto, limit it to 5 percent or less of your total investable portfolio — the amount you can afford to lose entirely without it affecting your financial goals. Never use borrowed money or an emergency fund for crypto."
+  },
+  {
+    "id": "general-three-fund-portfolio-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "A three-fund portfolio — a domestic equity index fund, an international equity index fund, and a debt fund — provides comprehensive diversification with minimal complexity and low costs. It outperforms most complex portfolios over long periods.",
+    "actionable": "For Indian investors: Nifty 50 index fund (40 to 60 percent), an international fund tracking US or global equities (20 to 30 percent), and a short-duration debt fund or liquid fund (20 to 30 percent). Rebalance annually back to target allocation."
+  },
+  {
+    "id": "general-financial-order-of-operations-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "The correct order of financial operations: (1) employer EPF match fully captured, (2) high-interest debt eliminated, (3) 3-month emergency fund established, (4) 80C tax saving maximized, (5) additional investments for long-term goals. Skipping steps creates expensive holes.",
+    "actionable": "Check where you are in this sequence. If you are investing in mutual funds while carrying credit card debt at 36 percent, step 2 has been skipped. The math is clear: eliminate the 36 percent cost before pursuing 12 percent returns."
+  },
+  {
+    "id": "pattern-comparison-spending-001",
+    "intent": "spending_pattern",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Social comparison spending — buying things because peers have them — is a primary driver of lifestyle inflation in urban India. Instagram, LinkedIn, and colleague conversations create constant visibility of others' consumption.",
+    "actionable": "When considering a discretionary purchase, ask: would I want this if no one I know would ever see it or know I owned it? If the honest answer is no, the purchase is social signaling, not genuine utility. That does not make it wrong — but classify it honestly."
+  },
+  {
+    "id": "savings-round-up-001",
+    "intent": "savings_advice",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Round-up savings programs — rounding every transaction up to the nearest 10 or 100 and saving the difference — accumulate meaningful amounts invisibly. On 50 transactions per month, rounding to the nearest 100 saves ₹1,000 to ₹2,500 per month without conscious effort.",
+    "actionable": "Some Indian banks and fintech apps offer automatic round-up savings. If yours does, activate it. If not, manually transfer the equivalent amount weekly — estimate your transaction count and multiply by ₹30 to ₹50 per transaction as a proxy."
+  },
+  {
+    "id": "debt-education-loan-001",
+    "intent": "debt_management",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Education loans in India carry interest rates of 8 to 14 percent, with a moratorium during study plus 6 to 12 months. Interest accrues during the moratorium even though no payments are due. Starting interest payments during the moratorium period significantly reduces total repayment.",
+    "actionable": "If you or a family member has an education loan with active moratorium, make interest-only payments during the moratorium if possible. This prevents interest capitalization and reduces the principal when EMIs begin."
+  },
+  {
+    "id": "invest-rebalancing-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Portfolio rebalancing — selling assets that have grown above target allocation and buying those below — enforces buy low, sell high discipline automatically. Annual rebalancing is sufficient for most investors.",
+    "actionable": "Once per year, check your equity versus debt allocation. If equity has grown to 70 percent when your target is 60 percent, sell 10 percent of equity and move to debt. Rebalancing is most tax-efficient when done inside tax-advantaged accounts like EPF or NPS."
+  },
+  {
+    "id": "forex-international-student-001",
+    "intent": "forex_travel",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Indian students studying abroad face currency risk for tuition and living costs denominated in foreign currency. Paying tuition annually or semi-annually when the rupee is relatively strong versus monthly transfers can save 3 to 8 percent depending on exchange rate movement.",
+    "actionable": "Monitor INR versus your study country's currency for 3 to 4 months before your payment is due. If the rupee is at a relatively strong point, transfer the full amount or full semester immediately. Avoid monthly remittances that expose you to an entire year of currency movement."
+  },
+  {
+    "id": "general-hedonic-adaptation-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Hedonic adaptation means that spending more on experiences or goods provides diminishing happiness over time as the new level becomes the baseline. More expensive habits require continual escalation to maintain the same satisfaction.",
+    "actionable": "Before upgrading a recurring expense — a more expensive apartment, a better car, more frequent dining out — recognize that the satisfaction will normalize within 3 to 6 months. The financial commitment is permanent; the happiness benefit is temporary."
+  },
+  {
+    "id": "general-financial-stress-health-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Financial stress is a significant driver of physical and mental health problems. People under financial stress make worse financial decisions in a documented feedback loop. Gaining clarity — even on a bad financial situation — reduces stress more than avoidance.",
+    "actionable": "If financial anxiety is high, start by simply listing everything you know: income, debts, balances. The act of writing it down reduces the psychological threat response. A known problem, however large, is always less stressful than an unknown one."
+  },
+  {
+    "id": "budget-no-budget-mindset-001",
+    "intent": "budgeting_framework",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "The most effective budget is the one you will actually maintain. An elaborate budget system abandoned after two weeks produces worse outcomes than a simple system maintained for years. Simplicity and consistency beat precision.",
+    "actionable": "If previous budget attempts have failed, simplify radically. Track only two numbers: total income and total spending. When spending approaches income, slow down. This is the entire system. Add categories and complexity only after the basic habit is established."
+  },
+  {
+    "id": "invest-small-cap-risk-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Small-cap mutual funds in India have delivered 15 to 20 percent returns in good years but can fall 40 to 60 percent in bear markets. They are appropriate only for a 7 to 10 year minimum horizon with genuine ability to stay invested through drawdowns.",
+    "actionable": "Before allocating to small-cap funds, ask: if this investment fell 50 percent in value, would I add more or panic-sell? If the honest answer is panic-sell, do not invest in small-cap. Behavioral risk — selling at the bottom — costs more than the volatility itself."
+  },
+  {
+    "id": "credit-credit-score-myths-001",
+    "intent": "credit_health",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Common CIBIL score myths in India: checking your own score does not hurt it (only lender hard enquiries do), debit card usage does not affect it, and a high income alone does not improve it. The score reflects only your credit behavior.",
+    "actionable": "Check your CIBIL score for free once per year at cibil.com or through apps like OneScore. Review your credit report for errors — incorrect entries from lenders or identity fraud can hurt your score without your knowledge. Dispute any errors you find."
+  },
+  {
+    "id": "general-pay-raise-allocation-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "A salary increase is the single best opportunity to improve your financial position because spending inertia works in your favor — your expenses have not yet adjusted to the new income level.",
+    "actionable": "When you receive a raise, immediately increase your SIP or savings by at least 50 percent of the net take-home increase before your lifestyle adjusts. The remaining 50 percent can fund lifestyle improvements. This is the simplest wealth-building habit available."
+  },
+  {
+    "id": "pattern-luxury-creep-001",
+    "intent": "spending_pattern",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Luxury creep is when the affordable version of something no longer feels acceptable once you have experienced the premium version. Business class travel, premium hotels, and expensive restaurants create a baseline shift that makes standard options feel like deprivation.",
+    "actionable": "Reserve premium experiences for genuinely special occasions. Frequent exposure normalizes them into expectations. Occasional exposure keeps them as appreciated treats. The financial difference between these two approaches is significant over a decade."
+  },
+  {
+    "id": "savings-recurring-deposit-001",
+    "intent": "savings_advice",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Recurring Deposits (RDs) in India allow monthly savings at FD interest rates — typically 6.5 to 7.5 percent — without requiring a lump sum. They are a structured savings habit for people who find it difficult to invest lump sums.",
+    "actionable": "Open an RD for a specific savings goal with a fixed monthly amount and tenure matching your goal timeline. The rigid structure — missing an installment incurs a penalty — creates positive commitment that many people find helpful for building savings discipline."
+  },
+  {
+    "id": "general-financial-checklist-annual-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "An annual financial review should cover: (1) net worth calculation, (2) insurance coverage adequacy check, (3) nominee updates, (4) 80C and tax planning, (5) SIP amount increase, (6) subscription audit, (7) emergency fund adequacy check, and (8) estate planning documents.",
+    "actionable": "Schedule your annual financial review in April each year, when the new financial year begins. This timing aligns with tax planning, salary revisions, and insurance renewals — covering all eight items takes approximately 3 to 4 hours and should become a non-negotiable annual habit."
+  },
+  {
+    "id": "invest-rupee-cost-averaging-001",
+    "intent": "investment_basics",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Rupee cost averaging through SIP means you buy more units when the market is low and fewer when it is high. Over time, this lowers your average cost per unit compared to investing a lump sum at any single point in time.",
+    "actionable": "Do not pause your SIP during market downturns — that is precisely when it is most beneficial. If anything, a market correction is the right time to increase your SIP temporarily if you have spare cash. The units bought at lower prices generate higher future returns."
+  },
+  {
+    "id": "debt-interest-rate-hierarchy-001",
+    "intent": "debt_management",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "All debt is not equal. Ranking from most to least urgent to eliminate: credit card debt (36 to 42 percent), personal loans (12 to 20 percent), gold loans (9 to 15 percent), car loans (8 to 12 percent), education loans (8 to 14 percent), and home loans (8 to 10 percent). Home loan debt may be worth keeping for tax benefits.",
+    "actionable": "List every debt with its actual interest rate. Eliminate in order from highest to lowest rate while maintaining minimums on all. A home loan at 8.5 percent with a Section 24 tax deduction has an effective post-tax rate of 5 to 6 percent — the least urgent of all debts."
+  },
+  {
+    "id": "general-financial-independence-001",
+    "intent": "financial_concepts",
+    "scope": "general_finance",
+    "requiresBaseline": false,
+    "templateVars": [],
+    "text": "Financial independence means having enough invested assets that passive returns cover your living expenses. The 4 percent rule — a common guideline — suggests you need 25 times your annual expenses invested to sustain indefinite withdrawals.",
+    "actionable": "Calculate your annual essential expenses. Multiply by 25. This is your financial independence number. Divide by your current monthly savings rate to estimate how many months it will take to reach it at current pace. This number makes the abstract concept tangible and motivating."
+  }
+]
