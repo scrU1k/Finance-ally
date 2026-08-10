@@ -859,7 +859,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   type="file"
                   ref={csvFileInputRef}
                   onChange={handleCSVFileUpload}
-                  accept=".csv"
+                  accept=".csv,text/csv,*/*"
                   className="hidden"
                 />
               </div>

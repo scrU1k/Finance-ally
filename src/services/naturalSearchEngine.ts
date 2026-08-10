@@ -1,4 +1,5 @@
 import { Transaction, Category, Trip } from '../types';
+import { dispatchSpeculativeRace } from '../workers/workerOrchestrator';
 
 export interface SearchFilterCriteria {
   dateStart?: string; // YYYY-MM-DD
@@ -138,20 +139,44 @@ export function parseSearchQuery(
     q = q.replace(/\blast\s+year\b/g, '');
   }
 
-  // Check for Month Names (e.g., "january", "in august", "aug")
-  for (const [mName, mIdx] of Object.entries(MONTH_NAMES)) {
-    const rx = new RegExp(`\\b${mName}\\b`, 'i');
-    if (rx.test(q)) {
-      // Check if a year is near it e.g. "january 2024" or "jan 24"
-      const yearMatch = q.match(/\b(20\d{2})\b/);
-      const year = yearMatch ? parseInt(yearMatch[1], 10) : now.getFullYear();
-      const start = new Date(year, mIdx, 1);
-      const end = new Date(year, mIdx + 1, 0);
-      criteria.dateStart = formatDateISO(start);
-      criteria.dateEnd = formatDateISO(end);
-      q = q.replace(rx, '');
-      if (yearMatch) q = q.replace(yearMatch[0], '');
-      break;
+  // Check for Specific Day + Month (e.g. "17 july", "july 17", "17th july", "july 17th", "17 july 2025")
+  const dayMonthMatch = q.match(/\b(?:(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)|([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?)(?:\s+(20\d{2}))?\b/i);
+  if (dayMonthMatch) {
+    const rawDay = dayMonthMatch[1] || dayMonthMatch[4];
+    const rawMonth = (dayMonthMatch[2] || dayMonthMatch[3] || '').toLowerCase();
+    const rawYear = dayMonthMatch[5];
+
+    if (rawDay && rawMonth && MONTH_NAMES[rawMonth] !== undefined) {
+      const dayNum = parseInt(rawDay, 10);
+      const mIdx = MONTH_NAMES[rawMonth];
+      const yearNum = rawYear ? parseInt(rawYear, 10) : now.getFullYear();
+
+      if (dayNum >= 1 && dayNum <= 31) {
+        const targetDate = new Date(yearNum, mIdx, dayNum);
+        const iso = formatDateISO(targetDate);
+        criteria.dateStart = iso;
+        criteria.dateEnd = iso;
+        q = q.replace(dayMonthMatch[0], '').trim();
+      }
+    }
+  }
+
+  // Check for Month Names alone (e.g., "january", "in august", "aug")
+  if (!criteria.dateStart) {
+    for (const [mName, mIdx] of Object.entries(MONTH_NAMES)) {
+      const rx = new RegExp(`\\b${mName}\\b`, 'i');
+      if (rx.test(q)) {
+        // Check if a year is near it e.g. "january 2024" or "jan 24"
+        const yearMatch = q.match(/\b(20\d{2})\b/);
+        const year = yearMatch ? parseInt(yearMatch[1], 10) : now.getFullYear();
+        const start = new Date(year, mIdx, 1);
+        const end = new Date(year, mIdx + 1, 0);
+        criteria.dateStart = formatDateISO(start);
+        criteria.dateEnd = formatDateISO(end);
+        q = q.replace(rx, '');
+        if (yearMatch) q = q.replace(yearMatch[0], '');
+        break;
+      }
     }
   }
 
@@ -300,11 +325,15 @@ export function searchTransactions(
   transactions: Transaction[],
   rawQuery: string,
   categories: Category[] = [],
-  trips: Trip[] = []
+  trips: Trip[] = [],
+  semanticCategoryId?: string | null
 ): Transaction[] {
   if (!rawQuery || !rawQuery.trim()) return transactions;
 
   const criteria = parseSearchQuery(rawQuery, categories, trips);
+  if (semanticCategoryId && !criteria.categoryId) {
+    criteria.categoryId = semanticCategoryId;
+  }
 
   return transactions.filter(tx => {
     // 1. Date Range
@@ -322,7 +351,7 @@ export function searchTransactions(
     }
 
     // 3. Category Filter
-    if (criteria.categoryId && tx.categoryId !== criteria.categoryId) return false;
+    const matchesCategory = criteria.categoryId ? tx.categoryId === criteria.categoryId : true;
 
     // 4. Trip Filter
     if (criteria.tripId && tx.tripId !== criteria.tripId) return false;
@@ -349,9 +378,16 @@ export function searchTransactions(
         const matchesPm = pmLower.includes(token);
 
         if (!matchesNote && !matchesCustomCat && !matchesPm) {
-          return false; // All tokens must match (AND condition for text search)
+          // If the token didn't match text, but we have a semantic category match from NLP, allow it
+          if (!matchesCategory || !criteria.categoryId) {
+            return false;
+          }
         }
       }
+    }
+
+    if (criteria.categoryId && !matchesCategory && criteria.textTokens.length === 0) {
+       return false;
     }
 
     return true;

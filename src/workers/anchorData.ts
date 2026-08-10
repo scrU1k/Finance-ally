@@ -1,12 +1,10 @@
-import { generateArcticEmbedding384, cosineSimilarity384 } from './localArcticEmbed';
-
-interface CategoryAnchor {
+export interface CategoryAnchor {
   categoryId: string;
   categoryName: string;
   keywords: string[];
 }
 
-const CATEGORY_ANCHORS: CategoryAnchor[] = [
+export const CATEGORY_ANCHORS: CategoryAnchor[] = [
   {
     categoryId: 'cat-food',
     categoryName: 'Food & Drinks',
@@ -100,80 +98,3 @@ const CATEGORY_ANCHORS: CategoryAnchor[] = [
     keywords: ['other', 'misc', 'miscellaneous', 'custom', 'general', 'personal']
   }
 ];
-
-// Pre-computed 384D Snowflake Arctic-Embed-XS Centroid Cache
-const ANCHOR_VECTORS_384 = CATEGORY_ANCHORS.map(anchor => ({
-  anchor,
-  vector384: generateArcticEmbedding384(anchor.keywords.join(' '))
-}));
-
-export function categorizeNoteWithArcticFTS5(text: string): { categoryId: string; categoryName: string; confidence: number } {
-  const normalized = text.toLowerCase();
-
-  // Special logic: maintenance is Housing only if specified with house/apartment/flat/etc, otherwise Others
-  if (normalized.includes('maintenance')) {
-    if (
-      normalized.includes('house') ||
-      normalized.includes('apartment') ||
-      normalized.includes('flat') ||
-      normalized.includes('home') ||
-      normalized.includes('room') ||
-      normalized.includes('building') ||
-      normalized.includes('society')
-    ) {
-      return {
-        categoryId: 'cat-housing',
-        categoryName: 'Housing & Bills',
-        confidence: 99
-      };
-    } else {
-      return {
-        categoryId: 'cat-others',
-        categoryName: 'Others',
-        confidence: 99
-      };
-    }
-  }
-
-  // 1. Exact/Fuzzy BM25 Keyword Search
-  for (const anchor of CATEGORY_ANCHORS) {
-    for (const kw of anchor.keywords) {
-      if (normalized.includes(kw)) {
-        return {
-          categoryId: anchor.categoryId,
-          categoryName: anchor.categoryName,
-          confidence: 96
-        };
-      }
-    }
-  }
-
-  // 2. Snowflake Arctic-Embed-XS 384D Vector Similarity Fallback
-  const inputVec384 = generateArcticEmbedding384(normalized);
-  let bestMatch = CATEGORY_ANCHORS[0];
-  let maxSim = -1;
-
-  ANCHOR_VECTORS_384.forEach(({ anchor, vector384 }) => {
-    const sim = cosineSimilarity384(inputVec384, vector384);
-    if (sim > maxSim) {
-      maxSim = sim;
-      bestMatch = anchor;
-    }
-  });
-
-  if (maxSim > 0.25) {
-    const conf = Math.min(88, Math.max(65, Math.round(maxSim * 100)));
-    return {
-      categoryId: bestMatch.categoryId,
-      categoryName: bestMatch.categoryName,
-      confidence: conf
-    };
-  }
-
-  // Fallback to Others
-  return {
-    categoryId: 'cat-others',
-    categoryName: 'Others',
-    confidence: 50
-  };
-}

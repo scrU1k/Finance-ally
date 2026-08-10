@@ -23,7 +23,22 @@ export interface LocalSnapshotMetadata {
 
 const CONFIG_KEY = 'fa_local_autobackup_config';
 const SNAPSHOTS_KEY = 'fa_local_snapshots_list';
+const ACCOUNT_CREATED_KEY = 'fa_account_created_at';
 const MAX_SNAPSHOTS = 5;
+
+export function getAccountCreatedAt(): number {
+  try {
+    const raw = localStorage.getItem(ACCOUNT_CREATED_KEY);
+    if (raw) return parseInt(raw, 10);
+  } catch {}
+  const now = Date.now();
+  localStorage.setItem(ACCOUNT_CREATED_KEY, now.toString());
+  return now;
+}
+
+export function setAccountCreatedAt(ts: number = Date.now()): void {
+  localStorage.setItem(ACCOUNT_CREATED_KEY, ts.toString());
+}
 
 export interface LocalAutoBackupConfig {
   enabled: boolean;
@@ -138,14 +153,29 @@ export async function syncSnapshotsFromFilesystem(): Promise<LocalSnapshotMetada
 /**
  * Determines if a new auto-backup is due based on schedule and last backup time.
  */
-export function isBackupDue(config: LocalAutoBackupConfig): boolean {
+export function isBackupDue(config: LocalAutoBackupConfig, transactionCount: number = 0): boolean {
   if (!config.enabled || config.schedule === 'off') return false;
 
   const now = new Date();
   const nowMs = now.getTime();
   const lastMs = config.lastBackupTime || 0;
 
-  if (lastMs === 0) return true; // First time backup
+  // First time auto-snapshot: ONLY taken on 2nd day or later AFTER user makes a log
+  if (lastMs === 0) {
+    if (transactionCount === 0) return false;
+
+    const createdMs = getAccountCreatedAt();
+    const createdDate = new Date(createdMs).toISOString().split('T')[0];
+    const currentDate = now.toISOString().split('T')[0];
+
+    // Same day as account creation -> do NOT take snapshot yet
+    if (currentDate === createdDate) {
+      return false;
+    }
+
+    // 2nd day or later + user has logged at least 1 expense -> trigger 1st auto snapshot!
+    return true;
+  }
 
   const diffMs = nowMs - lastMs;
   const diffDays = diffMs / (1000 * 60 * 60 * 24);
@@ -219,50 +249,24 @@ export async function createLocalAutoBackup(
     // Store payload snapshot in localStorage cache for instant UI restoration
     try {
       localStorage.setItem(`fa_snap_data_${newSnapshot.id}`, finalPayload);
-    } catch {
-      // Storage quota exceeded — prune older snapshot payloads to free space
-      try {
-        const existing = getLocalSnapshots();
-        // Remove older cached payloads except the newest one
-        existing.slice(1).forEach(old => localStorage.removeItem(`fa_snap_data_${old.id}`));
-        localStorage.setItem(`fa_snap_data_${newSnapshot.id}`, finalPayload);
-      } catch {
-        // Safe fallback if still full
-      }
+    } catch (e) {
+      console.warn('LocalStorage cache write failed:', e);
     }
 
-    // Update snapshots history list (keep max 10 latest metadata records)
-    let snapshots = getLocalSnapshots();
+    // Update snapshots list
+    const snapshots = getLocalSnapshots();
     snapshots.unshift(newSnapshot);
-    if (snapshots.length > MAX_SNAPSHOTS) {
-      const removed = snapshots.slice(MAX_SNAPSHOTS);
-      removed.forEach(r => {
-        localStorage.removeItem(`fa_snap_data_${r.id}`);
-        // Also delete from physical filesystem
-        if (Capacitor.isNativePlatform()) {
-          Filesystem.deleteFile({
-            path: `Finance-Ally/Snapshots/${r.filename}`,
-            directory: Directory.Documents
-          }).catch(() => {
-            // Fallback to cache directory deletion if it was saved there
-            Filesystem.deleteFile({
-              path: r.filename,
-              directory: Directory.Cache
-            }).catch(() => {});
-          });
-        }
-      });
-      snapshots = snapshots.slice(0, MAX_SNAPSHOTS);
-    }
+    const trimmedSnapshots = snapshots.slice(0, MAX_SNAPSHOTS);
+    saveSnapshotsList(trimmedSnapshots);
 
-    saveSnapshotsList(snapshots);
+    // Update last backup time
     saveLocalAutoBackupConfig({ lastBackupTime: Date.now() });
 
-    // Fire generic system notification for automated background backups
+    // Native notification alert
     if (!manualTrigger) {
       triggerSystemNotification(
-        'Automated Backup Created',
-        `Snapshot taken and saved to Finance-Ally/Snapshots/${filename}`,
+        'Offline Auto-Backup Complete',
+        `Automated database snapshot saved (${(sizeBytes / 1024).toFixed(1)} KB).`,
         `snap_notify_${newSnapshot.id}`
       );
     }
@@ -282,11 +286,11 @@ export async function createLocalAutoBackup(
 }
 
 /**
- * Checks and performs auto-backup if schedule is due on app startup.
+ * Checks and performs auto-backup if schedule is due on app startup or log creation.
  */
-export async function checkAndPerformLocalAutoBackup(): Promise<void> {
+export async function checkAndPerformLocalAutoBackup(transactionCount: number = 0): Promise<void> {
   const config = getLocalAutoBackupConfig();
-  if (isBackupDue(config)) {
+  if (isBackupDue(config, transactionCount)) {
     console.log('Finance-Ally: Local auto-backup is due. Creating snapshot...');
     await createLocalAutoBackup(false);
   }

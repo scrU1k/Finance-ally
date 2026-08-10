@@ -11,7 +11,7 @@ interface BottomPeriodBarProps {
 }
 
 export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd }) => {
-  const { period, setPeriod, periodTotalSpent, baseCurrency, filteredTransactions } = useFinance();
+  const { period, setPeriod, viewedPeriodTotal, viewedPeriodLabel, baseCurrency, filteredTransactions } = useFinance();
   const [isMinimized, setIsMinimized] = useState(false);
   const [isPeriodSelectorOpen, setIsPeriodSelectorOpen] = useState(false);
 
@@ -90,9 +90,9 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
     touchStartY.current = null;
   };
 
-  const currentPeriodLabel = periods.find(p => p.key === period)?.label || 'Month';
+  const currentPeriodLabel = viewedPeriodLabel || (periods.find(p => p.key === period)?.label || 'Month');
 
-  const formattedTotal = formatCurrency(periodTotalSpent, baseCurrency);
+  const formattedTotal = formatCurrency(viewedPeriodTotal, baseCurrency);
 
   // Dynamic font sizing to fit large amounts (e.g. ₹100,074.00) on all screen sizes
   const getAmountFontSize = (str: string) => {
@@ -112,7 +112,7 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
           title="Tap to Expand Spending Bar"
         >
           <ChevronUp className="w-5 h-5 text-brand-mint group-hover:-translate-y-0.5 transition-transform shrink-0" />
-          <span className="whitespace-nowrap font-bold truncate">{formattedTotal} <span className="font-normal text-muted-custom">({period})</span></span>
+          <span className="whitespace-nowrap font-bold truncate">{formattedTotal} <span className="font-normal text-muted-custom">({currentPeriodLabel})</span></span>
         </button>
 
         {/* Border Highlighted + Button */}
@@ -149,16 +149,16 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
                   ? 'border-brand-purple/40 text-brand-purple bg-brand-purple/10 hover:bg-brand-purple/20'
                   : 'border-hairline text-muted-custom bg-surface-soft/60 hover:border-brand-purple hover:text-brand-purple'
               }`}
-              title={currentNote?.content ? 'Read / Edit monthly note' : 'Add monthly note'}
+              title="Period Notes"
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             </button>
 
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] sm:text-xs font-mono text-muted-custom uppercase tracking-wider truncate font-semibold">
-                Spent ({period})
-              </div>
-              <div className={`font-display font-bold text-ink tracking-tight truncate leading-tight ${getAmountFontSize(formattedTotal)}`}>
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <span className="text-[9px] sm:text-[10px] font-mono text-muted-custom uppercase font-bold tracking-wider truncate block leading-none mb-0.5">
+                {currentPeriodLabel}
+              </span>
+              <div className={`font-display font-bold text-ink truncate leading-tight ${getAmountFontSize(formattedTotal)}`}>
                 {formattedTotal}
               </div>
             </div>
@@ -179,7 +179,7 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
                   onClick={() => setIsPeriodSelectorOpen(true)}
                   className="flex items-center justify-center bg-surface-soft hover:border-ink border border-hairline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-mono font-bold text-ink transition-all cursor-pointer shadow-sm shrink-0"
                 >
-                  <span>{currentPeriodLabel}</span>
+                  <span>{periods.find(p => p.key === period)?.label || 'Month'}</span>
                 </button>
               ) : (
                 /* Expanded Horizontal Selection Row */

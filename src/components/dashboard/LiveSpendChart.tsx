@@ -14,7 +14,7 @@ import {
 } from 'chart.js';
 import { Doughnut, Bar, Line } from 'react-chartjs-2';
 import { useFinance } from '../../context/FinanceContext';
-import { convertCurrencyAmount } from '../../services/currency';
+import { convertCurrencyAmount, formatCurrency } from '../../services/currency';
 import { PieChart, TrendingUp } from 'lucide-react';
 
 ChartJS.register(
@@ -45,6 +45,7 @@ export const LiveSpendChart: React.FC = () => {
   const doughnutLabels = activeCategories.map(c => c.name);
   const doughnutValues = activeCategories.map(c => catTotals[c.id]);
   const doughnutColors = activeCategories.map(c => c.color);
+  const totalDoughnutSpend = doughnutValues.reduce((sum, val) => sum + val, 0);
 
   const doughnutData = {
     labels: doughnutLabels,
@@ -156,6 +157,16 @@ export const LiveSpendChart: React.FC = () => {
                     color: '#8a867c',
                   },
                 },
+                tooltip: {
+                  callbacks: {
+                    label: (context: any) => {
+                      const val = context.parsed || 0;
+                      const pct = totalDoughnutSpend > 0 ? ((val / totalDoughnutSpend) * 100).toFixed(1) : '0.0';
+                      const formatted = formatCurrency(val, baseCurrency);
+                      return ` ${context.label}: ${formatted} (${pct}%)`;
+                    }
+                  }
+                }
               },
             }}
           />

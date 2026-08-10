@@ -13,7 +13,7 @@ import {
 import { generateDynamicUsageRules } from '../../services/dynamicContextGenerator';
 import { parseAndExecuteLocalQuery } from '../../services/localQueryParser';
 import { formatCurrency } from '../../services/currency';
-import { Lightbulb, Sparkles, BrainCircuit, X, Trash2, ArrowRight, Tag } from 'lucide-react';
+import { Lightbulb, Sparkles, BrainCircuit, X, Trash2, ArrowRight, Tag, Terminal } from 'lucide-react';
 
 interface SmartSuggestionsProps {
   onSelectTransaction?: (tx: Transaction) => void;
@@ -30,6 +30,7 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
   const [queryInput, setQueryInput] = useState('');
   const [answerResult, setAnswerResult] = useState<React.ReactNode | null>(null);
   const [showRulesOverlay, setShowRulesOverlay] = useState(false);
+  const [showCommandsModal, setShowCommandsModal] = useState(false);
   const [currentRules, setCurrentRules] = useState<KnowledgeRule[]>([]);
 
   const handleQuerySubmit = async (e: React.FormEvent) => {
@@ -37,136 +38,20 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
     if (!queryInput.trim()) return;
 
     const input = queryInput.trim();
-    const lowerInput = input.toLowerCase();
 
-    // 1. Check for Rule definition
-    const ruleMatch = input.match(/^rule[:\-_=|]\s*(.+)/i);
-    if (ruleMatch) {
-      const ruleText = ruleMatch[1].trim();
-      addKnowledgeRule(ruleText);
-      setAnswerResult(
-        <div className="text-brand-mint font-mono text-sm font-bold flex items-center gap-2">
-          <CheckIcon className="w-4 h-4" /> Rule Confirmed.
-        </div>
-      );
-      setQueryInput('');
-      return;
-    }
-
-    // 2. Check for List Rules (matches "list rule" or "-list rule")
-    if (lowerInput === 'list rule' || lowerInput === '-list rule') {
-      setCurrentRules(getAllRules());
-      setShowRulesOverlay(true);
-      setQueryInput('');
-      setAnswerResult(null);
-      return;
-    }
-
-    // 3. Check for Delete Rule via text command (matches "del rule: [text]" or "-del rule: [text]")
-    const delMatch = input.match(/^(?:-?del rule:)\s*(.+)/i);
-    if (delMatch) {
-      const targetText = delMatch[1].trim();
-      const success = deleteKnowledgeRuleByText(targetText);
-      if (success) {
-        setAnswerResult(
-          <div className="text-brand-coral font-mono text-sm font-bold flex items-center gap-2">
-            <Trash2 className="w-4 h-4" /> '{targetText}' deleted.
-          </div>
-        );
-      } else {
-        setAnswerResult(
-          <div className="text-muted-custom font-mono text-sm">
-            Rule not found.
-          </div>
-        );
-      }
-      setQueryInput('');
-      return;
-    }
-
-    // 3.1 Check for New Tag Creation (newtag: [text])
-    const newTagMatch = input.match(/^newtag:\s*(.+)/i);
-    if (newTagMatch) {
-      const tagName = newTagMatch[1].trim();
-      if (tagName) {
-        const titleCased = tagName.charAt(0).toUpperCase() + tagName.slice(1);
-        await addCategoryItem({
-          name: titleCased,
-          color: '#A78BFA',
-          icon: 'Tag'
-        });
-        setAnswerResult(
-          <div className="text-brand-mint font-mono text-sm font-bold flex items-center gap-2">
-            <Tag className="w-4 h-4 text-brand-mint" /> Custom tag '{titleCased}' created successfully!
-          </div>
-        );
-      }
-      setQueryInput('');
-      return;
-    }
-
-    // 3.2 Check for Tag Search (tag: [text])
-    const searchTagMatch = input.match(/^tag:\s*(.+)/i);
-    if (searchTagMatch) {
-      const targetTag = searchTagMatch[1].trim().toLowerCase();
-      const matchedTxs = filteredTransactions.filter(t => {
-        const customName = (t.customCategoryName || '').toLowerCase();
-        const catObj = categories.find(c => c.id === t.categoryId);
-        const catName = catObj ? catObj.name.toLowerCase() : '';
-        const note = (t.note || '').toLowerCase();
-        return customName.includes(targetTag) || catName.includes(targetTag) || note.includes(targetTag);
-      });
-
-      if (matchedTxs.length > 0) {
-        const total = matchedTxs.reduce((sum, t) => sum + t.amount, 0);
-        setAnswerResult(
-          <div className="space-y-2 p-3 bg-surface-card rounded-xl border border-hairline">
-            <div className="text-xs font-mono text-brand-purple font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <Tag className="w-4 h-4 text-brand-purple" /> Tag Search: '{targetTag}'
-            </div>
-            <p className="text-sm font-semibold text-ink">
-              Found {matchedTxs.length} transaction{matchedTxs.length > 1 ? 's' : ''} totaling {formatCurrency(total, baseCurrency)}.
-            </p>
-            <div className="space-y-1 pt-1 max-h-48 overflow-y-auto">
-              {matchedTxs.map(t => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => onSelectTransaction?.(t)}
-                  className="w-full text-left text-xs font-mono text-muted-custom flex justify-between border-b border-hairline/40 py-2 px-2 hover:bg-surface-soft hover:text-ink rounded-lg transition-colors cursor-pointer group"
-                  title="Click to view/edit log in Expenditure tab"
-                >
-                  <span className="group-hover:text-brand-purple group-hover:font-semibold transition-colors">
-                    {t.date} — {t.note || 'Expense'}
-                  </span>
-                  <span className="font-bold text-ink">{formatCurrency(t.amount, baseCurrency)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        );
-      } else {
-        setAnswerResult(
-          <div className="text-sm font-mono text-muted-custom p-3 bg-surface-card rounded-xl border border-hairline">
-            No transactions found matching tag '{targetTag}'.
-          </div>
-        );
-      }
-      setQueryInput('');
-      return;
-    }
-
-    // 3.5 Check for Direct Local Transaction Query (Instant Math)
-    const localQueryResult = parseAndExecuteLocalQuery(input, filteredTransactions, categories, baseCurrency);
+    // 1. Check for Direct Local Command / Transaction Query (Instant Math & Rules Engine)
+    const localQueryResult = await parseAndExecuteLocalQuery(input, filteredTransactions, categories, baseCurrency);
     if (localQueryResult.matched) {
       setAnswerResult(
         <div className="p-4 bg-brand-purple/10 border border-brand-purple/20 rounded-xl space-y-2">
           <div className="flex items-center gap-2 text-brand-purple font-mono text-xs uppercase font-bold tracking-wider">
             <Sparkles className="w-4 h-4" /> Personal Finance Assistant
           </div>
-          <p className="text-base font-semibold text-ink">{localQueryResult.answer}</p>
+          <div className="text-sm font-mono font-medium text-ink whitespace-pre-line leading-relaxed">
+            {localQueryResult.answer}
+          </div>
           {localQueryResult.detail && (
-            <p className="text-xs text-muted-custom font-mono">{localQueryResult.detail}</p>
+            <p className="text-xs text-muted-custom font-mono pt-1 border-t border-hairline/30">{localQueryResult.detail}</p>
           )}
         </div>
       );
@@ -273,13 +158,19 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
           </button>
         </form>
 
-        {/* Faint Sub-text Instructions (Exact 5 lines, dimmed command highlights + muted grey text) */}
-        <div className="text-[11px] font-mono mt-3 px-1 space-y-1 text-muted-custom font-normal">
-          <div><span className="text-brand-purple/75">rule: [text]</span> to save rule</div>
-          <div><span className="text-brand-purple/75">list rule</span> to view rules</div>
-          <div><span className="text-brand-purple/75">del rule: [text]</span> to delete rules</div>
-          <div><span className="text-brand-mint/75">newtag: [text]</span> to create custom tag</div>
-          <div><span className="text-brand-mint/75">tag: [text]</span> to seach tag</div>
+        {/* Commands Button */}
+        <div className="flex items-center justify-between mt-2.5 px-0.5">
+          <button
+            type="button"
+            onClick={() => setShowCommandsModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-card hover:bg-surface-soft border border-hairline hover:border-brand-purple text-xs font-mono font-bold text-brand-purple transition-all cursor-pointer shadow-2xs group"
+          >
+            <Terminal className="w-3.5 h-3.5 text-brand-purple group-hover:scale-110 transition-transform" />
+            <span>Commands</span>
+          </button>
+          <span className="text-[10px] font-mono text-muted-custom">
+            Tap for Assistant syntax & rules
+          </span>
         </div>
 
         {/* Answer/Result Display Area */}
@@ -289,6 +180,154 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
           </div>
         )}
       </div>
+
+      {/* Commands Reference Pop-over Modal */}
+      {showCommandsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4">
+          <div className="bg-surface-card border border-hairline w-full max-w-md rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="p-4 border-b border-hairline flex items-center justify-between bg-surface-soft/60">
+              <h3 className="text-sm font-mono font-bold text-ink uppercase flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-brand-purple" />
+                Assistant Commands
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCommandsModal(false)}
+                className="text-muted-custom hover:text-ink text-xs font-mono font-bold px-2 py-1 rounded-lg hover:bg-surface-soft cursor-pointer transition-colors"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {/* Content List */}
+            <div className="p-3 space-y-2.5 overflow-y-auto font-mono text-xs text-ink max-h-[70vh]">
+              <p className="text-[11px] text-muted-custom font-normal mb-1">
+                Tap any command below to insert it into the assistant:
+              </p>
+
+              {/* 1. Tagging Rule */}
+              <div 
+                onClick={() => { setQueryInput('rule - dudh or dooth is groceries'); setShowCommandsModal(false); }}
+                className="p-3 bg-surface-soft/90 border border-hairline rounded-xl hover:border-brand-purple cursor-pointer transition-all space-y-1.5 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-brand-purple">Auto-Tag Word Rule</span>
+                  <span className="text-[10px] text-brand-purple/70 font-mono font-bold group-hover:underline">Tap to insert</span>
+                </div>
+                <code className="block text-xs bg-surface-card px-2.5 py-1.5 rounded-lg border border-hairline text-ink font-mono font-semibold">
+                  rule - dudh or dooth is groceries
+                </code>
+                <p className="text-[11px] text-muted-custom font-sans leading-tight">
+                  Maps words or slang ("dudh") to a category tag ("Groceries") for instant Quick Log auto-detection.
+                </p>
+              </div>
+
+              {/* 2. List Rules */}
+              <div 
+                onClick={() => { setQueryInput('list rules'); setShowCommandsModal(false); }}
+                className="p-3 bg-surface-soft/90 border border-hairline rounded-xl hover:border-brand-purple cursor-pointer transition-all space-y-1.5 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-brand-purple">List Active Rules</span>
+                  <span className="text-[10px] text-brand-purple/70 font-mono font-bold group-hover:underline">Tap to insert</span>
+                </div>
+                <code className="block text-xs bg-surface-card px-2.5 py-1.5 rounded-lg border border-hairline text-ink font-mono font-semibold">
+                  list rules
+                </code>
+                <p className="text-[11px] text-muted-custom font-sans leading-tight">
+                  Displays all active word auto-tag rules and saved knowledge base observations.
+                </p>
+              </div>
+
+              {/* 3. Delete Rule */}
+              <div 
+                onClick={() => { setQueryInput('del rule - dudh'); setShowCommandsModal(false); }}
+                className="p-3 bg-surface-soft/90 border border-hairline rounded-xl hover:border-brand-coral cursor-pointer transition-all space-y-1.5 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-brand-coral">Delete Rule by Keyword</span>
+                  <span className="text-[10px] text-brand-coral/70 font-mono font-bold group-hover:underline">Tap to insert</span>
+                </div>
+                <code className="block text-xs bg-surface-card px-2.5 py-1.5 rounded-lg border border-hairline text-ink font-mono font-semibold">
+                  del rule - dudh
+                </code>
+                <p className="text-[11px] text-muted-custom font-sans leading-tight">
+                  Deletes a word rule or knowledge rule matching your specified keyword.
+                </p>
+              </div>
+
+              {/* 4. List Tags */}
+              <div 
+                onClick={() => { setQueryInput('list tags'); setShowCommandsModal(false); }}
+                className="p-3 bg-surface-soft/90 border border-hairline rounded-xl hover:border-brand-mint cursor-pointer transition-all space-y-1.5 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-brand-mint">List Category Tags</span>
+                  <span className="text-[10px] text-brand-mint/70 font-mono font-bold group-hover:underline">Tap to insert</span>
+                </div>
+                <code className="block text-xs bg-surface-card px-2.5 py-1.5 rounded-lg border border-hairline text-ink font-mono font-semibold">
+                  list tags
+                </code>
+                <p className="text-[11px] text-muted-custom font-sans leading-tight">
+                  Lists all built-in and custom category tags along with transaction counts.
+                </p>
+              </div>
+
+              {/* 5. Save Knowledge Observation */}
+              <div 
+                onClick={() => { setQueryInput('rule: 5% tax on dining'); setShowCommandsModal(false); }}
+                className="p-3 bg-surface-soft/90 border border-hairline rounded-xl hover:border-brand-purple cursor-pointer transition-all space-y-1.5 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-ink">Save Knowledge Rule</span>
+                  <span className="text-[10px] text-muted-custom font-mono font-bold group-hover:underline">Tap to insert</span>
+                </div>
+                <code className="block text-xs bg-surface-card px-2.5 py-1.5 rounded-lg border border-hairline text-ink font-mono font-semibold">
+                  rule: 5% tax on dining
+                </code>
+                <p className="text-[11px] text-muted-custom font-sans leading-tight">
+                  Saves a persistent financial observation to the local vector engine.
+                </p>
+              </div>
+
+              {/* 6. Create Custom Tag */}
+              <div 
+                onClick={() => { setQueryInput('newtag: Books'); setShowCommandsModal(false); }}
+                className="p-3 bg-surface-soft/90 border border-hairline rounded-xl hover:border-brand-purple cursor-pointer transition-all space-y-1.5 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-ink">Create Custom Tag</span>
+                  <span className="text-[10px] text-muted-custom font-mono font-bold group-hover:underline">Tap to insert</span>
+                </div>
+                <code className="block text-xs bg-surface-card px-2.5 py-1.5 rounded-lg border border-hairline text-ink font-mono font-semibold">
+                  newtag: Books
+                </code>
+                <p className="text-[11px] text-muted-custom font-sans leading-tight">
+                  Creates a new custom category tag for tagging expenses.
+                </p>
+              </div>
+
+              {/* 7. Filter by Tag */}
+              <div 
+                onClick={() => { setQueryInput('tag: Groceries'); setShowCommandsModal(false); }}
+                className="p-3 bg-surface-soft/90 border border-hairline rounded-xl hover:border-brand-purple cursor-pointer transition-all space-y-1.5 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-ink">Filter Expenses by Tag</span>
+                  <span className="text-[10px] text-muted-custom font-mono font-bold group-hover:underline">Tap to insert</span>
+                </div>
+                <code className="block text-xs bg-surface-card px-2.5 py-1.5 rounded-lg border border-hairline text-ink font-mono font-semibold">
+                  tag: Groceries
+                </code>
+                <p className="text-[11px] text-muted-custom font-sans leading-tight">
+                  Lists all transactions logged under the specified category tag.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Rules Overlay List (Pop-over) */}
       {showRulesOverlay && (

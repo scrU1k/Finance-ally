@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { UserProfile, CurrencyCode } from '../types';
 import { getStoredUserProfile, createInitialUser, verifyUserPassword, saveUserProfile, changeUserPassword } from '../services/auth';
+import { setAccountCreatedAt } from '../services/localAutoBackupService';
 
 const LOCKOUT_KEY = 'fa_login_lockout';
 const LOCKOUT_TIERS_MS = [30_000, 120_000, 600_000, 1_800_000]; // 30s, 2m, 10m, 30m
@@ -92,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const onboard = async (username: string, password: string, baseCurrency: CurrencyCode) => {
     const newUser = await createInitialUser(username, password, baseCurrency);
+    setAccountCreatedAt(Date.now());
     setUser(newUser);
     setNeedsOnboarding(false);
     setIsUnlocked(true);

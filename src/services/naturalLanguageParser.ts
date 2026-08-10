@@ -1,4 +1,4 @@
-import { predict } from './localInferenceEngine';
+import { dispatchSpeculativeRace } from '../workers/workerOrchestrator';
 import { CurrencyCode } from '../types';
 
 export interface ParsedNaturalExpense {
@@ -217,11 +217,11 @@ function addMonths(date: Date, months: number): Date {
   return result;
 }
 
-export function parseNaturalLanguageExpense(
+export async function parseNaturalLanguageExpense(
   inputText: string,
   baseCurrency: CurrencyCode = 'INR',
   existingCategories: Array<{ id: string; name: string }> = []
-): ParsedNaturalExpense {
+): Promise<ParsedNaturalExpense> {
   const text = inputText.trim();
   const lower = text.toLowerCase();
 
@@ -528,17 +528,23 @@ export function parseNaturalLanguageExpense(
     // Check for explicit payment method in input string first
     const explicitPaymentMethod = extractPaymentMethod(text);
 
-    // Use our ML Local Inference Engine
-    const catResult = predict(text + ' ' + cleanDesc);
+    // Use our Multi-Threaded Speculative Race Engine (Worker A vs Worker B)
+    const catResult = await dispatchSpeculativeRace(text + ' ' + cleanDesc);
     paymentMethod = explicitPaymentMethod || catResult.paymentMethod || undefined;
 
     if (catResult.categoryId) {
       categoryId = catResult.categoryId;
       // Resolve name from category ID
       const resolved = existingCategories.find(c => c.id === categoryId);
-      categoryName = resolved ? resolved.name : catResult.categoryId;
+      categoryName = resolved ? resolved.name : catResult.categoryName || catResult.categoryId;
       confidence = catResult.confidence;
     }
+  }
+
+  // Ultimate fail-safe to prevent blank tags in the UI
+  if (!categoryName || categoryName.trim() === '') {
+    categoryName = 'Others';
+    if (!categoryId) categoryId = 'cat-others';
   }
 
   return {

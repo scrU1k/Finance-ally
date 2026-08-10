@@ -8,20 +8,7 @@ export interface KnowledgeRule {
   scope?: 'personal_data' | 'general_finance' | 'both';
 }
 
-const DEFAULT_KNOWLEDGE_RULES: KnowledgeRule[] = [
-  { id: 'def-1', text: 'Credit cards typically have a 45-day interest-free period. Always pay the full statement balance to avoid high APRs.', isCustom: false, timestamp: 0, scope: 'general_finance' },
-  { id: 'def-2', text: 'For international travel or foreign currencies, cards with 0% forex markup are best.', isCustom: false, timestamp: 0, scope: 'general_finance' },
-  { id: 'def-3', text: 'An emergency fund should ideally cover 3 to 6 months of your essential living expenses.', isCustom: false, timestamp: 0, scope: 'general_finance' },
-  { id: 'def-4', text: 'The 50/30/20 rule: allocate 50% to needs, 30% to wants, and 20% to savings or debt payoff.', isCustom: false, timestamp: 0, scope: 'general_finance' },
-  { id: 'def-5', text: 'UPI payments in India do not have extra merchant charges for standard peer-to-peer transfers.', isCustom: false, timestamp: 0, scope: 'general_finance' },
-  { id: 'def-6', text: 'When taking a loan, always compare the Effective Annual Rate (EAR) rather than just the flat interest rate.', isCustom: false, timestamp: 0, scope: 'general_finance' },
-  { id: 'def-7', text: 'To improve your credit score, keep your credit utilization ratio below 30% of your total available limit.', isCustom: false, timestamp: 0, scope: 'general_finance' },
-  { id: 'def-8', text: 'Compound interest works best over long periods. Starting investments early is more important than timing the market.', isCustom: false, timestamp: 0, scope: 'general_finance' },
-  { id: 'def-9', text: 'Index funds generally outperform actively managed mutual funds over a 10-year period due to lower expense ratios.', isCustom: false, timestamp: 0, scope: 'general_finance' },
-  { id: 'def-10', text: 'Term life insurance is usually the most cost-effective way to protect dependents. Avoid mixing insurance with investment (like ULIPs).', isCustom: false, timestamp: 0, scope: 'general_finance' },
-  { id: 'def-11', text: 'Never carry a balance on a credit card. The high interest rates will quickly wipe out any rewards or cash back earned.', isCustom: false, timestamp: 0, scope: 'general_finance' },
-  { id: 'def-12', text: 'A sinking fund is a strategic way to save for large, known future expenses (like annual car insurance or a holiday) by saving a small amount monthly.', isCustom: false, timestamp: 0, scope: 'general_finance' }
-];
+const DEFAULT_KNOWLEDGE_RULES: KnowledgeRule[] = [];
 
 const LOCAL_RULES_KEY = 'fa_custom_knowledge_rules';
 

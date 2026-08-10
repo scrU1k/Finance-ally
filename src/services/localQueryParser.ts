@@ -1,5 +1,9 @@
 import { Transaction, Category, CurrencyCode } from '../types';
 import { formatCurrency } from './currency';
+import { dispatchSpeculativeRace } from '../workers/workerOrchestrator';
+import { parseCFGQuerySlots } from './cfgParser';
+import { addUserTagRule, getUserRules, deleteUserTagRule } from './userRuleService';
+import { getAllRules, deleteKnowledgeRule, addKnowledgeRule } from './localKnowledgeBase';
 
 export interface LocalQueryResult {
   matched: boolean;
@@ -86,16 +90,167 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 // MAIN PARSER
 // ─────────────────────────────────────────────
 
-export function parseAndExecuteLocalQuery(
+export async function parseAndExecuteLocalQuery(
   query: string,
   transactions: Transaction[],
   categories: Category[],
   baseCurrency: CurrencyCode
-): LocalQueryResult {
+): Promise<LocalQueryResult> {
 
   const fmt = (amt: number) => formatCurrency(amt, baseCurrency);
   const cleanQ = query.toLowerCase().replace(/[?.,!/\\`~()]/g, ' ').trim();
   const q = cleanQ;
+
+  // ── USER RULE DEFINITION INTERCEPTOR ─────────────────
+  // Syntax: "rule - dudh or dooth is groceries", "rule: doodh is Groceries", "tag swiggy as Food", "map petrol to Transport"
+  const ruleMatch = query.match(/^(?:rule\s*[:-=]?\s*|tag\s+|map\s+|set\s+)(.+?)\s+(?:is\s+tagged\s+as|tagged\s+as|is|to|as|=|->)\s+(.+)$/i);
+  if (ruleMatch) {
+    const rawWords = ruleMatch[1].trim();
+    const rawCategory = ruleMatch[2].trim();
+
+    // Split words by "or", "and", ",", "/"
+    const keywords = rawWords.split(/\s*(?:or|and|,|\/)\s*/i).map(w => w.trim()).filter(Boolean);
+    const result = addUserTagRule(keywords, rawCategory, categories);
+
+    return {
+      matched: true,
+      answer: result.message,
+      detail: `Custom Rule Active! Whenever you use ${keywords.map(k => `"${k}"`).join(' or ')} in Quick Log, it will auto-detect as ${result.rule?.categoryName || rawCategory}.`
+    };
+  }
+
+  // ── GENERAL KNOWLEDGE RULE DEFINITION ─────────────────
+  // Syntax: "rule: 5% tax on dining", "rule - save 10% monthly"
+  const kbRuleMatch = query.match(/^rule\s*[:-=]?\s*(.+)/i);
+  if (kbRuleMatch) {
+    const text = kbRuleMatch[1].trim();
+    if (text) {
+      addKnowledgeRule(text);
+      return {
+        matched: true,
+        answer: `Knowledge rule saved: "${text}"`,
+        detail: 'Saved to your local vector engine. The Assistant will use this for future insights.'
+      };
+    }
+  }
+
+  // ── DELETE RULE COMMAND ─────────────────
+  // Syntax: "del rule - dudh", "del rule: dudh", "del rule dudh", "delete rule dudh"
+  const delMatch = query.match(/^(?:del\s*rule|delete\s*rule)\s*[:-=]?\s*(.+)$/i);
+  if (delMatch) {
+    const searchTerm = delMatch[1].trim().toLowerCase();
+    if (!searchTerm) {
+      return {
+        matched: true,
+        answer: 'Please specify a keyword to delete. Example: "del rule - dudh"',
+        detail: 'Type "list rules" to see all active rule keywords.'
+      };
+    }
+
+    const tagRules = getUserRules();
+    const kbRules = getAllRules();
+
+    const matchedTagRules = tagRules.filter(r => 
+      r.keywords.some(k => k.toLowerCase().includes(searchTerm)) || 
+      r.categoryName.toLowerCase().includes(searchTerm)
+    );
+
+    const matchedKbRules = kbRules.filter(r => 
+      r.text.toLowerCase().includes(searchTerm)
+    );
+
+    const totalMatches = matchedTagRules.length + matchedKbRules.length;
+
+    if (totalMatches === 0) {
+      return {
+        matched: true,
+        answer: `No rules found matching "${searchTerm}".`,
+        detail: 'Type "list rules" to view all active rules.'
+      };
+    }
+
+    if (totalMatches === 1) {
+      if (matchedTagRules.length === 1) {
+        const ruleToDelete = matchedTagRules[0];
+        deleteUserTagRule(ruleToDelete.id);
+        return {
+          matched: true,
+          answer: `Deleted auto-tag rule: ${ruleToDelete.keywords.map(k => `"${k}"`).join(', ')} ➔ ${ruleToDelete.categoryName}`,
+          detail: 'This keyword will no longer auto-tag in Quick Log.'
+        };
+      } else {
+        const ruleToDelete = matchedKbRules[0];
+        deleteKnowledgeRule(ruleToDelete.id);
+        return {
+          matched: true,
+          answer: `Deleted knowledge rule: "${ruleToDelete.text}"`,
+          detail: 'Rule removed from local Knowledge Base.'
+        };
+      }
+    }
+
+    // Multiple rules matched
+    const tagList = matchedTagRules.map(r => `• "del rule: ${r.keywords[0]}" (maps to ${r.categoryName})`).join('\n');
+    const kbList = matchedKbRules.map(r => `• "del rule: ${r.text.substring(0, 30)}..."`).join('\n');
+
+    return {
+      matched: true,
+      answer: `Multiple rules match "${searchTerm}". Please specify the exact keyword to delete:\n\n${[tagList, kbList].filter(Boolean).join('\n')}`,
+      detail: 'Type "del rule: [exact keyword]" to delete.'
+    };
+  }
+
+  // ── LIST RULES COMMAND ─────────────────
+  // Syntax: "list rules", "list rule", "rules", "rule list", "show rules", "my rules"
+  if (/^(?:list\s*rules?|rules?|rule\s*list|show\s*rules?|my\s*rules?)$/i.test(q)) {
+    const userRules = getUserRules();
+    const kbRules = getAllRules();
+    
+    if (userRules.length === 0 && kbRules.length === 0) {
+      return {
+        matched: true,
+        answer: "No custom rules configured yet.",
+        detail: 'Type "rule - dudh is Groceries" to auto-tag keywords, or "rule: [text]" to save knowledge base rules.'
+      };
+    }
+
+    const tagRulesText = userRules.length > 0
+      ? `📋 Auto-Tag Word Rules:\n` + userRules.map(r => `  • ${r.keywords.map(k => `"${k}"`).join(', ')} ➔ ${r.categoryName}`).join('\n')
+      : '';
+
+    const kbRulesText = kbRules.length > 0
+      ? `🧠 Knowledge Base Rules:\n` + kbRules.map(r => `  • ${r.text}`).join('\n')
+      : '';
+
+    return {
+      matched: true,
+      answer: [tagRulesText, kbRulesText].filter(Boolean).join('\n\n'),
+      detail: `Active: ${userRules.length} word rule(s), ${kbRules.length} knowledge rule(s).`
+    };
+  }
+
+  // ── LIST TAGS COMMAND ─────────────────
+  // Syntax: "list tags", "list tag", "tags", "tag list", "show tags", "my tags"
+  if (/^(?:list\s*tags?|tags?|tag\s*list|show\s*tags?|my\s*tags?)$/i.test(q)) {
+    if (categories.length === 0) {
+      return {
+        matched: true,
+        answer: "No category tags available.",
+        detail: 'Create tags using "newtag: [name]" or manage them in Settings.'
+      };
+    }
+
+    const tagListFormatted = categories.map(c => {
+      const txCount = transactions.filter(t => t.categoryId === c.id).length;
+      return `  • ${c.name} (${txCount} ${txCount === 1 ? 'log' : 'logs'})`;
+    }).join('\n');
+
+    return {
+      matched: true,
+      answer: `🏷️ Available Category Tags (${categories.length}):\n${tagListFormatted}`,
+      detail: 'Use "tag: [name]" to filter transactions by tag.'
+    };
+  }
 
   if (transactions.length === 0) {
     return {
@@ -160,6 +315,25 @@ export function parseAndExecuteLocalQuery(
     if (q.includes('last month')) return { txs: txsForPeriod('lastMonth'), label: 'last month' };
     if (q.includes('this month') || q.includes('current month')) return { txs: txsForPeriod('thisMonth'), label: 'this month' };
 
+    // Specific date check: "17 july", "july 17", "17th july"
+    const monthRegex = '(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|october|oct|november|nov|december|dec)';
+    const dateMatch1 = q.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:of\\s+)?${monthRegex}\\b`, 'i'));
+    const dateMatch2 = q.match(new RegExp(`\\b${monthRegex}\\s*(\\d{1,2})(?:st|nd|rd|th)?\\b`, 'i'));
+
+    if (dateMatch1 || dateMatch2) {
+      const day = dateMatch1 ? parseInt(dateMatch1[1], 10) : parseInt(dateMatch2![2], 10);
+      const mName = (dateMatch1 ? dateMatch1[2] : dateMatch2![1]).toLowerCase();
+      const num = MONTH_NAMES[mName];
+      if (num && !isNaN(day)) {
+        const dateISO = `${thisYear}-${num}-${String(day).padStart(2, '0')}`;
+        return {
+          txs: transactions.filter(t => t.date === dateISO),
+          label: `${mName} ${day}, ${thisYear}`,
+          key: dateISO
+        };
+      }
+    }
+
     // Named month: "in july", "during august", "for june"
     for (const [name, num] of Object.entries(MONTH_NAMES)) {
       if (new RegExp(`\\b${name}\\b`).test(q)) {
@@ -177,6 +351,16 @@ export function parseAndExecuteLocalQuery(
     return thisMonthTxs.length > 0
       ? { txs: thisMonthTxs, label: 'this month' }
       : { txs: transactions, label: 'all time' };
+  }
+
+  // ── NLP SEMANTIC PRE-PROCESSING ─────────────────
+  let semanticCategoryId: string | null = null;
+  // If query might be searching for a category, race it:
+  if (q.split(/\s+/).length <= 10) {
+    const nlpRes = await dispatchSpeculativeRace(q);
+    if (nlpRes.confidence > 75 && nlpRes.categoryId) {
+      semanticCategoryId = nlpRes.categoryId;
+    }
   }
 
   // ── 0. SPECIFIC DATE QUERY ───────────────────
@@ -241,26 +425,40 @@ export function parseAndExecuteLocalQuery(
 
   if (isTotalQuery && !q.includes('average') && !q.includes('avg')) {
     // Category-specific total: "how much on food this month"
-    for (const cat of categories) {
-      if (q.includes(cat.name.toLowerCase())) {
-        const { txs, label } = detectPeriod();
-        const catTxs = txs.filter(t => t.categoryId === cat.id);
-        const total = sumTxs(catTxs);
-        if (catTxs.length > 0) {
+    let targetCatId: string | null = semanticCategoryId;
+    let targetCatName = '';
+    
+    if (!targetCatId) {
+      for (const cat of categories) {
+        if (q.includes(cat.name.toLowerCase())) {
+          targetCatId = cat.id;
+          targetCatName = cat.name;
+          break;
+        }
+      }
+    } else {
+       const c = categories.find(c => c.id === targetCatId);
+       targetCatName = c ? c.name : 'Category';
+    }
+
+    if (targetCatId) {
+      const { txs, label } = detectPeriod();
+      const catTxs = txs.filter(t => t.categoryId === targetCatId);
+      const total = sumTxs(catTxs);
+      if (catTxs.length > 0) {
           return {
             matched: true,
-            answer: `You spent ${fmt(total)} on ${cat.name} (${label}).`,
+            answer: `You spent ${fmt(total)} on ${targetCatName} (${label}).`,
             detail: `${catTxs.length} transaction${catTxs.length > 1 ? 's' : ''} in this category.`
           };
         } else {
           return {
             matched: true,
-            answer: `No ${cat.name} transactions found for ${label}.`,
+            answer: `No ${targetCatName} transactions found for ${label}.`,
             detail: undefined
           };
         }
       }
-    }
 
     // General total
     const { txs, label } = detectPeriod();
@@ -590,7 +788,8 @@ export function parseAndExecuteLocalQuery(
         const customCatLower = (t.customCategoryName || '').toLowerCase();
         const catObj = categories.find(c => c.id === t.categoryId);
         const catNameLower = catObj ? catObj.name.toLowerCase() : '';
-        return tokens.some(tok =>
+        const isSemanticMatch = semanticCategoryId && t.categoryId === semanticCategoryId;
+        return isSemanticMatch || tokens.some(tok =>
           noteLower.includes(tok) || customCatLower.includes(tok) || catNameLower.includes(tok));
       });
 

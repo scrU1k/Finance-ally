@@ -74,11 +74,11 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
     return newlyAdded?.id || 'cat-others';
   };
 
-  const handleParse = (e?: React.FormEvent) => {
+  const handleParse = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!inputPrompt.trim()) return;
 
-    const parsed = parseNaturalLanguageExpense(inputPrompt, baseCurrency, categories);
+    const parsed = await parseNaturalLanguageExpense(inputPrompt, baseCurrency, categories);
 
     // If Multi-Log mode is active, override parsed date with the selected batch date
     if (isMultiLogActive && batchDate) {

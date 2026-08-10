@@ -74,7 +74,7 @@ Any expense with a future date/time is automatically recognized as a **Scheduled
 ### 4. Complete Privacy & Security
 
 - **Startup App Lock**: Optional PIN lock card to guard your database from local access.
-- **RSA-2048 + AES-256-GCM Encrypted Backups**: Export your complete financial backup as an encrypted `.json.enc` file with PIN protection.
+- **RSA-2048 + AES-256-GCM Encrypted Backups**: Export your complete financial backup as an encrypted `.json.enc` file with PIN protection. Furthermore enabling auto-backup ensures data `Snapshots` are backed onto device storage, fully encrypted as per user convenience - `Daily`, `Weekly`, `Monthly`, `Off(Manual)`. These snapshots can be restored by the user at any time, and to upto 5 snapshots are stored on-device at once.
 - **Zero Third-Party Tracking**: No analytics, no advertising SDKs, no external accounts — ever.
 
 ---

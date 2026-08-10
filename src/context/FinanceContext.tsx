@@ -6,6 +6,7 @@ import { useAuth } from './AuthContext';
 import { isPendingScheduledTx, isFutureDateTime } from '../utils/scheduledUtils';
 import { requestNotificationPermission, triggerScheduledPaymentNotification, scheduleFutureNativeNotification } from '../services/notificationService';
 import { trainModel } from '../services/localInferenceEngine';
+import { checkAndPerformLocalAutoBackup } from '../services/localAutoBackupService';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -30,6 +31,10 @@ interface FinanceContextType {
   reloadAllData: () => Promise<void>;
   filteredTransactions: Transaction[];
   periodTotalSpent: number;
+  viewedPeriodTotal: number;
+  viewedPeriodLabel: string;
+  topmostVisibleDate: string;
+  setTopmostVisibleDate: (dateStr: string) => void;
   scheduledToast: { id: string; note: string; amount: number; currency: CurrencyCode; transaction: Transaction } | null;
   dismissScheduledToast: () => void;
   undoScheduledActivation: (id: string) => Promise<Transaction | null>;
@@ -209,6 +214,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (newTx.isScheduled) {
       scheduleFutureNativeNotification(newTx, baseCurrency);
     }
+
+    checkAndPerformLocalAutoBackup(transactions.length + 1);
   };
 
   const editTransaction = async (tx: Transaction) => {
@@ -279,47 +286,82 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  // Filter transactions by period or active foreign trip vault
   const filteredTransactions = useMemo(() => {
     if (activeTripVault) {
       return transactions.filter(t => t.tripId === activeTripVault.id);
     }
+    return transactions;
+  }, [transactions, activeTripVault]);
 
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    const oneWeekAgo = new Date(now.getTime() - 7 * 86400000);
-    const oneWeekAgoStr = oneWeekAgo.toISOString().split('T')[0];
+  const [topmostVisibleDate, setTopmostVisibleDate] = useState<string>('');
 
-    return transactions.filter(t => {
-      if (period === 'all') return true;
+  // Compute dynamic viewed total and label for the bottom bar based on topmostVisibleDate & period
+  const { viewedPeriodTotal, viewedPeriodLabel } = useMemo(() => {
+    const targetDateStr = topmostVisibleDate || new Date().toISOString().split('T')[0];
+    const targetDate = new Date(targetDateStr + 'T00:00:00');
 
-      if (period === 'day') {
-        return t.date === todayStr;
-      }
-      if (period === 'week') {
-        return t.date >= oneWeekAgoStr && t.date <= todayStr;
-      }
-      
-      const txDate = new Date(t.date);
-      if (period === 'month') {
-        return txDate.getFullYear() === now.getFullYear() && txDate.getMonth() === now.getMonth();
-      }
-      if (period === 'year') {
-        return txDate.getFullYear() === now.getFullYear();
-      }
-      return true;
-    });
-  }, [transactions, period, activeTripVault]);
+    if (period === 'day') {
+      const dayTxs = filteredTransactions.filter(t => t.date === targetDateStr);
+      const total = dayTxs.reduce((sum, t) => {
+        if (isPendingScheduledTx(t)) return sum;
+        return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
+      }, 0);
+      const label = targetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      return { viewedPeriodTotal: total, viewedPeriodLabel: label };
+    }
 
-  // Calculate real-time period total spent converted to current active base currency
-  // EXCLUDES pending scheduled transactions until their set date/time arrives!
-  const periodTotalSpent = useMemo(() => {
-    return filteredTransactions.reduce((total, tx) => {
-      if (isPendingScheduledTx(tx)) return total;
-      const converted = convertCurrencyAmount(tx.amount, tx.currency, baseCurrency, forexRates);
-      return total + converted;
+    if (period === 'week') {
+      const d = new Date(targetDateStr + 'T00:00:00');
+      const day = d.getDay();
+      const diffToMon = d.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(d.setDate(diffToMon));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+
+      const monStr = monday.toISOString().split('T')[0];
+      const sunStr = sunday.toISOString().split('T')[0];
+
+      const tempDate = new Date(targetDate.getTime());
+      tempDate.setDate(tempDate.getDate() + 4 - (tempDate.getDay() || 7));
+      const yearStart = new Date(tempDate.getFullYear(), 0, 1);
+      const weekNo = Math.ceil(((tempDate.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+
+      const weekTxs = filteredTransactions.filter(t => t.date >= monStr && t.date <= sunStr);
+      const total = weekTxs.reduce((sum, t) => {
+        if (isPendingScheduledTx(t)) return sum;
+        return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
+      }, 0);
+      return { viewedPeriodTotal: total, viewedPeriodLabel: `Week ${weekNo}, ${monday.getFullYear()}` };
+    }
+
+    if (period === 'month') {
+      const monthPrefix = targetDateStr.substring(0, 7); // YYYY-MM
+      const monthTxs = filteredTransactions.filter(t => t.date.startsWith(monthPrefix));
+      const total = monthTxs.reduce((sum, t) => {
+        if (isPendingScheduledTx(t)) return sum;
+        return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
+      }, 0);
+      const label = targetDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      return { viewedPeriodTotal: total, viewedPeriodLabel: label };
+    }
+
+    if (period === 'year') {
+      const yearPrefix = targetDateStr.substring(0, 4); // YYYY
+      const yearTxs = filteredTransactions.filter(t => t.date.startsWith(yearPrefix));
+      const total = yearTxs.reduce((sum, t) => {
+        if (isPendingScheduledTx(t)) return sum;
+        return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
+      }, 0);
+      return { viewedPeriodTotal: total, viewedPeriodLabel: `Year ${yearPrefix}` };
+    }
+
+    // fallback for 'all'
+    const total = filteredTransactions.reduce((sum, t) => {
+      if (isPendingScheduledTx(t)) return sum;
+      return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
     }, 0);
-  }, [filteredTransactions, baseCurrency, forexRates]);
+    return { viewedPeriodTotal: total, viewedPeriodLabel: 'All Time' };
+  }, [topmostVisibleDate, period, filteredTransactions, baseCurrency, forexRates]);
 
   return (
     <FinanceContext.Provider
@@ -345,7 +387,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         syncForexRates,
         reloadAllData,
         filteredTransactions,
-        periodTotalSpent,
+        periodTotalSpent: viewedPeriodTotal,
+        viewedPeriodTotal,
+        viewedPeriodLabel,
+        topmostVisibleDate,
+        setTopmostVisibleDate,
         scheduledToast,
         dismissScheduledToast,
         undoScheduledActivation,

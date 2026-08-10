@@ -8,6 +8,7 @@ import { CustomDatePicker } from '../common/CustomDatePicker';
 import { QuickLogBar } from './QuickLogBar';
 import { loadPeriodNotes, savePeriodNote, deletePeriodNote } from '../../services/db';
 import { searchTransactions } from '../../services/naturalSearchEngine';
+import { dispatchSpeculativeRace } from '../../workers/workerOrchestrator';
 
 import {
   Search,
@@ -24,6 +25,7 @@ import {
   Grid,
   BarChart2,
   ChevronDown,
+  ChevronUp,
   Eye,
   CalendarRange,
   CalendarDays,
@@ -92,11 +94,34 @@ function getWeekInfo(dateStr: string) {
 }
 
 export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _onOpenQuickAdd, onEditTransaction }) => {
-  const { filteredTransactions, categories, trips, deleteTx, editTransaction, baseCurrency, forexRates } = useFinance();
+  const { filteredTransactions, categories, trips, deleteTx, editTransaction, baseCurrency, forexRates, setTopmostVisibleDate } = useFinance();
+
+  // Timeline-specific View Mode (Day | Week | Month | Year), decoupled from Bottom Bar filter
+  const [periodMode, setPeriodMode] = useState<PeriodMode>(() => {
+    try {
+      const stored = localStorage.getItem('fa_timeline_period_mode');
+      if (stored === 'day' || stored === 'week' || stored === 'month' || stored === 'year') {
+        return stored;
+      }
+    } catch {}
+    return 'day';
+  });
+
+  const handleSetPeriodMode = (mode: PeriodMode) => {
+    setPeriodMode(mode);
+    try {
+      localStorage.setItem('fa_timeline_period_mode', mode);
+    } catch {}
+  };
+
+  // Viewport tracking for Bottom Bar synchronization
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const groupRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const chartRef = useRef<HTMLDivElement>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [semanticCategoryId, setSemanticCategoryId] = useState<string | null>(null);
   const [selectedCatFilter, setSelectedCatFilter] = useState<string>('all');
   const [showCharts, setShowCharts] = useState(true);
   const [showSearchInput, setShowSearchInput] = useState(false);
@@ -116,6 +141,20 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
   useEffect(() => {
     loadPeriodNotes().then(notes => setPeriodNotes(notes));
   }, []);
+
+  useEffect(() => {
+    if (searchQuery && searchQuery.trim()) {
+      dispatchSpeculativeRace(searchQuery).then(res => {
+        if (res.confidence > 75 && res.categoryId) {
+          setSemanticCategoryId(res.categoryId);
+        } else {
+          setSemanticCategoryId(null);
+        }
+      });
+    } else {
+      setSemanticCategoryId(null);
+    }
+  }, [searchQuery]);
 
   const handleOpenNoteModal = (periodKey: string, periodType: 'month' | 'year', title: string) => {
     const existing = periodNotes.find(n => n.periodKey === periodKey);
@@ -152,8 +191,9 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
   // Drill-down filter state
   const [drilledFilter, setDrilledFilter] = useState<DrilledFilter | null>(null);
 
-  // 30-Day Window limit for Day view
-  const [dayWindowLimit, setDayWindowLimit] = useState(30);
+  // Calendar-Chunk Pagination Limits
+  const [visibleMonthsLimit, setVisibleMonthsLimit] = useState(1); // 1 month at a time for Day mode
+  const [visibleYearsLimit, setVisibleYearsLimit] = useState(1);   // 1 year at a time for Week & Month mode
 
   // Minimizable date groups state
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
@@ -173,23 +213,8 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
   // Floating View Menu state
   const [showViewMenu, setShowViewMenu] = useState(false);
 
-  // Period Mode ('day' | 'week' | 'month' | 'year')
-  const [periodMode, setPeriodMode] = useState<PeriodMode>(() => {
-    try {
-      const stored = localStorage.getItem('fa_timeline_period_mode');
-      if (stored === 'day' || stored === 'week' || stored === 'month' || stored === 'year') {
-        return stored;
-      }
-    } catch {}
-    return 'day';
-  });
-
-  const handleSetPeriodMode = (mode: PeriodMode) => {
-    setPeriodMode(mode);
-    try {
-      localStorage.setItem('fa_timeline_period_mode', mode);
-    } catch {}
-  };
+  // Period Mode is now controlled directly by FinanceContext's `period` and `setPeriod`.
+  // We no longer have local periodMode state.
 
   // Step-back navigation handler when clicking the View: <Label> banner text
   const handleStepBackFromBanner = () => {
@@ -326,7 +351,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
   const processedTransactions = useMemo(() => {
     let list = filteredTransactions;
     if (searchQuery && searchQuery.trim()) {
-      list = searchTransactions(list, searchQuery, categories, trips);
+      list = searchTransactions(list, searchQuery, categories, trips, semanticCategoryId);
     }
 
     return list.filter(tx => {
@@ -345,7 +370,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
     });
   }, [filteredTransactions, selectedCatFilter, searchQuery, drilledFilter, categories, trips]);
 
-  // 1. Grouped by Day
+  // 1. Grouped by Day (Visible Days limited by Calendar Month chunks)
   const groupedByDate = useMemo(() => {
     const map = new Map<string, Transaction[]>();
     processedTransactions.forEach(tx => {
@@ -370,15 +395,22 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
     });
   }, [processedTransactions, baseCurrency, forexRates]);
 
-  // Visible daily groups (limited to 30 days unless searching/filtering/drilled)
+  // Unique calendar months present in groupedByDate sorted descending
+  const uniqueMonths = useMemo(() => {
+    const set = new Set<string>();
+    groupedByDate.forEach(g => set.add(g.date.substring(0, 7)));
+    return Array.from(set).sort((a, b) => (b > a ? 1 : -1));
+  }, [groupedByDate]);
+
   const visibleGroupedByDate = useMemo(() => {
     if (drilledFilter || searchQuery || selectedCatFilter !== 'all') {
       return groupedByDate;
     }
-    return groupedByDate.slice(0, dayWindowLimit);
-  }, [groupedByDate, dayWindowLimit, drilledFilter, searchQuery, selectedCatFilter]);
+    const allowedMonths = uniqueMonths.slice(0, visibleMonthsLimit);
+    return groupedByDate.filter(g => allowedMonths.includes(g.date.substring(0, 7)));
+  }, [groupedByDate, uniqueMonths, visibleMonthsLimit, drilledFilter, searchQuery, selectedCatFilter]);
 
-  const hasMoreDays = !drilledFilter && !searchQuery && selectedCatFilter === 'all' && groupedByDate.length > dayWindowLimit;
+  const hasMoreDays = !drilledFilter && !searchQuery && selectedCatFilter === 'all' && uniqueMonths.length > visibleMonthsLimit;
 
   // 2. Grouped by Week
   const groupedByWeek = useMemo(() => {
@@ -496,6 +528,72 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
       };
     });
   }, [processedTransactions, baseCurrency, forexRates]);
+
+  // Unique calendar years present in groupedByWeek and groupedByMonth sorted descending
+  const uniqueYears = useMemo(() => {
+    const set = new Set<string>();
+    groupedByMonth.forEach(m => set.add(m.monthKey.substring(0, 4)));
+    return Array.from(set).sort((a, b) => (b > a ? 1 : -1));
+  }, [groupedByMonth]);
+
+  const visibleGroupedByWeek = useMemo(() => {
+    if (drilledFilter || searchQuery || selectedCatFilter !== 'all') return groupedByWeek;
+    const allowedYears = uniqueYears.slice(0, visibleYearsLimit);
+    return groupedByWeek.filter(w => allowedYears.includes(String(w.weekInfo.year)));
+  }, [groupedByWeek, uniqueYears, visibleYearsLimit, drilledFilter, searchQuery, selectedCatFilter]);
+  const hasMoreWeeks = !drilledFilter && !searchQuery && selectedCatFilter === 'all' && uniqueYears.length > visibleYearsLimit;
+
+  const visibleGroupedByMonth = useMemo(() => {
+    if (drilledFilter || searchQuery || selectedCatFilter !== 'all') return groupedByMonth;
+    const allowedYears = uniqueYears.slice(0, visibleYearsLimit);
+    return groupedByMonth.filter(m => allowedYears.includes(m.monthKey.substring(0, 4)));
+  }, [groupedByMonth, uniqueYears, visibleYearsLimit, drilledFilter, searchQuery, selectedCatFilter]);
+  const hasMoreMonths = !drilledFilter && !searchQuery && selectedCatFilter === 'all' && uniqueYears.length > visibleYearsLimit;
+
+  const visibleGroupedByYear = useMemo(() => groupedByYear, [groupedByYear]);
+  const hasMoreYears = false;
+
+  // Viewport tracking to report topmost visible date to FinanceContext
+  useEffect(() => {
+    if (observerRef.current) observerRef.current.disconnect();
+
+    observerRef.current = new IntersectionObserver((entries) => {
+      const visibleEntries = entries.filter(e => e.isIntersecting);
+      if (visibleEntries.length === 0) return;
+
+      visibleEntries.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      const topEntry = visibleEntries[0];
+      const key = topEntry.target.getAttribute('data-period-key');
+      
+      if (!key) return;
+
+      let extractedDate = key;
+      if (key.match(/^\d{4}-\d{2}$/)) {
+        extractedDate = `${key}-01`;
+      } else if (key.match(/^\d{4}$/)) {
+        extractedDate = `${key}-01-01`;
+      } else if (key.includes('-W')) {
+        const [yrStr, wkStr] = key.split('-W');
+        const yr = parseInt(yrStr);
+        const wk = parseInt(wkStr);
+        const d = new Date(yr, 0, 1);
+        d.setDate(d.getDate() + (wk - 1) * 7);
+        extractedDate = d.toISOString().split('T')[0];
+      }
+
+      setTopmostVisibleDate(extractedDate);
+    }, {
+      root: null,
+      rootMargin: '-10% 0px -80% 0px',
+      threshold: 0
+    });
+
+    groupRefs.current.forEach(el => observerRef.current?.observe(el));
+
+    return () => {
+      if (observerRef.current) observerRef.current.disconnect();
+    };
+  }, [visibleGroupedByDate, visibleGroupedByWeek, visibleGroupedByMonth, visibleGroupedByYear, periodMode, setTopmostVisibleDate]);
 
   const activeCategoryObj = categories.find(c => c.id === selectedCatFilter);
 
@@ -901,7 +999,12 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
               {visibleGroupedByDate.map(group => {
                 const isCollapsed = collapsedDates.has(group.date);
                 return (
-                  <div key={group.date} className="space-y-2.5">
+                  <div 
+                    key={group.date} 
+                    className="space-y-2.5"
+                    data-period-key={group.date}
+                    ref={(el) => { if (el) groupRefs.current.set(group.date, el); }}
+                  >
                     {/* Day Header with converted Daily Total */}
                     <div className="flex items-center justify-between px-1 border-b border-hairline/60 pb-1.5 text-xs font-mono text-ink">
                       <div
@@ -958,19 +1061,39 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                 );
               })}
 
-              {/* 30-Day Window Pagination Banner */}
-              {hasMoreDays && (
-                <div className="text-center py-6 border-t border-hairline/40 space-y-2 animate-in fade-in duration-200">
+              {/* Month-Chunk Pagination Banner */}
+              {(hasMoreDays || visibleMonthsLimit > 1) && (
+                <div className="text-center py-6 border-t border-hairline/40 space-y-3 animate-in fade-in duration-200">
                   <p className="text-xs font-mono text-muted-custom">
-                    Showing last {dayWindowLimit} active days ({visibleGroupedByDate.reduce((sum, g) => sum + g.transactions.length, 0)} expenses) out of {groupedByDate.length} days total.
+                    Showing {visibleMonthsLimit} month(s) of history out of {uniqueMonths.length} total.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setDayWindowLimit(prev => prev + 30)}
-                    className="px-4 py-2 rounded-xl bg-surface-card border border-hairline hover:border-brand-purple text-brand-purple font-mono text-xs font-bold transition-all shadow-sm cursor-pointer hover:bg-surface-soft"
-                  >
-                    Load older history (+30 days)
-                  </button>
+
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                    {visibleMonthsLimit > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVisibleMonthsLimit(1);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="px-4 py-2 rounded-xl bg-surface-card border border-hairline hover:border-brand-purple text-ink font-mono text-xs font-bold transition-all shadow-sm cursor-pointer hover:bg-surface-soft inline-flex items-center gap-1.5"
+                      >
+                        <ChevronUp className="w-3.5 h-3.5 text-brand-purple" />
+                        <span>Show less logs</span>
+                      </button>
+                    )}
+
+                    {hasMoreDays && (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleMonthsLimit(prev => prev + 1)}
+                        className="px-4 py-2 rounded-xl bg-surface-card border border-hairline hover:border-brand-purple text-brand-purple font-mono text-xs font-bold transition-all shadow-sm cursor-pointer hover:bg-surface-soft inline-flex items-center gap-1.5"
+                      >
+                        <span>Load older logs (+1 month)</span>
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -978,6 +1101,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
 
           {/* WEEK MODE */}
           {periodMode === 'week' && (
+            <>
             <div
               className={
                 viewMode === 'grid'
@@ -985,9 +1109,11 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                   : 'space-y-2.5'
               }
             >
-              {groupedByWeek.map(w => (
+              {visibleGroupedByWeek.map(w => (
                 <div
                   key={w.key}
+                  data-period-key={w.key}
+                  ref={(el) => { if (el) groupRefs.current.set(w.key, el); }}
                   onClick={() => handleDrillDownWeek(w.weekInfo)}
                   className="bg-surface-card border border-hairline rounded-2xl p-3.5 space-y-2 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
                   title="Click to view daily logs for this week"
@@ -1012,10 +1138,47 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                 </div>
               ))}
             </div>
+            
+            {(hasMoreWeeks || visibleYearsLimit > 1) && (
+              <div className="text-center py-6 border-t border-hairline/40 space-y-3 animate-in fade-in duration-200">
+                <p className="text-xs font-mono text-muted-custom">
+                  Showing {visibleYearsLimit} year(s) of weeks out of {uniqueYears.length} total.
+                </p>
+
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  {visibleYearsLimit > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVisibleYearsLimit(1);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="px-4 py-2 rounded-xl bg-surface-card border border-hairline hover:border-brand-purple text-ink font-mono text-xs font-bold transition-all shadow-sm cursor-pointer hover:bg-surface-soft inline-flex items-center gap-1.5"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5 text-brand-purple" />
+                      <span>Show less logs</span>
+                    </button>
+                  )}
+
+                  {hasMoreWeeks && (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleYearsLimit(prev => prev + 1)}
+                      className="px-4 py-2 rounded-xl bg-surface-card border border-hairline hover:border-brand-purple text-brand-purple font-mono text-xs font-bold transition-all shadow-sm cursor-pointer hover:bg-surface-soft inline-flex items-center gap-1.5"
+                    >
+                      <span>Load older logs (+1 year)</span>
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            </>
           )}
 
           {/* MONTH MODE */}
           {periodMode === 'month' && (
+            <>
             <div
               className={
                 viewMode === 'grid'
@@ -1023,10 +1186,12 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                   : 'space-y-2.5'
               }
             >
-              {groupedByMonth.map(m => (
+              {visibleGroupedByMonth.map(m => (
                 <div
                   key={m.monthKey}
                   className="space-y-2"
+                  data-period-key={m.monthKey}
+                  ref={(el) => { if (el) groupRefs.current.set(m.monthKey, el); }}
                 >
                   {/* Month Expense Card */}
                   <div
@@ -1070,31 +1235,75 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                 </div>
               ))}
             </div>
+            
+            {(hasMoreMonths || visibleYearsLimit > 1) && (
+              <div className="text-center py-6 border-t border-hairline/40 space-y-3 animate-in fade-in duration-200">
+                <p className="text-xs font-mono text-muted-custom">
+                  Showing {visibleYearsLimit} year(s) of months out of {uniqueYears.length} total.
+                </p>
+
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  {visibleYearsLimit > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVisibleYearsLimit(1);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="px-4 py-2 rounded-xl bg-surface-card border border-hairline hover:border-brand-purple text-ink font-mono text-xs font-bold transition-all shadow-sm cursor-pointer hover:bg-surface-soft inline-flex items-center gap-1.5"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5 text-brand-purple" />
+                      <span>Show less logs</span>
+                    </button>
+                  )}
+
+                  {hasMoreMonths && (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleYearsLimit(prev => prev + 1)}
+                      className="px-4 py-2 rounded-xl bg-surface-card border border-hairline hover:border-brand-purple text-brand-purple font-mono text-xs font-bold transition-all shadow-sm cursor-pointer hover:bg-surface-soft inline-flex items-center gap-1.5"
+                    >
+                      <span>Load older logs (+1 year)</span>
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            </>
           )}
 
           {/* YEAR MODE */}
           {periodMode === 'year' && (
+            <>
             <div className="space-y-4">
-              {groupedByYear.map(y => (
-                <div key={y.yearKey} className="space-y-2">
+              {visibleGroupedByYear.map(y => (
+                <div 
+                  key={y.yearKey} 
+                  className="space-y-2"
+                  data-period-key={y.yearKey}
+                  ref={(el) => { if (el) groupRefs.current.set(y.yearKey, el); }}
+                >
                   {/* Year Expense Card */}
                   <div
                     onClick={() => handleDrillDownYear(y.yearKey)}
                     className="bg-surface-card border border-hairline rounded-2xl p-4 space-y-3 shadow-sm hover:border-brand-purple/60 cursor-pointer transition-all hover:scale-[1.005] group"
                     title="Click to view monthly breakdown for this year"
                   >
-                    <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="px-2.5 py-1.5 rounded-2xl bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow flex items-center justify-center font-mono font-bold text-xs shrink-0 tracking-wider group-hover:bg-brand-yellow group-hover:text-white transition-colors">
+                    <div className="flex items-center justify-between border-b border-hairline/60 pb-3 gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="px-3 py-1.5 rounded-xl bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow font-mono font-bold text-sm shrink-0 group-hover:bg-brand-yellow group-hover:text-white transition-colors shadow-2xs">
                           {y.yearKey}
                         </div>
-                        <div>
-                          <h4 className="text-base font-display font-bold text-ink group-hover:text-brand-purple transition-colors">Annual Summary</h4>
-                          <p className="text-xs font-mono text-muted-custom">{y.txCount} total logged expenses</p>
+                        <div className="min-w-0">
+                          <h4 className="text-xs sm:text-sm font-mono font-bold text-ink truncate group-hover:text-brand-purple transition-colors">
+                            {y.txCount} {y.txCount === 1 ? 'expense' : 'expenses'}
+                          </h4>
+                          <p className="text-[10px] font-mono text-muted-custom truncate">Full Year Overview</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-lg font-mono font-bold text-ink">
+                      <div className="text-right pl-3 shrink-0">
+                        <div className="text-sm sm:text-base md:text-lg font-mono font-bold text-brand-purple tracking-tight">
                           {formatCurrency(y.yearTotal, baseCurrency)}
                         </div>
                       </div>
@@ -1130,6 +1339,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                 </div>
               ))}
             </div>
+            </>
           )}
         </>
       )}
