@@ -50,11 +50,11 @@ Forget tedious multi-step form fields. Just type your expenses naturally into th
 
 ---
 
-## 2. Notification Extraction (Offline & Privacy-First)
+### 2. Notification Extraction (Offline & Privacy-First)
 
 Finance-Ally features a dedicated **Notification Extraction** module designed to convert bank debit alerts, UPI messages, and transaction SMS text into logged expenses.
 
-### Extraction Capabilities
+#### Extraction Capabilities
 - **One-Tap Clipboard Extraction**: Copy a debit alert from HDFC, ICICI, SBI, Axis, GPay, Paytm, Swiggy, etc., and tap **"Paste Clipboard"** to extract the amount, merchant name, currency, and category instantly.
 - **Custom Pattern Engine**: Create custom regex/placeholder templates (e.g. `Debited {CURRENCY} {AMOUNT} to {MERCHANT}`) to support any regional bank or payment app.
 
