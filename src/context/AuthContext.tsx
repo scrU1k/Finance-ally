@@ -69,6 +69,9 @@ export function resetSystemPickerBypass() {
   if (systemPickerTimeout) clearTimeout(systemPickerTimeout);
 }
 
+const BACKGROUND_LOCK_GRACE_PERIOD_MS = 180_000; // 3-minute grace period for switching apps in memory
+let lastBackgroundTimestamp: number | null = null;
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => getStoredUserProfile());
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean>(() => !getStoredUserProfile());
@@ -84,14 +87,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Listen for App Background / Foreground events (Capacitor native & Web visibilitychange)
   useEffect(() => {
-    const lockIfRequired = () => {
+    const handleBackground = () => {
+      if (isSystemPickerActive) return;
+      lastBackgroundTimestamp = Date.now();
+    };
+
+    const handleForeground = () => {
       if (isSystemPickerActive) {
-        // Skip locking when opening system file pickers or share dialogs
+        lastBackgroundTimestamp = null;
         return;
       }
+
       const stored = getStoredUserProfile();
-      if (stored && stored.requirePassword !== false) {
-        setIsUnlocked(false);
+      if (!stored || stored.requirePassword === false) {
+        lastBackgroundTimestamp = null;
+        return;
+      }
+
+      if (lastBackgroundTimestamp !== null) {
+        const elapsed = Date.now() - lastBackgroundTimestamp;
+        // Lock only if minimized for 3 minutes (180,000 ms) or longer
+        if (elapsed >= BACKGROUND_LOCK_GRACE_PERIOD_MS) {
+          setIsUnlocked(false);
+        }
+        lastBackgroundTimestamp = null;
       }
     };
 
@@ -100,7 +119,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (Capacitor.isNativePlatform()) {
       App.addListener('appStateChange', ({ isActive }) => {
         if (!isActive) {
-          lockIfRequired();
+          handleBackground();
+        } else {
+          handleForeground();
         }
       }).then(handle => {
         appStateListener = handle;
@@ -112,7 +133,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 2. Web / Browser Visibility Change Listener
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        lockIfRequired();
+        handleBackground();
+      } else if (document.visibilityState === 'visible') {
+        handleForeground();
       }
     };
 

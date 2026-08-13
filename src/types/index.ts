@@ -146,3 +146,31 @@ export interface PeriodNote {
   content: string;
   updatedAt: number;
 }
+
+export interface DecryptedPasswordCard {
+  id: string;
+  serviceName: string;
+  username?: string;
+  password?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PasswordVaultItem {
+  id: string;
+  encryptedBlob: string; // Encrypted JSON containing { serviceName, username, password, createdAt, updatedAt }
+  iv: string;
+  salt: string;
+  updatedAt: string;
+  // Legacy fields for backwards migration compatibility
+  serviceName?: string;
+  username?: string;
+  encryptedPassword?: string;
+  createdAt?: string;
+}
+
+export interface PasswordVaultEnvelope {
+  version: string;
+  checksum: string;
+  items: PasswordVaultItem[];
+}

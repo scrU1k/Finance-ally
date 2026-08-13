@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LayoutDashboard, Plane, Sparkles, PieChart, Users, Lightbulb, CalendarCheck, ChevronDown, Check } from 'lucide-react';
+import { LayoutDashboard, Plane, Sparkles, PieChart, Users, Lightbulb, CalendarCheck, ChevronDown, Check, KeyRound } from 'lucide-react';
 
-export type NavTab = 'dashboard' | 'subscriptions' | 'trips' | 'scanner' | 'audit' | 'split' | 'insights';
+export type NavTab = 'dashboard' | 'subscriptions' | 'trips' | 'scanner' | 'audit' | 'split' | 'insights' | 'passwords';
 
 interface SidebarNavProps {
   activeTab: NavTab;
@@ -25,6 +25,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
     { id: 'audit', label: 'Financial Audit', icon: <PieChart className="w-4 h-4 text-brand-mint shrink-0" /> },
     { id: 'split', label: 'Split Bills', icon: <Users className="w-4 h-4 text-brand-blue shrink-0" /> },
     { id: 'insights', label: 'Spend Insights', icon: <Lightbulb className="w-4 h-4 text-brand-coral shrink-0" /> },
+    { id: 'passwords', label: 'Password Manager', icon: <KeyRound className="w-4 h-4 text-brand-purple shrink-0" /> },
   ];
 
   const isSecondaryActive = secondaryTabs.some(t => t.id === activeTab);

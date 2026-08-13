@@ -386,8 +386,10 @@ export async function exportFullDataBackup(): Promise<string> {
     exportPin: localStorage.getItem('fa_export_pin') || null,
     userTagRules: JSON.parse(localStorage.getItem('fa_user_tag_rules') || '[]'),
     customKnowledgeRules: JSON.parse(localStorage.getItem('fa_custom_knowledge_rules') || '[]'),
+    passwordVaultItems: JSON.parse(localStorage.getItem('fa_password_vault_items') || '[]'),
+    passwordVaultVerifier: localStorage.getItem('fa_pwd_vault_verifier') || null,
     exportTimestamp: Date.now(),
-    appVersion: '1.2.0'
+    appVersion: '2.1.0'
   };
   return JSON.stringify(data, null, 2);
 }
@@ -431,6 +433,14 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
 
     if (data.customKnowledgeRules && Array.isArray(data.customKnowledgeRules)) {
       localStorage.setItem('fa_custom_knowledge_rules', JSON.stringify(data.customKnowledgeRules));
+    }
+
+    if (data.passwordVaultItems && Array.isArray(data.passwordVaultItems)) {
+      localStorage.setItem('fa_password_vault_items', JSON.stringify(data.passwordVaultItems));
+    }
+
+    if (data.passwordVaultVerifier && typeof data.passwordVaultVerifier === 'string') {
+      localStorage.setItem('fa_pwd_vault_verifier', data.passwordVaultVerifier);
     }
 
     // 2. Categories Store

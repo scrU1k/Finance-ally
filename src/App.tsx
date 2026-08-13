@@ -22,6 +22,7 @@ const LazyNotificationScannerModal = React.lazy(() => import('./components/scann
 const LazyEndOfMonthAudit = React.lazy(() => import('./components/audit/EndOfMonthAudit').then(module => ({ default: module.EndOfMonthAudit })));
 const LazySplitBillModal = React.lazy(() => import('./components/tools/SplitBillModal').then(module => ({ default: module.SplitBillModal })));
 const LazySmartSuggestions = React.lazy(() => import('./components/insights/SmartSuggestions').then(module => ({ default: module.SmartSuggestions })));
+const LazyPasswordManagerTab = React.lazy(() => import('./components/tools/PasswordManagerTab').then(module => ({ default: module.PasswordManagerTab })));
 const LazySettingsModal = React.lazy(() => import('./components/settings/SettingsModal').then(module => ({ default: module.SettingsModal })));
 const LazyCategoryManagerModal = React.lazy(() => import('./components/categories/CategoryManagerModal').then(module => ({ default: module.CategoryManagerModal })));
 
@@ -110,6 +111,7 @@ const MainAppContent: React.FC = () => {
           {activeTab === 'scanner' && <LazyNotificationScannerModal />}
           {activeTab === 'audit' && <LazyEndOfMonthAudit />}
           {activeTab === 'split' && <LazySplitBillModal />}
+          {activeTab === 'passwords' && <LazyPasswordManagerTab />}
           {activeTab === 'insights' && (
             <LazySmartSuggestions
               onSelectTransaction={tx => {

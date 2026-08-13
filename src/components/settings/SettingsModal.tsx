@@ -23,6 +23,7 @@ import { CurrencyCode } from '../../types';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
+import { hasMasterPin, setMasterPin, verifyMasterPin, getStoredPasswordItems, decryptCardPayload, encryptCardPayload, savePasswordEnvelope } from '../../services/passwordVaultService';
 import {
   X,
   Settings as SettingsIcon,
@@ -39,6 +40,7 @@ import {
   ChevronRight,
   ArrowLeft,
   FileSpreadsheet,
+  KeyRound
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -90,6 +92,64 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [passMsg, setPassMsg] = useState('');
   const [passError, setPassError] = useState('');
+
+  // Password Manager Master PIN state
+  const [isEditingPwdVaultPin, setIsEditingPwdVaultPin] = useState(false);
+  const [pwdVaultOldPin, setPwdVaultOldPin] = useState('');
+  const [pwdVaultNewPin, setPwdVaultNewPin] = useState('');
+  const [pwdVaultConfirmPin, setPwdVaultConfirmPin] = useState('');
+  const [pwdVaultPinError, setPwdVaultPinError] = useState('');
+  const [pwdVaultPinSuccess, setPwdVaultPinSuccess] = useState('');
+
+  const handleSavePwdVaultPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdVaultPinError('');
+    setPwdVaultPinSuccess('');
+
+    const exists = hasMasterPin();
+    if (exists) {
+      if (!pwdVaultOldPin) {
+        setPwdVaultPinError('Current Master PIN is required');
+        return;
+      }
+      const ok = await verifyMasterPin(pwdVaultOldPin);
+      if (!ok) {
+        setPwdVaultPinError('Current Master PIN is incorrect');
+        return;
+      }
+    }
+
+    if (!pwdVaultNewPin || pwdVaultNewPin.length < 4) {
+      setPwdVaultPinError('New PIN must be at least 4 digits');
+      return;
+    }
+
+    if (pwdVaultNewPin !== pwdVaultConfirmPin) {
+      setPwdVaultPinError('New PINs do not match');
+      return;
+    }
+
+    try {
+      if (exists) {
+        const items = getStoredPasswordItems();
+        const reEncryptedItems = [];
+        for (const item of items) {
+          const card = await decryptCardPayload(item, pwdVaultOldPin);
+          const reEnc = await encryptCardPayload(card, pwdVaultNewPin);
+          reEncryptedItems.push(reEnc);
+        }
+        await savePasswordEnvelope(reEncryptedItems);
+      }
+      await setMasterPin(pwdVaultNewPin);
+      setPwdVaultPinSuccess(exists ? 'Master PIN updated successfully!' : 'Master PIN created successfully!');
+      setIsEditingPwdVaultPin(false);
+      setPwdVaultOldPin('');
+      setPwdVaultNewPin('');
+      setPwdVaultConfirmPin('');
+    } catch {
+      setPwdVaultPinError('Failed to update Master PIN. Operation aborted.');
+    }
+  };
 
   // Backup State
   const [importStatus, setImportStatus] = useState('');
@@ -453,7 +513,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 {activeSubPage === 'backup' && 'Backup & Auto-Sync'}
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-purple/15 text-brand-purple border border-brand-purple/30 font-bold shrink-0">
-                v1.2
+                v2.1
               </span>
             </h2>
           </div>
@@ -799,7 +859,106 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
             </div>
 
-            {/* Card 2: Backup Export Encryption PIN */}
+            {/* Card 2: Password Manager Master PIN */}
+            <div className="space-y-4 bg-surface-soft p-5 rounded-2xl border border-hairline shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-brand-purple" />
+                    <span>Master PIN for Passwords</span>
+                  </h3>
+                  <p className="text-[11px] font-mono text-muted-custom mt-1">
+                    {hasMasterPin()
+                      ? 'Enforced: Protects & double-encrypts all stored password cards.'
+                      : 'Not Set: Create a Master PIN to secure your password cards.'}
+                  </p>
+                </div>
+
+                <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-brand-purple/15 text-brand-purple border border-brand-purple/30 shrink-0">
+                  Always Enforced
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-hairline/60">
+                {!isEditingPwdVaultPin ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPwdVaultOldPin('');
+                      setPwdVaultNewPin('');
+                      setPwdVaultConfirmPin('');
+                      setPwdVaultPinError('');
+                      setPwdVaultPinSuccess('');
+                      setIsEditingPwdVaultPin(true);
+                    }}
+                    className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
+                  >
+                    {hasMasterPin() ? 'Change Master PIN' : 'Create Master PIN'}
+                  </button>
+                ) : (
+                  <form onSubmit={handleSavePwdVaultPin} className="space-y-3 bg-surface-card p-3 rounded-xl border border-hairline">
+                    <div className="text-xs font-mono font-bold text-ink flex items-center justify-between">
+                      <span>{hasMasterPin() ? 'Change Master PIN' : 'Create Master PIN'}</span>
+                      <button type="button" onClick={() => setIsEditingPwdVaultPin(false)} className="text-muted-custom text-xs cursor-pointer">Cancel</button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {hasMasterPin() && (
+                        <div>
+                          <label className="text-[10px] font-mono text-muted-custom uppercase block">Current Master PIN</label>
+                          <input
+                            type="password"
+                            value={pwdVaultOldPin}
+                            onChange={e => setPwdVaultOldPin(e.target.value)}
+                            placeholder="Current Master PIN"
+                            required
+                            className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                          />
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-mono text-muted-custom uppercase block">New Master PIN</label>
+                          <input
+                            type="password"
+                            value={pwdVaultNewPin}
+                            onChange={e => setPwdVaultNewPin(e.target.value)}
+                            placeholder="New PIN (min 4 digits)"
+                            required
+                            className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-mono text-muted-custom uppercase block">Confirm New Master PIN</label>
+                          <input
+                            type="password"
+                            value={pwdVaultConfirmPin}
+                            onChange={e => setPwdVaultConfirmPin(e.target.value)}
+                            placeholder="Confirm New PIN"
+                            required
+                            className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {pwdVaultPinError && <p className="text-[10px] font-mono text-brand-coral">{pwdVaultPinError}</p>}
+                    {pwdVaultPinSuccess && <p className="text-[10px] font-mono text-brand-mint font-bold">{pwdVaultPinSuccess}</p>}
+
+                    <button
+                      type="submit"
+                      className="w-full border border-brand-purple text-brand-purple hover:bg-surface-soft text-xs font-mono font-bold py-2 rounded-xl shadow-sm transition-all cursor-pointer"
+                    >
+                      {hasMasterPin() ? 'Update Master PIN' : 'Set Master PIN'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+
+            {/* Card 3: Backup Export Encryption PIN */}
             <div className="space-y-4 bg-surface-soft p-5 rounded-2xl border border-hairline shadow-sm">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>

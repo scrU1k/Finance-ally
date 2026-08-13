@@ -1347,7 +1347,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
       {/* Visual Charts Overview */}
       {showCharts && (
         <div ref={chartRef} id="spending-trend-chart" className="animate-in fade-in duration-200 mt-6">
-          <LiveSpendChart />
+          <LiveSpendChart transactions={processedTransactions} />
         </div>
       )}
 
