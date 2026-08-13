@@ -19,6 +19,7 @@ import {
   GripVertical,
   SlidersHorizontal,
   ChevronDown,
+  ChevronRight,
   ShieldAlert,
   Clock
 } from 'lucide-react';
@@ -38,7 +39,7 @@ import {
   getLockoutStatus
 } from '../../services/passwordVaultService';
 
-type SortMode = 'date' | 'name' | 'custom';
+type SortMode = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc' | 'custom';
 
 export const PasswordManagerTab: React.FC = () => {
   const [rawItems, setRawItems] = useState<PasswordVaultItem[]>([]);
@@ -55,7 +56,16 @@ export const PasswordManagerTab: React.FC = () => {
 
   // Sort & Filter State
   const [sortMode, setSortMode] = useState<SortMode>('custom');
+  const [expandedSortGroup, setExpandedSortGroup] = useState<'asc' | 'desc' | null>(null);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+
+  const toggleFilterDropdown = () => {
+    if (!isFilterDropdownOpen) {
+      if (sortMode.endsWith('_asc')) setExpandedSortGroup('asc');
+      else if (sortMode.endsWith('_desc')) setExpandedSortGroup('desc');
+    }
+    setIsFilterDropdownOpen(!isFilterDropdownOpen);
+  };
 
   // Card Selection & Re-arrange State (Unlocked Vault condition)
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -220,12 +230,18 @@ export const PasswordManagerTab: React.FC = () => {
     .map(item => decryptedCardsMap[item.id])
     .filter(Boolean);
 
-  // Sorted list based on active sortMode
+  // Sorted & Filtered Unlocked Cards List
   const sortedCards = [...unlockedCardsList].sort((a, b) => {
-    if (sortMode === 'name') {
+    if (sortMode === 'name_asc') {
       return a.serviceName.localeCompare(b.serviceName);
     }
-    if (sortMode === 'date') {
+    if (sortMode === 'name_desc') {
+      return b.serviceName.localeCompare(a.serviceName);
+    }
+    if (sortMode === 'date_asc') {
+      return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+    }
+    if (sortMode === 'date_desc') {
       return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
     }
     return 0;
@@ -239,6 +255,36 @@ export const PasswordManagerTab: React.FC = () => {
       (card.username && card.username.toLowerCase().includes(q))
     );
   });
+
+  // Sorted & Filtered Raw Items (for Locked Vault View)
+  const filteredRawItems = [...rawItems]
+    .filter(item => {
+      const q = searchQuery.toLowerCase();
+      return (
+        !q ||
+        (item.serviceName && item.serviceName.toLowerCase().includes(q)) ||
+        item.id.toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      if (sortMode === 'name_asc') {
+        return (a.serviceName || '').localeCompare(b.serviceName || '');
+      }
+      if (sortMode === 'name_desc') {
+        return (b.serviceName || '').localeCompare(a.serviceName || '');
+      }
+      if (sortMode === 'date_asc') {
+        const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+        const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+        return timeA - timeB;
+      }
+      if (sortMode === 'date_desc') {
+        const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+        const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+        return timeB - timeA;
+      }
+      return 0;
+    });
 
   // Tap "Unlock Vault" Button in Header
   const handleToggleVaultLock = () => {
@@ -606,39 +652,134 @@ export const PasswordManagerTab: React.FC = () => {
             {/* Filter / Sort Button (Icon Only - Positioned EXTREME LEFT in Button Group) */}
             <div className="relative" ref={filterDropdownRef}>
               <button
-                onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-                className="w-8 h-8 rounded-xl bg-surface-soft border border-hairline text-ink hover:border-[#005687] hover:text-[#005687] transition-all flex items-center justify-center cursor-pointer"
+                onClick={toggleFilterDropdown}
+                className={`w-8 h-8 rounded-xl border text-ink transition-all flex items-center justify-center cursor-pointer ${
+                  sortMode !== 'custom'
+                    ? 'bg-[#005687]/15 border-[#005687]/40 text-[#005687] dark:text-[#0088cc]'
+                    : 'bg-surface-soft border-hairline hover:border-[#005687] hover:text-[#005687]'
+                }`}
                 title={`Sort Mode: ${sortMode.toUpperCase()}`}
               >
                 <SlidersHorizontal className="w-4 h-4 text-[#005687] dark:text-[#0088cc]" />
               </button>
 
               {isFilterDropdownOpen && (
-                <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-44 dotgui-glass bg-surface-card border border-hairline rounded-2xl shadow-xl z-50 p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-100">
-                  <button
-                    onClick={() => { setSortMode('date'); setIsFilterDropdownOpen(false); }}
-                    className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-mono font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-                      sortMode === 'date' ? 'bg-[#005687]/15 text-[#005687] dark:text-[#0088cc] font-bold' : 'text-ink hover:bg-surface-soft'
-                    }`}
-                  >
-                    <span>Date</span>
-                    {sortMode === 'date' && <Check className="w-3.5 h-3.5 text-[#005687] dark:text-[#0088cc]" />}
-                  </button>
+                <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-52 bg-surface-card/98 dark:bg-[#181815]/98 backdrop-blur-2xl border border-hairline/80 rounded-2xl shadow-2xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-100">
+                  {/* Ascending Group */}
+                  <div>
+                    <button
+                      onClick={() => setExpandedSortGroup(prev => (prev === 'asc' ? null : 'asc'))}
+                      className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-mono font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                        sortMode.endsWith('_asc') ? 'bg-[#005687]/15 text-[#005687] dark:text-[#0088cc] font-bold' : 'text-ink hover:bg-surface-soft'
+                      }`}
+                    >
+                      <span>Ascending</span>
+                      {expandedSortGroup === 'asc' ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-[#005687] dark:text-[#0088cc]" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-custom" />
+                      )}
+                    </button>
 
-                  <button
-                    onClick={() => { setSortMode('name'); setIsFilterDropdownOpen(false); }}
-                    className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-mono font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-                      sortMode === 'name' ? 'bg-[#005687]/15 text-[#005687] dark:text-[#0088cc] font-bold' : 'text-ink hover:bg-surface-soft'
-                    }`}
-                  >
-                    <span>Name (A-Z)</span>
-                    {sortMode === 'name' && <Check className="w-3.5 h-3.5 text-[#005687] dark:text-[#0088cc]" />}
-                  </button>
+                    {/* Secondary Pop-up Layer Boundary */}
+                    {expandedSortGroup === 'asc' && (
+                      <div className="mt-1 mb-1 p-1 bg-surface-soft/90 dark:bg-surface-soft/80 border border-hairline/60 rounded-xl space-y-0.5 shadow-inner backdrop-blur-md animate-in slide-in-from-top-1 duration-150">
+                        <button
+                          onClick={() => {
+                            setSortMode('name_asc');
+                            setIsFilterDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-1 rounded-lg text-xs font-mono flex items-center justify-between transition-colors cursor-pointer ${
+                            sortMode === 'name_asc'
+                              ? 'bg-[#005687] text-white font-bold'
+                              : 'text-ink hover:bg-surface-soft'
+                          }`}
+                        >
+                          <span>Name (A → Z)</span>
+                          {sortMode === 'name_asc' && <Check className="w-3 h-3 text-white" />}
+                        </button>
 
+                        <button
+                          onClick={() => {
+                            setSortMode('date_asc');
+                            setIsFilterDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-1 rounded-lg text-xs font-mono flex items-center justify-between transition-colors cursor-pointer ${
+                            sortMode === 'date_asc'
+                              ? 'bg-[#005687] text-white font-bold'
+                              : 'text-ink hover:bg-surface-soft'
+                          }`}
+                        >
+                          <span>Date (Oldest)</span>
+                          {sortMode === 'date_asc' && <Check className="w-3 h-3 text-white" />}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Descending Group */}
+                  <div>
+                    <button
+                      onClick={() => setExpandedSortGroup(prev => (prev === 'desc' ? null : 'desc'))}
+                      className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-mono font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                        sortMode.endsWith('_desc') ? 'bg-[#005687]/15 text-[#005687] dark:text-[#0088cc] font-bold' : 'text-ink hover:bg-surface-soft'
+                      }`}
+                    >
+                      <span>Descending</span>
+                      {expandedSortGroup === 'desc' ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-[#005687] dark:text-[#0088cc]" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-custom" />
+                      )}
+                    </button>
+
+                    {/* Secondary Pop-up Layer Boundary */}
+                    {expandedSortGroup === 'desc' && (
+                      <div className="mt-1 mb-1 p-1 bg-surface-soft/90 dark:bg-surface-soft/80 border border-hairline/60 rounded-xl space-y-0.5 shadow-inner backdrop-blur-md animate-in slide-in-from-top-1 duration-150">
+                        <button
+                          onClick={() => {
+                            setSortMode('name_desc');
+                            setIsFilterDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-1 rounded-lg text-xs font-mono flex items-center justify-between transition-colors cursor-pointer ${
+                            sortMode === 'name_desc'
+                              ? 'bg-[#005687] text-white font-bold'
+                              : 'text-ink hover:bg-surface-soft'
+                          }`}
+                        >
+                          <span>Name (Z → A)</span>
+                          {sortMode === 'name_desc' && <Check className="w-3 h-3 text-white" />}
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setSortMode('date_desc');
+                            setIsFilterDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-1 rounded-lg text-xs font-mono flex items-center justify-between transition-colors cursor-pointer ${
+                            sortMode === 'date_desc'
+                              ? 'bg-[#005687] text-white font-bold'
+                              : 'text-ink hover:bg-surface-soft'
+                          }`}
+                        >
+                          <span>Date (Newest)</span>
+                          {sortMode === 'date_desc' && <Check className="w-3 h-3 text-white" />}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Custom Option */}
                   <button
-                    onClick={() => { setSortMode('custom'); setIsFilterDropdownOpen(false); }}
+                    onClick={() => {
+                      setSortMode('custom');
+                      setExpandedSortGroup(null);
+                      setIsFilterDropdownOpen(false);
+                    }}
                     className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-mono font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-                      sortMode === 'custom' ? 'bg-[#005687]/15 text-[#005687] dark:text-[#0088cc] font-bold' : 'text-ink hover:bg-surface-soft'
+                      sortMode === 'custom'
+                        ? 'bg-[#005687]/15 text-[#005687] dark:text-[#0088cc] font-bold'
+                        : 'text-ink hover:bg-surface-soft'
                     }`}
                   >
                     <span>Custom</span>
@@ -681,9 +822,8 @@ export const PasswordManagerTab: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder={isVaultUnlocked ? 'Search service name or username...' : 'Unlock vault to search credentials...'}
-            disabled={!isVaultUnlocked}
-            className="w-full pl-10 pr-4 py-2 text-xs font-mono bg-surface-soft border border-hairline rounded-xl text-ink placeholder:text-muted-custom focus:outline-none focus:border-[#005687] transition-all disabled:opacity-60"
+            placeholder={isVaultUnlocked ? 'Search service name or username...' : 'Search service name...'}
+            className="w-full pl-10 pr-4 py-2 text-xs font-mono bg-surface-soft border border-hairline rounded-xl text-ink placeholder:text-muted-custom focus:outline-none focus:border-[#005687] transition-all"
           />
         </div>
       </div>
@@ -745,9 +885,9 @@ export const PasswordManagerTab: React.FC = () => {
           </button>
         </div>
       ) : !isVaultUnlocked ? (
-        /* LOCKED VAULT VIEW: Zero Metadata Leak (No service names or usernames displayed) */
+        /* LOCKED VAULT VIEW: Search & Sort Supported */
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {rawItems.map((item, index) => (
+          {filteredRawItems.map((item, index) => (
             <div
               key={item.id}
               onClick={() => handleCardClick(item)}
