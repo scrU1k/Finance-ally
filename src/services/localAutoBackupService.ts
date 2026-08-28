@@ -88,11 +88,11 @@ function saveSnapshotsList(list: LocalSnapshotMetadata[]) {
 }
 
 /**
- * Scans the native filesystem for snapshots (in case App Data / localStorage was wiped)
- * and repopulates the local cache metadata list.
+ * Scans the native filesystem for snapshots (in case App Data / localStorage was wiped),
+ * cleans up any surplus files on disk beyond MAX_SNAPSHOTS, and repopulates the metadata list.
  */
 export async function syncSnapshotsFromFilesystem(): Promise<LocalSnapshotMetadata[]> {
-  if (!Capacitor.isNativePlatform()) return getLocalSnapshots();
+  if (!Capacitor.isNativePlatform()) return getLocalSnapshots().slice(0, MAX_SNAPSHOTS);
 
   try {
     const res = await Filesystem.readdir({
@@ -101,52 +101,76 @@ export async function syncSnapshotsFromFilesystem(): Promise<LocalSnapshotMetada
     });
 
     const validFiles = res.files.filter(f => f.name.endsWith('.json') || f.name.endsWith('.json.enc'));
-    if (validFiles.length === 0) return getLocalSnapshots();
+    if (validFiles.length === 0) return getLocalSnapshots().slice(0, MAX_SNAPSHOTS);
 
-    // Rebuild metadata array
-    const rebuilt: LocalSnapshotMetadata[] = validFiles.map((f, i) => {
-      // Best-effort timestamp extraction from 'fa_autobackup_YYYY-MM-DD_ID.json'
+    // Sort validFiles by mtime / timestamp descending (newest first)
+    validFiles.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+
+    // If more files exist on disk than MAX_SNAPSHOTS, physically delete all older surplus files!
+    if (validFiles.length > MAX_SNAPSHOTS) {
+      const surplusFiles = validFiles.slice(MAX_SNAPSHOTS);
+      for (const f of surplusFiles) {
+        Filesystem.deleteFile({
+          path: `Finance-Ally/Snapshots/${f.name}`,
+          directory: Directory.Documents,
+        }).catch(() => {});
+      }
+    }
+
+    const keptFiles = validFiles.slice(0, MAX_SNAPSHOTS);
+
+    // Rebuild metadata array for the kept files
+    const rebuilt: LocalSnapshotMetadata[] = keptFiles.map((f, i) => {
       const parts = f.name.split('_');
       let timestamp = new Date(f.mtime || Date.now()).toLocaleString();
       if (parts.length >= 3) {
-        timestamp = parts[2]; // The YYYY-MM-DD part as fallback
+        timestamp = parts[2];
       }
       return {
         id: `snap_recovered_${f.mtime || Date.now()}_${i}`,
         filename: f.name,
         timestamp,
-        schedule: 'off' as LocalSyncSchedule, // assume manual/unknown since config was lost
+        schedule: 'off' as LocalSyncSchedule,
         isEncrypted: f.name.endsWith('.json.enc'),
         sizeBytes: f.size || 0,
       };
     });
 
-    // Sort by newest first
-    rebuilt.sort((a, b) => {
-      if (a.id > b.id) return -1;
-      if (a.id < b.id) return 1;
-      return 0;
-    });
-
-    // Merge with any existing local storage records (avoiding exact filename duplicates)
+    // Merge with any existing local storage records
     const existing = getLocalSnapshots();
-    const merged = [...existing];
-    for (const r of rebuilt) {
-      if (!merged.find(m => m.filename === r.filename)) {
-        merged.push(r);
+    const merged: LocalSnapshotMetadata[] = [];
+
+    for (const k of keptFiles) {
+      const match = existing.find(e => e.filename === k.name);
+      if (match) {
+        merged.push(match);
+      } else {
+        const r = rebuilt.find(rb => rb.filename === k.name);
+        if (r) merged.push(r);
       }
     }
-    
-    // Sort again
-    merged.sort((a, b) => b.id.localeCompare(a.id));
-    const finalMerged = merged.slice(0, 10); // keep up to max
 
+    const finalMerged = merged.slice(0, MAX_SNAPSHOTS);
     saveSnapshotsList(finalMerged);
-    return finalMerged;
 
+    // Purge any orphan cache keys from localStorage
+    try {
+      const keptIds = new Set(finalMerged.map(m => m.id));
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('fa_snap_data_')) {
+          const snapId = key.replace('fa_snap_data_', '');
+          if (!keptIds.has(snapId)) {
+            localStorage.removeItem(key);
+          }
+        }
+      }
+    } catch {}
+
+    return finalMerged;
   } catch (err) {
     console.warn('Could not scan native filesystem for snapshots:', err);
-    return getLocalSnapshots();
+    return getLocalSnapshots().slice(0, MAX_SNAPSHOTS);
   }
 }
 
@@ -253,10 +277,31 @@ export async function createLocalAutoBackup(
       console.warn('LocalStorage cache write failed:', e);
     }
 
-    // Update snapshots list
+    // Update snapshots list and prune old ones beyond MAX_SNAPSHOTS
     const snapshots = getLocalSnapshots();
     snapshots.unshift(newSnapshot);
     const trimmedSnapshots = snapshots.slice(0, MAX_SNAPSHOTS);
+    const evictedSnapshots = snapshots.slice(MAX_SNAPSHOTS);
+
+    // Evict old snapshots from cache & filesystem
+    for (const evicted of evictedSnapshots) {
+      try {
+        localStorage.removeItem(`fa_snap_data_${evicted.id}`);
+      } catch {}
+
+      if (Capacitor.isNativePlatform()) {
+        Filesystem.deleteFile({
+          path: `Finance-Ally/Snapshots/${evicted.filename}`,
+          directory: Directory.Documents,
+        }).catch(() => {
+          Filesystem.deleteFile({
+            path: evicted.filename,
+            directory: Directory.Cache,
+          }).catch(() => {});
+        });
+      }
+    }
+
     saveSnapshotsList(trimmedSnapshots);
 
     // Update last backup time

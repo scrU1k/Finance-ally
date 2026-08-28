@@ -36,6 +36,11 @@ const MainAppContent: React.FC = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   React.useEffect(() => {
+    // Request persistent storage (prevents eviction on iOS WebKit / PWA / Desktop)
+    if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+
     if (!needsOnboarding && isUnlocked) {
       checkAndPerformLocalAutoBackup();
     }
