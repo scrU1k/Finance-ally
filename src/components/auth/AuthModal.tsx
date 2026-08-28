@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Shield, KeyRound, AlertCircle, Eye, EyeOff, Timer } from 'lucide-react';
+import logoImg from '../../assets/logo.png';
 
 export const AuthModal: React.FC = () => {
   const { user, login, lockoutUntil, failedAttempts } = useAuth();
@@ -52,7 +53,7 @@ export const AuthModal: React.FC = () => {
           {/* Subtle logo glow */}
           <div className="absolute inset-0 bg-brand-blue/20 rounded-[22%] blur-lg animate-pulse"></div>
           <div className="relative w-14 h-14 bg-surface-card rounded-[22%] overflow-hidden border border-hairline shadow-md p-0.5 z-10">
-            <img src="/logo.png" className="w-full h-full object-cover rounded-[20%]" alt="Logo" />
+            <img src={logoImg} className="w-full h-full object-cover rounded-[20%]" alt="Finance-Ally Logo" />
           </div>
         </div>
 

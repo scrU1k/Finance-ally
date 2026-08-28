@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { TOP_CURRENCIES } from '../../services/currency';
 import { CurrencyCode } from '../../types';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
+import logoImg from '../../assets/logo.png';
 
 export const OnboardingCurrency: React.FC = () => {
   const { onboard } = useAuth();
@@ -31,7 +32,7 @@ export const OnboardingCurrency: React.FC = () => {
             {/* Subtle logo glow */}
             <div className="absolute inset-0 bg-brand-blue/20 rounded-[22%] blur-lg animate-pulse"></div>
             <div className="relative w-14 h-14 bg-surface-card rounded-[22%] overflow-hidden border border-hairline shadow-md p-0.5 z-10">
-              <img src="/logo.png" className="w-full h-full object-cover rounded-[20%]" alt="Logo" />
+              <img src={logoImg} className="w-full h-full object-cover rounded-[20%]" alt="Finance-Ally Logo" />
             </div>
           </div>
           <h2 className="text-2xl font-display font-bold text-ink tracking-tight">

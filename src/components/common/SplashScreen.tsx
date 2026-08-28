@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import logoImg from '../../assets/logo.png';
 
 export const SplashScreen: React.FC = () => {
   const [isVisible, setIsVisible] = useState(true);
@@ -36,7 +37,7 @@ export const SplashScreen: React.FC = () => {
         {/* Squircle logo */}
         <div className="relative w-24 h-24 bg-surface-card rounded-[22%] overflow-hidden border border-white/10 shadow-2xl p-0.5 z-10">
           <img
-            src="/logo.png"
+            src={logoImg}
             alt="Finance-Ally Logo"
             className="w-full h-full object-cover rounded-[20%]"
           />
