@@ -19,7 +19,9 @@ let rulesDB: KnowledgeRule[] | null = null;
 async function loadRulesDB(): Promise<KnowledgeRule[]> {
   if (rulesDB) return rulesDB;
   try {
-    const res = await fetch('/financialRulesDB.json');
+    const baseUrl = import.meta.env.BASE_URL || './';
+    const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+    const res = await fetch(`${cleanBase}financialRulesDB.json`);
     if (!res.ok) throw new Error('DB file not found');
     rulesDB = await res.json();
     return rulesDB!;

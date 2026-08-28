@@ -2,20 +2,21 @@
   "name": "Finance-Ally",
   "short_name": "FinanceAlly",
   "description": "Offline Sandboxed Personal Finance & Spending Tracker",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0e0e0c",
   "theme_color": "#0e0e0c",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "./favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "/logo.png",
+      "src": "./logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
