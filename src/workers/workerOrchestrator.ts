@@ -16,18 +16,27 @@ export interface OrchestratorResult {
 function initWorkers() {
   if (typeof window === 'undefined') return; // Server-side rendering guard
 
-  if (!deterministicWorker) {
-    deterministicWorker = new Worker(new URL('./deterministicWorker.ts', import.meta.url), { type: 'module' });
-    // Import getUserRules dynamically to populate worker on boot
-    import('../services/userRuleService').then(mod => {
-      const rules = mod.getUserRules();
-      if (rules.length > 0 && deterministicWorker) {
-        deterministicWorker.postMessage({ type: 'sync-rules', rules });
-      }
-    }).catch(() => {});
+  try {
+    if (!deterministicWorker) {
+      deterministicWorker = new Worker(new URL('./deterministicWorker.ts', import.meta.url), { type: 'module' });
+      // Import getUserRules dynamically to populate worker on boot
+      import('../services/userRuleService').then(mod => {
+        const rules = mod.getUserRules();
+        if (rules.length > 0 && deterministicWorker) {
+          deterministicWorker.postMessage({ type: 'sync-rules', rules });
+        }
+      }).catch(() => {});
+    }
+  } catch (e) {
+    console.warn('Deterministic worker could not be initialized:', e);
   }
-  if (!semanticWorker) {
-    semanticWorker = new Worker(new URL('./semanticWorker.ts', import.meta.url), { type: 'module' });
+
+  try {
+    if (!semanticWorker) {
+      semanticWorker = new Worker(new URL('./semanticWorker.ts', import.meta.url), { type: 'module' });
+    }
+  } catch (e) {
+    console.warn('Semantic worker could not be initialized:', e);
   }
 }
 
