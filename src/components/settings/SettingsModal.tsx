@@ -40,7 +40,10 @@ import {
   ChevronRight,
   ArrowLeft,
   FileSpreadsheet,
-  KeyRound
+  KeyRound,
+  Info,
+  ExternalLink,
+  Shield
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -48,7 +51,7 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-type SettingsSubPage = 'main' | 'security' | 'csv' | 'backup';
+type SettingsSubPage = 'main' | 'security' | 'csv' | 'backup' | 'privacy';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { user, toggleRequirePassword, changePassword } = useAuth();
@@ -505,17 +508,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </button>
             )}
             <SettingsIcon className="w-5 h-5 text-brand-blue shrink-0" />
-            <h2 className="text-lg sm:text-xl font-display font-bold text-ink truncate flex items-center gap-2">
-              <span>
-                {activeSubPage === 'main' && 'Settings'}
-                {activeSubPage === 'security' && 'Security & PIN Protection'}
-                {activeSubPage === 'csv' && 'Data & CSV Portability'}
-                {activeSubPage === 'backup' && 'Backup & Auto-Sync'}
-              </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-purple/15 text-brand-purple border border-brand-purple/30 font-bold shrink-0">
-                v2.1
-              </span>
-            </h2>
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-display font-bold text-ink truncate flex items-center gap-2">
+                <span>
+                  {activeSubPage === 'main' && 'Settings'}
+                  {activeSubPage === 'security' && 'Security & PIN Protection'}
+                  {activeSubPage === 'csv' && 'Data & CSV Portability'}
+                  {activeSubPage === 'backup' && 'Backup & Auto-Sync'}
+                  {activeSubPage === 'privacy' && 'Privacy Policy & Terms'}
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-purple/15 text-brand-purple border border-brand-purple/30 font-bold shrink-0">
+                  v2.2
+                </span>
+              </h2>
+              {activeSubPage === 'main' && (
+                <button
+                  onClick={() => setActiveSubPage('privacy')}
+                  className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-custom hover:text-brand-blue transition-colors cursor-pointer"
+                  title="View Privacy Policy & Terms of Service"
+                >
+                  <Info className="w-3.5 h-3.5 text-brand-blue" />
+                  <span>Privacy and Terms</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Sub-Pages In-Card Top-Right Close Button */}
@@ -1227,6 +1243,95 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ─── 5. PRIVACY POLICY & TERMS SUB-PAGE ────────────────────────────────── */}
+        {activeSubPage === 'privacy' && (
+          <div className="space-y-6 animate-in fade-in duration-150 max-w-full">
+            {/* Header / Summary Card */}
+            <div className="p-4 rounded-2xl bg-brand-teal/10 border border-brand-teal/30 space-y-2">
+              <div className="flex items-center gap-2 text-brand-teal font-display font-bold text-sm sm:text-base">
+                <ShieldCheck className="w-5 h-5 shrink-0" />
+                <span>Zero-Knowledge & Offline Architecture</span>
+              </div>
+              <p className="text-xs font-mono text-muted-custom leading-relaxed">
+                Finance-Ally is designed so your data never leaves your device. Everything is processed, encrypted, and stored locally.
+              </p>
+            </div>
+
+            {/* Quick Policy Highlights */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-brand-teal"></span>
+                  Zero Data Collection
+                </div>
+                <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                  No ownership, operation, or maintenance of remote databases or telemetry servers. No analytics or tracking.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-brand-blue"></span>
+                  Local AES-256 Vault
+                </div>
+                <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                  Password manager items and backups are encrypted on-device with AES-256-GCM and PBKDF2.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-brand-purple"></span>
+                  On-Device Intelligence
+                </div>
+                <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                  Vector search, ML models, and natural language categorization run in local Web Worker threads.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-brand-yellow"></span>
+                  Forex Rate Sync
+                </div>
+                <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                  Public currency rates are synced on app open or manual request. No user data is sent.
+                </p>
+              </div>
+            </div>
+
+            {/* Terms Summary Section */}
+            <div className="p-4 rounded-2xl bg-surface-soft border border-hairline space-y-3">
+              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-muted-custom">
+                Terms of Service Overview
+              </h3>
+              <div className="space-y-2.5 text-xs font-mono text-muted-custom leading-relaxed">
+                <p>
+                  <strong className="text-ink">No Financial Advice:</strong> Finance-Ally is a personal budgeting tool and does not provide financial, tax, or investment advice.
+                </p>
+                <p>
+                  <strong className="text-ink">User Backup Responsibility:</strong> Because all data is stored offline on your device, regular exports/backups are your responsibility.
+                </p>
+                <p>
+                  <strong className="text-ink">"AS IS" Warranty:</strong> The software is provided without warranty. The developers are not liable for data loss or financial decisions.
+                </p>
+              </div>
+            </div>
+
+            {/* External Link Action */}
+            <div className="pt-1 flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={() => window.open('./privacy.html', '_blank')}
+                className="w-full py-2.5 px-4 bg-surface-soft hover:bg-surface-card border border-hairline hover:border-brand-blue text-ink rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-brand-blue" />
+                <span>Open Full Privacy & Terms Document</span>
+              </button>
             </div>
           </div>
         )}

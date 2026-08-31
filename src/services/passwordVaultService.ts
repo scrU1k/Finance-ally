@@ -94,19 +94,19 @@ export function getStoredPasswordEnvelope(): PasswordVaultEnvelope {
     const rawItems = localStorage.getItem(ITEMS_KEY);
     const items: PasswordVaultItem[] = rawItems ? JSON.parse(rawItems) : [];
     return {
-      version: '2.1',
+      version: '2.2',
       checksum: 'uncalculated',
       items
     };
   } catch {
-    return { version: '2.1', checksum: 'none', items: [] };
+    return { version: '2.2', checksum: 'none', items: [] };
   }
 }
 
 export async function savePasswordEnvelope(items: PasswordVaultItem[]): Promise<void> {
   const checksum = await calculateVaultChecksum(items);
   const envelope: PasswordVaultEnvelope = {
-    version: '2.1',
+    version: '2.2',
     checksum,
     items
   };

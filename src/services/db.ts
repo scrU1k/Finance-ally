@@ -389,7 +389,7 @@ export async function exportFullDataBackup(): Promise<string> {
     passwordVaultItems: JSON.parse(localStorage.getItem('fa_password_vault_items') || '[]'),
     passwordVaultVerifier: localStorage.getItem('fa_pwd_vault_verifier') || null,
     exportTimestamp: Date.now(),
-    appVersion: '2.1.0'
+    appVersion: '2.2.0'
   };
   return JSON.stringify(data, null, 2);
 }

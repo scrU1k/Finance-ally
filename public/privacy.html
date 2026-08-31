@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finance-Ally — Privacy Policy & Terms of Service</title>
+  <style>
+    :root {
+      --bg: #0e0e0c;
+      --card: #151512;
+      --text: #fafaf7;
+      --muted: #a8a49a;
+      --accent: #2dd4bf;
+      --border: rgba(42, 42, 36, 0.85);
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #fafaf7;
+        --card: #f0eee7;
+        --text: #3b3230;
+        --muted: #78706e;
+        --accent: #0f766e;
+        --border: rgba(228, 224, 216, 0.85);
+      }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+      line-height: 1.65;
+    }
+    h1 {
+      font-size: 1.85rem;
+      margin-bottom: 0.25rem;
+      color: var(--text);
+    }
+    .version-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-family: monospace;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      background: rgba(45, 212, 191, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(45, 212, 191, 0.3);
+      margin-bottom: 1.5rem;
+      font-weight: 600;
+    }
+    h2 {
+      font-size: 1.3rem;
+      margin-top: 2rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    h3 {
+      font-size: 1.05rem;
+      margin-top: 1.25rem;
+      color: var(--text);
+    }
+    p, li {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    strong {
+      color: var(--text);
+    }
+    ul {
+      padding-left: 1.3rem;
+    }
+    li {
+      margin-bottom: 0.5rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Finance-Ally — Privacy Policy & Terms</h1>
+  <div class="version-badge">Version 2.2 • August 2026</div>
+
+  <div class="card">
+    <strong>Executive Summary:</strong> Finance-Ally is a 100% offline-first, client-side application. No personal or financial data is ever collected, tracked, or sent to any remote server. Everything is processed and encrypted on your local device.
+  </div>
+
+  <h2>Part 1: Privacy Policy</h2>
+
+  <h3>1. Zero Data Collection</h3>
+  <ul>
+    <li><strong>No Centralized Infrastructure:</strong> No ownership, operation, or maintenance of any centralized database, telemetry servers, analytics collectors, or tracking endpoints.</li>
+    <li><strong>No Telemetry or Profiling:</strong> No personal, financial, or analytical data is collected, transmitted, profiled, sold, or monitored.</li>
+  </ul>
+
+  <h3>2. Local-Only Storage & Data Sovereignty</h3>
+  <ul>
+    <li>All transactions, budget limits, categories, and period notes remain exclusively on your local device using client-side <code>IndexedDB</code> and <code>localStorage</code>.</li>
+    <li>Automated local snapshots are saved strictly within your device's isolated application storage or native filesystem.</li>
+    <li>Users retain full ownership, access, and control over their records at all times.</li>
+  </ul>
+
+  <h3>3. Password Manager & Local Cryptography</h3>
+  <ul>
+    <li>All credentials, usernames, and passwords stored in the Password Manager are encrypted on-device using <strong>AES-256-GCM</strong> with keys derived via <strong>PBKDF2 (100,000 iterations)</strong>.</li>
+    <li>Keys exist in volatile memory only while unlocked and are never stored in plaintext or transmitted.</li>
+    <li>Operating on a Zero-Knowledge architecture, forgotten Master PINs cannot be recovered by any external party.</li>
+  </ul>
+
+  <h3>4. On-Device Intelligence & Processing</h3>
+  <ul>
+    <li>Expense categorization, natural language command parsing, and vector embeddings execute entirely in your local browser/device Web Worker thread.</li>
+    <li>No transaction text or financial notes are ever sent to third-party AI APIs or cloud services.</li>
+  </ul>
+
+  <h3>5. Outbound Network Requests</h3>
+  <ul>
+    <li>The only outbound network requests initiated by the application are to fetch publicly available foreign currency exchange rates (Forex API). These requests are automatically sent upon opening the app and when explicitly requested by the user. No user-identifying data or financial records are included in these requests.</li>
+  </ul>
+
+  <h2>Part 2: Terms of Service</h2>
+
+  <h3>1. Nature of the Service</h3>
+  <p>Finance-Ally is provided as a personal budgeting and record-keeping utility for personal, informational, and productivity purposes only.</p>
+
+  <h3>2. No Financial, Investment, or Tax Advice</h3>
+  <ul>
+    <li>Finance-Ally and its automated analytics do not constitute financial, investment, accounting, or tax advice.</li>
+    <li>The application is not a financial institution, advisor, or broker. All conversions and projections are estimates based on your logged data.</li>
+  </ul>
+
+  <h3>3. User Responsibility & Data Backup</h3>
+  <ul>
+    <li>Because data is stored strictly on the local device, users are solely responsible for maintaining regular backups and data exports.</li>
+    <li>The developers are not liable for any data loss resulting from device loss, OS reset, cache clearance, or forgotten passwords.</li>
+  </ul>
+
+  <h3>4. "AS IS" Disclaimer & Limitation of Liability</h3>
+  <p>The application is provided "AS IS" without warranty of any kind. To the maximum extent permitted by applicable law, the developers and contributors shall not be liable for any direct, indirect, incidental, or consequential damages resulting from the use of or inability to use the software.</p>
+
+  <div class="footer">
+    Finance-Ally • 100% Offline & Sandboxed Personal Finance Vault
+  </div>
+</body>
+</html>
