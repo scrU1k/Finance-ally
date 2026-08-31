@@ -116,8 +116,13 @@ Managing shared expenses with friends made simple:
 - **Monthly & Annual Review Notes**: Dedicated `<Month Name, Year> Note` and `<Year> Note` cards appear in timeline feeds. 
 
 ---
+### 8. Password Manager  
 
-### 8. Monthly Financial Audits & Smart Insights
+- **Additional Protection**: A separate Master PIN that can be set-up that is different from the backup and app-lock PIN to access and create password vault.
+  Master PIN is used in addition to the backup PIN to enable double layer of security to ensure that even if in a highly improbable scenario the backup gets decrypted, the passwords still remain encrypted via the additional layer of the Master PIN.
+- **Username and Password**: Users can securely store Username and Password for quick access and tag it with a visible name to denote the service they represent. The Username and Password are both encrypted by the Master PIN. 
+
+### 9. Monthly Financial Audits & Smart Insights
 
 - **Financial Health Grade**: Monthly grade from `A+` to `F` based on budget adherence and spending consistency (with explicit `O (Building Baseline)` indicator for accounts under 3 months).
 - **Coefficient of Variation (CV) Volatility**: Measures week-to-week spend erraticness weighted by category spend share, with week bucketing capped at 4 to eliminate month-boundary distortions.
@@ -126,7 +131,7 @@ Managing shared expenses with friends made simple:
 
 ---
 
-### 9. Dynamic Tab Navigation
+### 10. Dynamic Tab Navigation
 
 - **Scrolling Tab Row**: Core tabs (`Expenditure`, `Subscriptions`, `Trip Manager`) and More Tools (`Notification Extraction`, `Financial Audit`, `Split Bills`, `Spend Insights`) are organized into a smart dynamic row.
 - **Clutter-Free Dropdown**: Viewing a core tab shows a chevron dropdown for tools; viewing a tool shows the tool row with a dropdown back to core tabs — always one tap from anywhere.
@@ -174,8 +179,11 @@ Finance-Ally's Android build is a first-class native experience, not just a web 
 ---
 
 ## Supported Devices & Formats
-
-- **Web App**: Runs in any modern desktop or mobile browser.
+- **iOS**: Follow steps to install and use,
+  - Visit [Finance-ally](https://scru1k.github.io/Finance-ally/) on Safari Browser.
+  - Click on `Share` then select `Add to Home Screen`.
+  - This creates a shortcut directly on the Home screen and the app can be accessed as any normal iOS app.
+- **Web App**: Runs in any modern desktop or mobile browser - [Finance-ally](https://scru1k.github.io/Finance-ally/).
 - **Android App**: Native APK with Android notification channels, AlarmManager scheduling, local file storage, native share integration, and zero high-risk background permissions for a clean Play Protect installation.
 
 ---
