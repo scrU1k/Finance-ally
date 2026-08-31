@@ -46,6 +46,7 @@ interface AuthContextType {
   logout: () => void;
   onboard: (username: string, password: string, baseCurrency: CurrencyCode) => Promise<void>;
   updateUserCurrency: (currency: CurrencyCode) => void;
+  updateUsername: (username: string) => void;
   toggleRequirePassword: (enabled: boolean) => void;
   changePassword: (newPassword: string) => Promise<boolean>;
 }
@@ -194,6 +195,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateUsername = (username: string) => {
+    if (user) {
+      const clean = username.trim() || 'My Account';
+      const updated = { ...user, username: clean };
+      setUser(updated);
+      saveUserProfile(updated);
+    }
+  };
+
   const toggleRequirePassword = (enabled: boolean) => {
     if (user) {
       const updated = { ...user, requirePassword: enabled };
@@ -213,7 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, isUnlocked, needsOnboarding, lockoutUntil: lockoutState.lockedUntil, failedAttempts: lockoutState.attempts, login, logout, onboard, updateUserCurrency, toggleRequirePassword, changePassword }}>
+    <AuthContext.Provider value={{ user, isUnlocked, needsOnboarding, lockoutUntil: lockoutState.lockedUntil, failedAttempts: lockoutState.attempts, login, logout, onboard, updateUserCurrency, updateUsername, toggleRequirePassword, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

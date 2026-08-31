@@ -43,7 +43,10 @@ import {
   KeyRound,
   Info,
   ExternalLink,
-  Shield
+  Shield,
+  User,
+  Edit2,
+  Check
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -54,12 +57,26 @@ interface SettingsModalProps {
 type SettingsSubPage = 'main' | 'security' | 'csv' | 'backup' | 'privacy';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { user, toggleRequirePassword, changePassword } = useAuth();
+  const { user, toggleRequirePassword, changePassword, updateUsername } = useAuth();
   const { baseCurrency, switchBaseCurrency, syncForexRates, forexRates, transactions, categories, addTransaction } = useFinance();
   const { theme, setTheme, fontFamily, setFontFamily } = useTheme();
 
   // Active Sub-Page Navigation State
   const [activeSubPage, setActiveSubPage] = useState<SettingsSubPage>('main');
+
+  // Username Edit State
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [usernameInput, setUsernameInput] = useState('');
+  const [usernameMsg, setUsernameMsg] = useState('');
+
+  const handleSaveUsername = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!usernameInput.trim()) return;
+    updateUsername(usernameInput.trim());
+    setIsEditingUsername(false);
+    setUsernameMsg('Username updated successfully!');
+    setTimeout(() => setUsernameMsg(''), 3000);
+  };
 
   // Always reset to main settings view whenever the modal opens
   useEffect(() => {
@@ -476,13 +493,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto cursor-pointer animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center px-4 overflow-y-auto cursor-pointer animate-in fade-in duration-200"
+      style={{
+        paddingTop: 'max(env(safe-area-inset-top, 0px), 1rem)',
+        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 1rem)'
+      }}
     >
       {/* Fixed FAB Exit Button (Main Page Only) */}
       {activeSubPage === 'main' && (
         <button
           onClick={onClose}
-          className="fixed top-12 right-8 z-[60] p-2.5 rounded-full dotgui-glass border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer bg-surface-card/90"
+          className="fixed right-8 z-[60] p-2.5 rounded-full dotgui-glass border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer bg-surface-card/90"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 2.5rem)' }}
           title="Close Settings"
         >
           <X className="w-4.5 h-4.5" />
@@ -772,6 +794,77 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         {activeSubPage === 'security' && (
           <div className="space-y-4 animate-in fade-in duration-150">
             
+            {/* Card 0: Account Username */}
+            <div className="space-y-3 bg-surface-soft p-5 rounded-2xl border border-hairline shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-brand-blue" />
+                    <span>Account Username</span>
+                  </h3>
+                  <p className="text-[11px] font-mono text-muted-custom mt-0.5">
+                    The name displayed on the lock screen and in your local vault.
+                  </p>
+                </div>
+              </div>
+
+              {!isEditingUsername ? (
+                <div className="flex items-center justify-between bg-surface-card p-3 rounded-xl border border-hairline">
+                  <span className="font-mono text-sm font-semibold text-ink">{user?.username || 'My Account'}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUsernameInput(user?.username || '');
+                      setIsEditingUsername(true);
+                      setUsernameMsg('');
+                    }}
+                    className="px-3 py-1 text-xs font-mono font-bold bg-surface-soft hover:bg-surface-card border border-hairline text-ink rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    <Edit2 className="w-3 h-3 text-brand-blue" />
+                    <span>Change</span>
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSaveUsername} className="space-y-3 bg-surface-card p-3.5 rounded-xl border border-hairline">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-mono text-muted-custom uppercase">New Username</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingUsername(false);
+                        setUsernameMsg('');
+                      }}
+                      className="text-muted-custom hover:text-ink text-xs cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={usernameInput}
+                      onChange={e => setUsernameInput(e.target.value)}
+                      placeholder="Enter new username"
+                      maxLength={30}
+                      className="flex-1 px-3 py-2 bg-canvas border border-hairline rounded-xl text-xs font-mono text-ink focus:outline-none focus:border-brand-blue"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      disabled={!usernameInput.trim()}
+                      className="px-4 py-2 bg-brand-blue hover:bg-brand-blue/90 disabled:opacity-50 text-white rounded-xl text-xs font-mono font-bold cursor-pointer transition-all flex items-center gap-1 shrink-0"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save</span>
+                    </button>
+                  </div>
+                  {usernameMsg && (
+                    <p className="text-[11px] font-mono text-brand-mint">{usernameMsg}</p>
+                  )}
+                </form>
+              )}
+            </div>
+
             {/* Card 1: Startup Password Protection */}
             <div className="space-y-4 bg-surface-soft p-5 rounded-2xl border border-hairline shadow-sm">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">

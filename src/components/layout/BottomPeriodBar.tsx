@@ -105,7 +105,10 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
   // 1. MINIMIZED GLASSMORPHIC PILL VIEW
   if (isMinimized) {
     return (
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 max-w-[92vw]">
+      <div
+        className="fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 max-w-[92vw]"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
+      >
         <button
           onClick={() => setIsMinimized(false)}
           className="flex items-center gap-2.5 dotgui-glass border border-hairline px-4 py-2.5 sm:px-5 sm:py-3 rounded-full text-ink font-mono text-sm font-semibold shadow-2xl hover:scale-105 active:scale-95 transition-all group cursor-pointer bg-surface-card/90 backdrop-blur-xl min-w-0"
@@ -134,7 +137,11 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="fixed bottom-0 left-0 right-0 z-40 dotgui-glass border-t border-hairline px-3 py-3.5 sm:px-6 sm:py-4 shadow-2xl max-w-full overflow-hidden bg-surface-card/90 backdrop-blur-xl"
+        className="fixed bottom-0 left-0 right-0 z-40 dotgui-glass border-t border-hairline px-3 sm:px-6 shadow-2xl max-w-full overflow-hidden bg-surface-card/90 backdrop-blur-xl"
+        style={{
+          paddingTop: '0.875rem',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.875rem)'
+        }}
       >
         <div className={`max-w-5xl mx-auto flex items-center justify-between gap-2 sm:gap-3 ${isPeriodSelectorOpen ? 'overflow-x-auto no-scrollbar' : 'overflow-hidden'}`}>
           
