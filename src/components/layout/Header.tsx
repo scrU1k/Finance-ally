@@ -3,6 +3,7 @@ import { Shield, Settings, Lock, Plane, Tag, Lightbulb } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { TOP_CURRENCIES } from '../../services/currency';
+import logoImg from '../../assets/logo.png';
 
 interface HeaderProps {
   onOpenSettings: () => void;
@@ -27,10 +28,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <button
             onClick={onTitleClick}
-            className="font-display font-bold text-sm sm:text-base tracking-tight text-ink hover:opacity-80 transition-opacity shrink-0 text-left cursor-pointer"
+            className="font-display font-bold text-sm sm:text-base tracking-tight text-ink hover:opacity-80 transition-opacity shrink-0 text-left cursor-pointer flex items-center gap-2"
             title="Go to Expense Log"
           >
-            Finance-Ally
+            <img src={logoImg} className="w-5 h-5 sm:w-6 sm:h-6 rounded-md object-contain shrink-0" alt="Finance-Ally Logo" />
+            <span>Finance-Ally</span>
           </button>
 
           {/* Active Trip Vault Badge (Plane icon only) */}
