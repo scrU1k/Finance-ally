@@ -135,13 +135,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
   ];
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center px-4 overflow-y-auto animate-in fade-in duration-200"
-      style={{
-        paddingTop: 'max(env(safe-area-inset-top, 0px), 1rem)',
-        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 1rem)'
-      }}
-    >
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
       <div className="max-w-lg w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-3xl p-6 shadow-2xl shadow-black/20 space-y-5 ring-1 ring-white/10 max-h-[85vh] overflow-y-auto my-auto">
         
         {/* Header */}

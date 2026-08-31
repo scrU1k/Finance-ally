@@ -16,6 +16,8 @@ import {
   X,
   AlertCircle,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   GripVertical,
   SlidersHorizontal,
   ChevronDown,
@@ -336,97 +338,121 @@ export const PasswordManagerTab: React.FC = () => {
     await refreshItems();
   };
 
-  // Open Re-arrange Modal ONLY FOR SELECTED CARDS (>1)
+  // Open Re-arrange Modal (supports selected cards OR all unlocked cards if none/multiple selected)
   const openRearrangeModal = () => {
-    if (selectedIds.length <= 1) return;
-    const selectedCards = unlockedCardsList.filter(card => selectedIds.includes(card.id));
-    setRearrangeItems(selectedCards);
+    let cardsToReorder: DecryptedPasswordCard[] = [];
+    if (selectedIds.length > 1) {
+      cardsToReorder = unlockedCardsList.filter(card => selectedIds.includes(card.id));
+    } else {
+      cardsToReorder = [...unlockedCardsList];
+    }
+    if (cardsToReorder.length <= 1) return;
+    setRearrangeItems(cardsToReorder);
     setIsRearrangeModalOpen(true);
   };
 
-  // Seamless Native Vertical Pointer Drag Handlers (0ms latency on Android & Desktop)
-  const handlePointerDownRow = (index: number, e: React.PointerEvent) => {
-    e.stopPropagation();
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {}
-    isPointerDraggingRef.current = true;
-    activeDragIndexRef.current = index;
+  // Move item Up in list
+  const moveItemUp = (index: number) => {
+    if (index <= 0) return;
+    setRearrangeItems(prev => {
+      const copy = [...prev];
+      const temp = copy[index - 1];
+      copy[index - 1] = copy[index];
+      copy[index] = temp;
+      return copy;
+    });
+  };
+
+  // Move item Down in list
+  const moveItemDown = (index: number) => {
+    if (index >= rearrangeItems.length - 1) return;
+    setRearrangeItems(prev => {
+      const copy = [...prev];
+      const temp = copy[index + 1];
+      copy[index + 1] = copy[index];
+      copy[index] = temp;
+      return copy;
+    });
+  };
+
+  // HTML5 Drag & Drop Handlers (smooth, non-laggy reordering)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('text/plain', index.toString());
+    e.dataTransfer.effectAllowed = 'move';
     setDraggedIndex(index);
   };
 
-  const handlePointerMoveRow = (e: React.PointerEvent) => {
-    if (!isPointerDraggingRef.current || activeDragIndexRef.current === null || !rearrangeListRef.current) return;
-
-    const clientY = e.clientY;
-    const children = Array.from(rearrangeListRef.current.children) as HTMLElement[];
-    if (children.length === 0) return;
-
-    let targetIndex = activeDragIndexRef.current;
-    for (let i = 0; i < children.length; i++) {
-      const rect = children[i].getBoundingClientRect();
-      const midY = rect.top + rect.height / 2;
-      if (clientY < midY) {
-        targetIndex = i;
-        break;
-      }
-      targetIndex = i;
-    }
-
-    const currentIndex = activeDragIndexRef.current;
-    if (targetIndex !== currentIndex && targetIndex >= 0 && targetIndex < rearrangeItems.length) {
-      setRearrangeItems(prev => {
-        const updated = [...prev];
-        const movedItem = updated[currentIndex];
-        updated.splice(currentIndex, 1);
-        updated.splice(targetIndex, 0, movedItem);
-        return updated;
-      });
-      activeDragIndexRef.current = targetIndex;
-      setDraggedIndex(targetIndex);
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
     }
   };
 
-  const handlePointerUpRow = (e: React.PointerEvent) => {
-    if (isPointerDraggingRef.current) {
-      isPointerDraggingRef.current = false;
-      activeDragIndexRef.current = null;
-      setDraggedIndex(null);
-      try {
-        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-      } catch {}
-    }
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    const sourceIndexStr = e.dataTransfer.getData('text/plain');
+    const sourceIndex = parseInt(sourceIndexStr, 10);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    if (isNaN(sourceIndex) || sourceIndex === targetIndex) return;
+
+    setRearrangeItems(prev => {
+      const updated = [...prev];
+      const [moved] = updated.splice(sourceIndex, 1);
+      updated.splice(targetIndex, 0, moved);
+      return updated;
+    });
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   // Save New Order for Selected Cards & Auto-Switch to Custom Sort
   const handleSaveOrder = async () => {
     if (!vaultMasterPin) return;
 
-    const newRawItems = [...rawItems];
-    const selectedIndices = rawItems
-      .map((item, idx) => (selectedIds.includes(item.id) ? idx : -1))
-      .filter(idx => idx !== -1);
+    let newRawItems = [...rawItems];
+    if (selectedIds.length > 1) {
+      const selectedIndices = rawItems
+        .map((item, idx) => (selectedIds.includes(item.id) ? idx : -1))
+        .filter(idx => idx !== -1);
 
-    // Re-encrypt updated cards into new positions
-    for (let idxInRearrange = 0; idxInRearrange < rearrangeItems.length; idxInRearrange++) {
-      const card = rearrangeItems[idxInRearrange];
-      const targetItemIdx = selectedIndices[idxInRearrange];
-      const itemIndex = rawItems.findIndex(i => i.id === card.id);
-      if (itemIndex !== -1) {
-        newRawItems[targetItemIdx] = rawItems[itemIndex];
+      for (let idxInRearrange = 0; idxInRearrange < rearrangeItems.length; idxInRearrange++) {
+        const card = rearrangeItems[idxInRearrange];
+        const targetItemIdx = selectedIndices[idxInRearrange];
+        const itemIndex = rawItems.findIndex(i => i.id === card.id);
+        if (itemIndex !== -1 && targetItemIdx !== undefined) {
+          newRawItems[targetItemIdx] = rawItems[itemIndex];
+        }
       }
+    } else {
+      // Reordered full list
+      const rearrangedIds = new Set(rearrangeItems.map(c => c.id));
+      const orderedItems = rearrangeItems
+        .map(card => rawItems.find(i => i.id === card.id))
+        .filter((item): item is PasswordVaultItem => item !== undefined);
+      const remaining = rawItems.filter(i => !rearrangedIds.has(i.id));
+      newRawItems = [...orderedItems, ...remaining];
     }
 
     await savePasswordItemsOrder(newRawItems);
     await refreshItems();
-    setSortMode('custom'); // Automatically switch filter to custom on reorder!
+    setSortMode('custom');
     setIsRearrangeModalOpen(false);
-    setSelectedIds([]); // Clear selection on exit
+    setSelectedIds([]);
   };
 
   // Close Re-arrange Modal with X
   const handleCloseRearrangeModal = () => {
     setIsRearrangeModalOpen(false);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
     setSelectedIds([]);
   };
 
@@ -785,6 +811,25 @@ export const PasswordManagerTab: React.FC = () => {
                     <span>Custom</span>
                     {sortMode === 'custom' && <Check className="w-3.5 h-3.5 text-[#005687] dark:text-[#0088cc]" />}
                   </button>
+
+                  {/* Re-arrange Cards (Under More Options) */}
+                  {isVaultUnlocked && rawItems.length > 1 && (
+                    <>
+                      <div className="h-px bg-hairline/80 my-1" />
+                      <button
+                        onClick={() => {
+                          setIsFilterDropdownOpen(false);
+                          openRearrangeModal();
+                        }}
+                        className="w-full text-left px-3 py-1.5 rounded-xl text-xs font-mono font-semibold flex items-center justify-between text-ink hover:bg-surface-soft hover:text-[#005687] transition-colors cursor-pointer"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <ArrowUpDown className="w-3.5 h-3.5 text-[#005687] dark:text-[#0088cc]" />
+                          <span>Re-arrange Cards</span>
+                        </span>
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -1012,87 +1057,127 @@ export const PasswordManagerTab: React.FC = () => {
         </div>
       )}
 
-      {/* ── MODAL 2: Re-arrange Overlay Modal (Long-Press Pointer Drag FOR SELECTED CARDS ONLY) ── */}
+      {/* ── MODAL 2: Re-arrange Overlay Modal (Smooth Scroll & Multi-Mode Reordering) ── */}
       {isRearrangeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="dotgui-card p-6 max-w-md w-full bg-surface-card border border-hairline rounded-2xl shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+          <div className="dotgui-card p-5 sm:p-6 max-w-md w-full bg-surface-card border border-hairline rounded-2xl shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
             
             {/* Modal Header with Top-Right Cross X */}
             <div className="flex items-center justify-between border-b border-hairline pb-3 shrink-0">
               <div className="flex items-center gap-2">
                 <ArrowUpDown className="w-4 h-4 text-[#005687] dark:text-[#0088cc]" />
-                <h3 className="text-xs font-mono font-bold text-ink uppercase">Re-arrange Selected Cards</h3>
+                <h3 className="text-xs font-mono font-bold text-ink uppercase">
+                  {selectedIds.length > 1 ? 'Re-arrange Selected Cards' : 'Re-arrange Password Cards'}
+                </h3>
               </div>
               <button
                 onClick={handleCloseRearrangeModal}
                 className="text-muted-custom hover:text-ink p-1 rounded-lg hover:bg-surface-soft transition-colors cursor-pointer"
-                title="Exit Re-arrange & Clear Selection"
+                title="Exit Re-arrange"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs font-mono text-muted-custom shrink-0">
-              Press and drag selected cards vertically to reorder. Tap <strong>Save Order</strong> to apply and switch to Custom sort.
+            <p className="text-xs font-mono text-muted-custom shrink-0 leading-relaxed">
+              Use the <strong className="text-ink">▲ / ▼</strong> arrow buttons or drag cards to reorder. Tap <strong className="text-ink">Save Order</strong> to apply.
             </p>
 
-            {/* List of Selected Services for Reordering */}
+            {/* List of Services for Reordering (Fully scrollable without touch blocking) */}
             <div
               ref={rearrangeListRef}
-              className="overflow-y-auto space-y-2 pr-1 flex-1 max-h-[50vh] touch-none select-none"
+              className="overflow-y-auto overscroll-contain touch-pan-y space-y-2 pr-1 flex-1 max-h-[52vh]"
             >
               {rearrangeItems.map((item, idx) => {
                 const avatarStyle = getAvatarBg(item.serviceName);
                 const firstLetter = item.serviceName.charAt(0).toUpperCase();
                 const isDraggingThis = draggedIndex === idx;
+                const isDragOver = dragOverIndex === idx;
 
                 return (
                   <div
                     key={item.id}
-                    onPointerDown={e => handlePointerDownRow(idx, e)}
-                    onPointerMove={handlePointerMoveRow}
-                    onPointerUp={handlePointerUpRow}
-                    className={`flex items-center justify-between gap-3 p-3 bg-surface-soft border rounded-xl transition-all cursor-grab active:cursor-grabbing touch-none ${
+                    draggable={true}
+                    onDragStart={e => handleDragStart(e, idx)}
+                    onDragOver={e => handleDragOver(e, idx)}
+                    onDrop={e => handleDrop(e, idx)}
+                    onDragEnd={handleDragEnd}
+                    className={`flex items-center justify-between gap-2.5 p-3 bg-surface-soft border rounded-xl transition-all select-none ${
                       isDraggingThis
-                        ? 'opacity-70 ring-2 ring-[#005687] border-[#005687] bg-surface-card scale-[1.01] shadow-xl z-10'
-                        : 'border-hairline hover:border-[#005687]/50'
+                        ? 'opacity-40 ring-2 ring-[#005687] border-[#005687] bg-surface-card'
+                        : isDragOver
+                        ? 'border-[#005687] ring-1 ring-[#005687]/50 bg-surface-card'
+                        : 'border-hairline hover:border-[#005687]/40'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0 pointer-events-none">
-                      <GripVertical className="w-4.5 h-4.5 text-[#005687] dark:text-[#0088cc] shrink-0" />
-                      <div className={`w-8 h-8 rounded-lg border flex items-center justify-center font-mono font-bold text-xs shrink-0 ${avatarStyle}`}>
+                    {/* Left: Drag Grip & Number Badge & Avatar */}
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-muted-custom hover:text-[#005687] transition-colors shrink-0" title="Drag to reorder">
+                        <GripVertical className="w-4 h-4" />
+                      </div>
+
+                      <span className="text-[10px] font-mono font-bold text-muted-custom bg-surface-card border border-hairline px-1.5 py-0.5 rounded-md shrink-0">
+                        #{idx + 1}
+                      </span>
+
+                      <div className={`w-7 h-7 rounded-lg border flex items-center justify-center font-mono font-bold text-xs shrink-0 ${avatarStyle}`}>
                         {firstLetter}
                       </div>
-                      <div className="min-w-0">
+
+                      <div className="min-w-0 flex-1">
                         <h4 className="text-xs font-mono font-bold text-ink truncate">{item.serviceName}</h4>
                         {item.username && <p className="text-[10px] font-mono text-muted-custom truncate">{item.username}</p>}
                       </div>
                     </div>
 
-                    <span className="text-[10px] font-mono font-bold text-muted-custom uppercase shrink-0 pointer-events-none">
-                      Hold & Move
-                    </span>
+                    {/* Right: Quick Move Up/Down Action Buttons */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => moveItemUp(idx)}
+                        disabled={idx === 0}
+                        className="p-1.5 rounded-lg bg-surface-card hover:bg-surface-soft disabled:opacity-30 disabled:hover:bg-surface-card border border-hairline text-ink transition-all cursor-pointer disabled:cursor-not-allowed"
+                        title="Move Up"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => moveItemDown(idx)}
+                        disabled={idx === rearrangeItems.length - 1}
+                        className="p-1.5 rounded-lg bg-surface-card hover:bg-surface-soft disabled:opacity-30 disabled:hover:bg-surface-card border border-hairline text-ink transition-all cursor-pointer disabled:cursor-not-allowed"
+                        title="Move Down"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
             </div>
 
             {/* Bottom Actions */}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-hairline shrink-0">
-              <button
-                type="button"
-                onClick={handleCloseRearrangeModal}
-                className="px-4 py-2 text-xs font-mono text-muted-custom hover:text-ink cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveOrder}
-                className="px-5 py-2 text-xs font-mono font-bold rounded-xl bg-[#005687] text-white hover:bg-[#004269] shadow-md cursor-pointer"
-              >
-                Save Order
-              </button>
+            <div className="flex items-center justify-between pt-3 border-t border-hairline shrink-0">
+              <span className="text-[11px] font-mono text-muted-custom">
+                {rearrangeItems.length} card{rearrangeItems.length !== 1 ? 's' : ''} in list
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCloseRearrangeModal}
+                  className="px-3.5 py-1.5 text-xs font-mono text-muted-custom hover:text-ink cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveOrder}
+                  className="px-4 py-1.5 text-xs font-mono font-bold rounded-xl bg-[#005687] text-white hover:bg-[#004269] shadow-md transition-all cursor-pointer"
+                >
+                  Save Order
+                </button>
+              </div>
             </div>
 
           </div>

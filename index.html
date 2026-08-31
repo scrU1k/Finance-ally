@@ -5,9 +5,9 @@
     <link rel="shortcut icon" type="image/png" href="./logo.png" />
     <link rel="apple-touch-icon" href="./logo.png" />
     <link rel="manifest" href="./manifest.json" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Finance-Ally" />
     <meta name="theme-color" content="#0e0e0c" />
     <title>Finance-Ally — Offline Sandboxed Personal Finance & Spending Tracker</title>
@@ -40,10 +40,20 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      if ('serviceWorker' in navigator) {
+      // Service worker for PWA offline caching on web only (NOT on native Android Capacitor)
+      if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(function() {});
+          navigator.serviceWorker.register('./sw.js').then((reg) => {
+            reg.update();
+          }).catch(function() {});
         });
+      } else if ('serviceWorker' in navigator) {
+        // Unregister any legacy service workers inside native app to prevent stale cache
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (let registration of registrations) {
+            registration.unregister();
+          }
+        }).catch(function() {});
       }
     </script>
   </body>

@@ -368,7 +368,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
 
       return matchCat && matchDrilled;
     });
-  }, [filteredTransactions, selectedCatFilter, searchQuery, drilledFilter, categories, trips]);
+  }, [filteredTransactions, selectedCatFilter, searchQuery, drilledFilter, categories, trips, semanticCategoryId]);
 
   // 1. Grouped by Day (Visible Days limited by Calendar Month chunks)
   const groupedByDate = useMemo(() => {

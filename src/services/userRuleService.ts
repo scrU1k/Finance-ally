@@ -1,5 +1,6 @@
 import { Category } from '../types';
 import { globalFinancialTrie } from './trieDictionary';
+import { syncRulesToWorker } from '../workers/workerOrchestrator';
 
 export interface UserTagRule {
   id: string;
@@ -179,9 +180,7 @@ export function addUserTagRule(
   });
 
   // Sync to Web Worker thread so worker A instantly sees the new rule
-  import('../workers/workerOrchestrator').then(mod => {
-    mod.syncRulesToWorker(updatedRules);
-  }).catch(() => {});
+  syncRulesToWorker(updatedRules);
 
   const wordsFormatted = cleanedKeywords.map(w => `"${w}"`).join(', ');
   return {
@@ -196,9 +195,7 @@ export function deleteUserTagRule(ruleId: string): boolean {
   const filtered = existing.filter(r => r.id !== ruleId);
   if (filtered.length !== existing.length) {
     saveUserRules(filtered);
-    import('../workers/workerOrchestrator').then(mod => {
-      mod.syncRulesToWorker(filtered);
-    }).catch(() => {});
+    syncRulesToWorker(filtered);
     return true;
   }
   return false;

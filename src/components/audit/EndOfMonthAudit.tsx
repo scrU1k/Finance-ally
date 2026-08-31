@@ -96,7 +96,7 @@ const UserRuleComplianceCard: React.FC<{ selectedMonth: string }> = ({ selectedM
     return transactions.filter(t => t.date.startsWith(selectedMonth));
   }, [transactions, selectedMonth]);
 
-  const fmt = (amt: number) => formatCurrency(amt, baseCurrency);
+  const fmt = React.useCallback((amt: number) => formatCurrency(amt, baseCurrency), [baseCurrency]);
 
   // Pre-built 109-Rule Evaluators
   const prebuiltAudits = useMemo(() => {
@@ -172,7 +172,7 @@ const UserRuleComplianceCard: React.FC<{ selectedMonth: string }> = ({ selectedM
     });
 
     return results;
-  }, [monthTxs, categories, baseCurrency]);
+  }, [monthTxs, categories, fmt]);
 
   return (
     <div className="dotgui-card p-5 bg-surface-card space-y-4 border border-hairline rounded-2xl">

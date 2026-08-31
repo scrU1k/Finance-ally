@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -61,7 +61,7 @@ export const LiveSpendChart: React.FC<LiveSpendChartProps> = ({ transactions: pr
   }, [topmostVisibleDate]);
 
   // Helper to filter transactions & compute label for Card 1 (Category Breakdown)
-  const filterTxsForCard1 = (mode: 'day' | 'month' | 'year' | 'all') => {
+  const filterTxsForCard1 = useCallback((mode: 'day' | 'month' | 'year' | 'all') => {
     const anchorDate = new Date(anchorISO + 'T00:00:00');
     
     if (mode === 'day') {
@@ -86,10 +86,10 @@ export const LiveSpendChart: React.FC<LiveSpendChartProps> = ({ transactions: pr
 
     // 'all'
     return { timeframeTxs: sourceTxs, timeframeLabel: 'All Time' };
-  };
+  }, [anchorISO, sourceTxs]);
 
   // Helper to filter transactions & compute label for Card 2 (Spending Trend)
-  const filterTxsForCard2 = (mode: ChartTimeframeMode) => {
+  const filterTxsForCard2 = useCallback((mode: ChartTimeframeMode) => {
     const anchorDate = new Date(anchorISO + 'T00:00:00');
     
     if (mode === 'day') {
@@ -119,18 +119,18 @@ export const LiveSpendChart: React.FC<LiveSpendChartProps> = ({ transactions: pr
 
     // 'all'
     return { timeframeTxs: sourceTxs, timeframeLabel: 'All Time' };
-  };
+  }, [anchorISO, sourceTxs]);
 
   // Card 1 (Category Breakdown) Data & Timeframe
   const { timeframeTxs: timeframeTxs1, timeframeLabel: timeframeLabel1 } = useMemo(
     () => filterTxsForCard1(activeTimeframe1),
-    [sourceTxs, activeTimeframe1, anchorISO]
+    [activeTimeframe1, filterTxsForCard1]
   );
 
   // Card 2 (Spending Trend) Data & Timeframe
   const { timeframeTxs: timeframeTxs2, timeframeLabel: timeframeLabel2 } = useMemo(
     () => filterTxsForCard2(activeTimeframe2),
-    [sourceTxs, activeTimeframe2, anchorISO]
+    [activeTimeframe2, filterTxsForCard2]
   );
 
   // 1. Prepare Category Doughnut Data for Card 1

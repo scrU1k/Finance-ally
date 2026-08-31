@@ -23,6 +23,7 @@ import { CurrencyCode } from '../../types';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import { hasMasterPin, setMasterPin, verifyMasterPin, getStoredPasswordItems, decryptCardPayload, encryptCardPayload, savePasswordEnvelope } from '../../services/passwordVaultService';
 import {
   X,
@@ -84,6 +85,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       setActiveSubPage('main');
     }
   }, [isOpen]);
+
+  // Handle hardware back button inside Settings subpages
+  useEffect(() => {
+    if (!isOpen || activeSubPage === 'main' || !Capacitor.isNativePlatform()) return;
+
+    let listenerHandle: { remove: () => void } | null = null;
+
+    CapApp.addListener('backButton', () => {
+      setActiveSubPage('main');
+    }).then(h => {
+      listenerHandle = h;
+    }).catch(() => {});
+
+    return () => {
+      if (listenerHandle) {
+        listenerHandle.remove();
+      }
+    };
+  }, [isOpen, activeSubPage]);
 
   // Sync missing snapshots from native filesystem when backup tab opens
   useEffect(() => {
@@ -493,18 +513,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center px-4 overflow-y-auto cursor-pointer animate-in fade-in duration-200"
-      style={{
-        paddingTop: 'max(env(safe-area-inset-top, 0px), 1rem)',
-        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 1rem)'
-      }}
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto cursor-pointer animate-in fade-in duration-200"
     >
       {/* Fixed FAB Exit Button (Main Page Only) */}
       {activeSubPage === 'main' && (
         <button
           onClick={onClose}
-          className="fixed right-8 z-[60] p-2.5 rounded-full dotgui-glass border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer bg-surface-card/90"
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 2.5rem)' }}
+          className="fixed top-8 right-8 z-[60] p-2.5 rounded-full dotgui-glass border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer bg-surface-card/90"
           title="Close Settings"
         >
           <X className="w-4.5 h-4.5" />
@@ -572,6 +587,80 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         {activeSubPage === 'main' && (
           <div className="space-y-6 animate-in fade-in duration-150">
             
+            {/* Account Profile Card */}
+            <div className="bg-surface-soft p-4 rounded-2xl border border-hairline shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-brand-blue/15 border border-brand-blue/30 text-brand-blue flex items-center justify-center font-bold font-mono text-xs shrink-0">
+                    {user?.username ? user.username.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                      <span>Account Profile</span>
+                    </h3>
+                    <p className="text-[11px] font-mono text-muted-custom">
+                      Display Name: <span className="font-semibold text-ink">{user?.username || 'My Account'}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {!isEditingUsername && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUsernameInput(user?.username || '');
+                      setIsEditingUsername(true);
+                      setUsernameMsg('');
+                    }}
+                    className="px-3 py-1.5 text-xs font-mono font-bold bg-surface-card hover:bg-surface-soft border border-hairline text-ink rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow-sm shrink-0"
+                  >
+                    <Edit2 className="w-3 h-3 text-brand-blue" />
+                    <span>Change</span>
+                  </button>
+                )}
+              </div>
+
+              {isEditingUsername && (
+                <form onSubmit={handleSaveUsername} className="space-y-3 bg-surface-card p-3.5 rounded-xl border border-hairline animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-mono text-muted-custom uppercase">Enter New Username</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingUsername(false);
+                        setUsernameMsg('');
+                      }}
+                      className="text-muted-custom hover:text-ink text-xs cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={usernameInput}
+                      onChange={e => setUsernameInput(e.target.value)}
+                      placeholder="Enter new username"
+                      maxLength={30}
+                      className="flex-1 px-3 py-2 bg-canvas border border-hairline rounded-xl text-xs font-mono text-ink focus:outline-none focus:border-brand-blue"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      disabled={!usernameInput.trim()}
+                      className="px-4 py-2 bg-brand-blue hover:bg-brand-blue/90 disabled:opacity-50 text-white rounded-xl text-xs font-mono font-bold cursor-pointer transition-all flex items-center gap-1 shrink-0"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save</span>
+                    </button>
+                  </div>
+                  {usernameMsg && (
+                    <p className="text-[11px] font-mono text-brand-mint">{usernameMsg}</p>
+                  )}
+                </form>
+              )}
+            </div>
+
             {/* SUB-PAGES NAVIGATION MENU ITEMS */}
             <div className="space-y-2">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1425,6 +1514,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 <ExternalLink className="w-3.5 h-3.5 text-brand-blue" />
                 <span>Open Full Privacy & Terms Document</span>
               </button>
+            </div>
+
+            {/* Footer Attribution */}
+            <div className="text-center pt-4 pb-1 space-y-1 border-t border-hairline/60">
+              <p className="text-[11px] font-mono text-muted-custom font-semibold">
+                Finance-Ally • 100% Offline & Sandboxed Personal Finance Vault
+              </p>
+              <p className="text-[10px] font-mono text-muted-custom/75 tracking-wider font-semibold">
+                CC BY-NC 4.0
+              </p>
             </div>
           </div>
         )}

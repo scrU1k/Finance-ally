@@ -14,26 +14,34 @@ import { AutoSmsDetectorBanner } from './components/common/AutoSmsDetectorBanner
 import { ScheduledPaymentToastBanner } from './components/common/ScheduledPaymentToastBanner';
 import { Transaction } from './types';
 import { checkAndPerformLocalAutoBackup } from './services/localAutoBackupService';
+import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 
-// Lazy load secondary views for true Vite chunk code-splitting
-const LazySubscriptionPage = React.lazy(() => import('./components/subscriptions/SubscriptionPage').then(module => ({ default: module.SubscriptionPage })));
-const LazyTripList = React.lazy(() => import('./components/trips/TripList').then(module => ({ default: module.TripList })));
-const LazyNotificationScannerModal = React.lazy(() => import('./components/scanner/NotificationScannerModal').then(module => ({ default: module.NotificationScannerModal })));
-const LazyEndOfMonthAudit = React.lazy(() => import('./components/audit/EndOfMonthAudit').then(module => ({ default: module.EndOfMonthAudit })));
-const LazySplitBillModal = React.lazy(() => import('./components/tools/SplitBillModal').then(module => ({ default: module.SplitBillModal })));
-const LazySmartSuggestions = React.lazy(() => import('./components/insights/SmartSuggestions').then(module => ({ default: module.SmartSuggestions })));
-const LazyPasswordManagerTab = React.lazy(() => import('./components/tools/PasswordManagerTab').then(module => ({ default: module.PasswordManagerTab })));
-const LazySettingsModal = React.lazy(() => import('./components/settings/SettingsModal').then(module => ({ default: module.SettingsModal })));
-const LazyCategoryManagerModal = React.lazy(() => import('./components/categories/CategoryManagerModal').then(module => ({ default: module.CategoryManagerModal })));
+import { SubscriptionPage } from './components/subscriptions/SubscriptionPage';
+import { TripList } from './components/trips/TripList';
+import { NotificationScannerModal } from './components/scanner/NotificationScannerModal';
+import { EndOfMonthAudit } from './components/audit/EndOfMonthAudit';
+import { SplitBillModal } from './components/tools/SplitBillModal';
+import { SmartSuggestions } from './components/insights/SmartSuggestions';
+import { PasswordManagerTab } from './components/tools/PasswordManagerTab';
+import { SettingsModal } from './components/settings/SettingsModal';
+import { CategoryManagerModal } from './components/categories/CategoryManagerModal';
 
 const MainAppContent: React.FC = () => {
   const { needsOnboarding, isUnlocked } = useAuth();
   
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const [tabHistory, setTabHistory] = useState<NavTab[]>(['dashboard']);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  const navigateToTab = (newTab: NavTab) => {
+    if (newTab === activeTab) return;
+    setTabHistory(prev => [...prev, newTab]);
+    setActiveTab(newTab);
+  };
 
   React.useEffect(() => {
     // Request persistent storage (prevents eviction on iOS WebKit / PWA / Desktop)
@@ -45,6 +53,61 @@ const MainAppContent: React.FC = () => {
       checkAndPerformLocalAutoBackup();
     }
   }, [needsOnboarding, isUnlocked]);
+
+  // Native Android Hardware / Gesture Back Button Navigation Handler
+  React.useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let listenerHandle: { remove: () => void } | null = null;
+
+    CapApp.addListener('backButton', () => {
+      // 1. If QuickAdd or Edit Transaction modal is open -> close it
+      if (isQuickAddOpen || editingTransaction) {
+        setIsQuickAddOpen(false);
+        setEditingTransaction(null);
+        return;
+      }
+
+      // 2. If Category Manager modal is open -> close it
+      if (isCategoryManagerOpen) {
+        setIsCategoryManagerOpen(false);
+        return;
+      }
+
+      // 3. If Settings modal is open -> close it
+      if (isSettingsOpen) {
+        setIsSettingsOpen(false);
+        return;
+      }
+
+      // 4. If tab history has previous tabs -> go back to previous tab
+      if (tabHistory.length > 1) {
+        const updatedHistory = tabHistory.slice(0, -1);
+        const previousTab = updatedHistory[updatedHistory.length - 1];
+        setTabHistory(updatedHistory);
+        setActiveTab(previousTab);
+        return;
+      }
+
+      // 5. If activeTab is not dashboard -> return to dashboard
+      if (activeTab !== 'dashboard') {
+        setActiveTab('dashboard');
+        setTabHistory(['dashboard']);
+        return;
+      }
+
+      // 6. At root dashboard view -> minimize app safely instead of kill/lock
+      CapApp.minimizeApp();
+    }).then(handle => {
+      listenerHandle = handle;
+    }).catch(() => {});
+
+    return () => {
+      if (listenerHandle) {
+        listenerHandle.remove();
+      }
+    };
+  }, [isQuickAddOpen, editingTransaction, isCategoryManagerOpen, isSettingsOpen, activeTab, tabHistory]);
 
   if (needsOnboarding) {
     return <OnboardingCurrency />;
@@ -65,9 +128,9 @@ const MainAppContent: React.FC = () => {
           setEditingTransaction(null);
           setIsQuickAddOpen(true);
         }}
-        onOpenScanner={() => setActiveTab('scanner')}
-        onTitleClick={() => setActiveTab('dashboard')}
-        onOpenSpendInsights={() => setActiveTab('insights')}
+        onOpenScanner={() => navigateToTab('scanner')}
+        onTitleClick={() => navigateToTab('dashboard')}
+        onOpenSpendInsights={() => navigateToTab('insights')}
       />
 
       {/* Automatic SMS Transaction Detector Banner */}
@@ -87,18 +150,13 @@ const MainAppContent: React.FC = () => {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-3">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-3 pb-32">
         
         {/* Navigation Rail */}
-        <SidebarNav activeTab={activeTab} setActiveTab={setActiveTab} />
+        <SidebarNav activeTab={activeTab} setActiveTab={navigateToTab} />
 
         {/* Dynamic View Rendering */}
-        <React.Suspense fallback={
-          <div className="flex items-center justify-center p-12 text-sm font-mono text-muted-custom">
-            Loading view...
-          </div>
-        }>
-          {activeTab === 'dashboard' && (
+        {activeTab === 'dashboard' && (
             <DailyTimeline
               onOpenQuickAdd={() => {
                 setEditingTransaction(null);
@@ -111,46 +169,44 @@ const MainAppContent: React.FC = () => {
             />
           )}
 
-          {activeTab === 'subscriptions' && <LazySubscriptionPage />}
-          {activeTab === 'trips' && <LazyTripList setActiveTab={setActiveTab} />}
-          {activeTab === 'scanner' && <LazyNotificationScannerModal />}
-          {activeTab === 'audit' && <LazyEndOfMonthAudit />}
-          {activeTab === 'split' && <LazySplitBillModal />}
-          {activeTab === 'passwords' && <LazyPasswordManagerTab />}
+          {activeTab === 'subscriptions' && <SubscriptionPage />}
+          {activeTab === 'trips' && <TripList setActiveTab={navigateToTab} />}
+          {activeTab === 'scanner' && <NotificationScannerModal />}
+          {activeTab === 'audit' && <EndOfMonthAudit />}
+          {activeTab === 'split' && <SplitBillModal />}
+          {activeTab === 'passwords' && <PasswordManagerTab />}
           {activeTab === 'insights' && (
-            <LazySmartSuggestions
+            <SmartSuggestions
               onSelectTransaction={tx => {
                 setEditingTransaction(tx);
                 setIsQuickAddOpen(true);
-                setActiveTab('dashboard');
+                navigateToTab('dashboard');
               }}
             />
           )}
-        </React.Suspense>
-      </main>
+        </main>
 
-      {/* Sticky Bottom Total & Period Selector Toggle Bar */}
-      <BottomPeriodBar
-        onOpenQuickAdd={() => {
-          setEditingTransaction(null);
-          setIsQuickAddOpen(true);
-        }}
-      />
+        {/* Sticky Bottom Total & Period Selector Toggle Bar */}
+        <BottomPeriodBar
+          onOpenQuickAdd={() => {
+            setEditingTransaction(null);
+            setIsQuickAddOpen(true);
+          }}
+        />
 
-      {/* Transaction Modal (Add / Edit) */}
-      <TransactionModal
-        isOpen={isQuickAddOpen}
-        onClose={() => {
-          setIsQuickAddOpen(false);
-          setEditingTransaction(null);
-        }}
-        initialData={editingTransaction}
-      />
+        {/* Transaction Modal (Add / Edit) */}
+        <TransactionModal
+          isOpen={isQuickAddOpen}
+          onClose={() => {
+            setIsQuickAddOpen(false);
+            setEditingTransaction(null);
+          }}
+          initialData={editingTransaction}
+        />
 
-      <React.Suspense fallback={null}>
         {/* Category Budget Caps & Tag Palette Modal */}
         {isCategoryManagerOpen && (
-          <LazyCategoryManagerModal
+          <CategoryManagerModal
             isOpen={isCategoryManagerOpen}
             onClose={() => setIsCategoryManagerOpen(false)}
           />
@@ -158,16 +214,15 @@ const MainAppContent: React.FC = () => {
 
         {/* Settings & Currency Converter Modal */}
         {isSettingsOpen && (
-          <LazySettingsModal
+          <SettingsModal
             isOpen={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
           />
         )}
-      </React.Suspense>
 
-    </div>
-  );
-};
+      </div>
+    );
+  };
 
 import { SplashScreen } from './components/common/SplashScreen';
 

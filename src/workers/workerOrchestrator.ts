@@ -19,13 +19,15 @@ function initWorkers() {
   try {
     if (!deterministicWorker) {
       deterministicWorker = new Worker(new URL('./deterministicWorker.ts', import.meta.url), { type: 'module' });
-      // Import getUserRules dynamically to populate worker on boot
-      import('../services/userRuleService').then(mod => {
-        const rules = mod.getUserRules();
-        if (rules.length > 0 && deterministicWorker) {
-          deterministicWorker.postMessage({ type: 'sync-rules', rules });
+      try {
+        const stored = localStorage.getItem('dotgui_user_rules_v1');
+        if (stored) {
+          const rules = JSON.parse(stored);
+          if (Array.isArray(rules) && rules.length > 0 && deterministicWorker) {
+            deterministicWorker.postMessage({ type: 'sync-rules', rules });
+          }
         }
-      }).catch(() => {});
+      } catch {}
     }
   } catch (e) {
     console.warn('Deterministic worker could not be initialized:', e);
