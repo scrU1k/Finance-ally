@@ -116,11 +116,14 @@ Managing shared expenses with friends made simple:
 - **Monthly & Annual Review Notes**: Dedicated `<Month Name, Year> Note` and `<Year> Note` cards appear in timeline feeds. 
 
 ---
+
 ### 8. Password Manager  
 
 - **Additional Protection**: A separate Master PIN that can be set-up that is different from the backup and app-lock PIN to access and create password vault.
   Master PIN is used in addition to the backup PIN to enable double layer of security to ensure that even if in a highly improbable scenario the backup gets decrypted, the passwords still remain encrypted via the additional layer of the Master PIN.
 - **Username and Password**: Users can securely store Username and Password for quick access and tag it with a visible name to denote the service they represent. The Username and Password are both encrypted by the Master PIN. 
+
+---
 
 ### 9. Monthly Financial Audits & Smart Insights
 
