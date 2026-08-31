@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/png" href="./logo.png" />
+    <link rel="shortcut icon" type="image/png" href="./logo.png" />
+    <link rel="apple-touch-icon" href="./logo.png" />
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Finance-Ally" />
+    <meta name="theme-color" content="#0e0e0c" />
+    <title>Finance-Ally — Offline Sandboxed Personal Finance & Spending Tracker</title>
+    <!-- Google Fonts: Fraunces (Display), Geist, Inter, JetBrains Mono, Outfit, Space Grotesk -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Geist:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        try {
+          var t = localStorage.getItem('fa_theme') || 'system';
+          var resolved = t;
+          if (t === 'system') {
+            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dotgui-dark' : 'dotgui-light';
+          }
+          if (resolved !== 'dotgui-light') {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.backgroundColor = '#0e0e0c';
+            document.body && (document.body.style.backgroundColor = '#0e0e0c');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.backgroundColor = '#fafaf7';
+            document.body && (document.body.style.backgroundColor = '#fafaf7');
+          }
+        } catch(e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="./assets/index-fD7hQsvl.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-pNa6XLB2.css">
+  </head>
+  <body class="bg-canvas text-ink antialiased selection:bg-brand-blue selection:text-white">
+    <div id="root"></div>
+    <script>
+      // Service worker for PWA offline caching on web only (NOT on native Android Capacitor)
+      if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').then((reg) => {
+            reg.update();
+          }).catch(function() {});
+        });
+      } else if ('serviceWorker' in navigator) {
+        // Unregister any legacy service workers inside native app to prevent stale cache
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (let registration of registrations) {
+            registration.unregister();
+          }
+        }).catch(function() {});
+      }
+    </script>
+  </body>
+</html>
