@@ -25,6 +25,7 @@ interface FinanceContextType {
   updateCategoryItem: (cat: Category) => Promise<void>;
   deleteCategoryItem: (id: string) => Promise<void>;
   addTripItem: (trip: Omit<Trip, 'id' | 'createdAt'>) => Promise<void>;
+  updateTripItem: (trip: Trip) => Promise<void>;
   removeTripItem: (id: string) => Promise<void>;
   switchBaseCurrency: (newCurrency: CurrencyCode, mode: 'convert' | 'keep') => Promise<void>;
   syncForexRates: () => Promise<boolean>;
@@ -266,6 +267,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTrips(prev => [newTrip, ...prev]);
   };
 
+  const updateTripItem = async (trip: Trip) => {
+    await saveTrip(trip);
+    setTrips(prev => prev.map(t => (t.id === trip.id ? trip : t)));
+    if (activeTripVault?.id === trip.id) {
+      setActiveTripVault(trip);
+    }
+  };
+
   const removeTripItem = async (id: string) => {
     await deleteTrip(id);
     setTrips(prev => prev.filter(t => t.id !== id));
@@ -382,6 +391,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateCategoryItem,
         deleteCategoryItem,
         addTripItem,
+        updateTripItem,
         removeTripItem,
         switchBaseCurrency,
         syncForexRates,

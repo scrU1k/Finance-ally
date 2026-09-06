@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { CurrencyCode } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { CurrencyCode, Trip } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { TOP_CURRENCIES } from '../../services/currency';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
@@ -9,10 +9,11 @@ import { X, Check, Plane } from 'lucide-react';
 interface TripModalProps {
   isOpen: boolean;
   onClose: () => void;
+  tripToEdit?: Trip | null;
 }
 
-export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
-  const { addTripItem, baseCurrency } = useFinance();
+export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose, tripToEdit }) => {
+  const { addTripItem, updateTripItem, baseCurrency } = useFinance();
 
   const [name, setName] = useState('');
   const [destination, setDestination] = useState('');
@@ -21,6 +22,31 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
   const [endDate, setEndDate] = useState(new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]);
   const [budget, setBudget] = useState('15000');
   const [currency, setCurrency] = useState<CurrencyCode>('USD');
+
+  useEffect(() => {
+    if (tripToEdit) {
+      setName(tripToEdit.name);
+      setDestination(tripToEdit.destination || '');
+      setStartDate(tripToEdit.startDate);
+      setEndDate(tripToEdit.endDate);
+      setBudget(tripToEdit.budget.toString());
+      if (tripToEdit.currency === baseCurrency) {
+        setTripType('domestic');
+        setCurrency('USD');
+      } else {
+        setTripType('foreign');
+        setCurrency(tripToEdit.currency);
+      }
+    } else {
+      setName('');
+      setDestination('');
+      setTripType('domestic');
+      setStartDate(new Date().toISOString().split('T')[0]);
+      setEndDate(new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]);
+      setBudget('15000');
+      setCurrency('USD');
+    }
+  }, [tripToEdit, isOpen, baseCurrency]);
 
   if (!isOpen) return null;
 
@@ -31,15 +57,27 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
     const numBudget = parseFloat(budget) || 0;
     if (!name || numBudget <= 0) return;
 
-    await addTripItem({
-      name,
-      destination,
-      startDate,
-      endDate,
-      budget: numBudget,
-      currency: activeCurrency,
-      color: '#2b6be4',
-    });
+    if (tripToEdit) {
+      await updateTripItem({
+        ...tripToEdit,
+        name,
+        destination,
+        startDate,
+        endDate,
+        budget: numBudget,
+        currency: activeCurrency,
+      });
+    } else {
+      await addTripItem({
+        name,
+        destination,
+        startDate,
+        endDate,
+        budget: numBudget,
+        currency: activeCurrency,
+        color: '#2b6be4',
+      });
+    }
 
     onClose();
   };
@@ -56,7 +94,9 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
         <div className="flex items-center justify-between border-b border-hairline pb-3">
           <div className="flex items-center gap-2">
             <Plane className="w-5 h-5 text-brand-coral" />
-            <h3 className="text-lg font-display font-bold text-ink">Create Trip Vault</h3>
+            <h3 className="text-lg font-display font-bold text-ink">
+              {tripToEdit ? 'Edit Trip Vault' : 'Create Trip Vault'}
+            </h3>
           </div>
           <button onClick={onClose} className="p-1.5 text-muted-custom hover:text-ink cursor-pointer">
             <X className="w-4 h-4" />
@@ -172,7 +212,7 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose }) => {
             className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft font-mono font-bold text-xs py-2.5 rounded-xl shadow-sm flex items-center justify-center gap-2 cursor-pointer"
           >
             <Check className="w-4 h-4" />
-            <span>Launch Trip Vault</span>
+            <span>{tripToEdit ? 'Save Changes' : 'Launch Trip Vault'}</span>
           </button>
 
         </form>

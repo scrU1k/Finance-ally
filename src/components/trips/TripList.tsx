@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
+import { Trip } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { TripModal } from './TripModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
-import { Plane, Plus, Trash2, Calendar } from 'lucide-react';
+import { Plane, Plus, Trash2, Calendar, Edit2 } from 'lucide-react';
 
 interface TripListProps {
   setActiveTab?: (tab: 'dashboard' | 'subscriptions' | 'trips' | 'scanner' | 'audit' | 'split' | 'insights') => void;
@@ -11,6 +12,7 @@ interface TripListProps {
 export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {
   const { trips, transactions, removeTripItem, activeTripVault, setActiveTripVault, forexRates } = useFinance();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
   return (
     <div className="space-y-6 pb-24 max-w-full overflow-hidden">
@@ -28,7 +30,10 @@ export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setEditingTrip(null);
+            setIsModalOpen(true);
+          }}
           className="flex items-center gap-1.5 border border-brand-blue text-brand-blue hover:bg-surface-soft font-mono text-xs px-3.5 py-2 rounded-full shadow-sm shrink-0 font-bold cursor-pointer"
         >
           <Plus className="w-4 h-4" />
@@ -47,7 +52,10 @@ export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {
             Create a trip to isolate travel expenses separately from your default app feed.
           </p>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setEditingTrip(null);
+              setIsModalOpen(true);
+            }}
             className="inline-flex items-center gap-2 border border-brand-blue text-brand-blue font-mono text-xs font-bold px-4 py-2 rounded-full shadow-sm hover:bg-surface-soft cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -95,16 +103,31 @@ export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {
                     </p>
                   </div>
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeTripItem(trip.id);
-                    }}
-                    className="p-1.5 text-muted-custom hover:text-brand-coral rounded-lg transition-colors cursor-pointer"
-                    title="Delete Trip"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingTrip(trip);
+                        setIsModalOpen(true);
+                      }}
+                      className="p-1.5 text-muted-custom hover:text-ink hover:bg-surface-soft rounded-lg transition-colors cursor-pointer"
+                      title="Edit Trip & Budget"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeTripItem(trip.id);
+                      }}
+                      className="p-1.5 text-muted-custom hover:text-brand-coral hover:bg-brand-coral/10 rounded-lg transition-colors cursor-pointer"
+                      title="Delete Trip"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Spend & Budget Stats */}
@@ -151,7 +174,14 @@ export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {
         </div>
       )}
 
-      <TripModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <TripModal
+        isOpen={isModalOpen}
+        tripToEdit={editingTrip}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingTrip(null);
+        }}
+      />
 
     </div>
   );
