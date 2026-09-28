@@ -10,7 +10,6 @@ import { SidebarNav, NavTab } from './components/layout/SidebarNav';
 import { BottomPeriodBar } from './components/layout/BottomPeriodBar';
 import { DailyTimeline } from './components/dashboard/DailyTimeline';
 import { TransactionModal } from './components/dashboard/TransactionModal';
-import { AutoSmsDetectorBanner } from './components/common/AutoSmsDetectorBanner';
 import { ScheduledPaymentToastBanner } from './components/common/ScheduledPaymentToastBanner';
 import { Transaction } from './types';
 import { checkAndPerformLocalAutoBackup } from './services/localAutoBackupService';
@@ -131,14 +130,6 @@ const MainAppContent: React.FC = () => {
         onOpenScanner={() => navigateToTab('scanner')}
         onTitleClick={() => navigateToTab('dashboard')}
         onOpenSpendInsights={() => navigateToTab('insights')}
-      />
-
-      {/* Automatic SMS Transaction Detector Banner */}
-      <AutoSmsDetectorBanner
-        onEditDetectedTransaction={tx => {
-          setEditingTransaction(tx);
-          setIsQuickAddOpen(true);
-        }}
       />
 
       {/* Scheduled Payment Live Toast Banner */}

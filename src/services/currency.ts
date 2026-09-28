@@ -88,14 +88,20 @@ export function switchAppBaseCurrency(
   if (oldCurrency === newCurrency) return transactions;
 
   return transactions.map(tx => {
+    // Only convert or alter transactions that were recorded in the old base currency
+    if (tx.currency !== oldCurrency) {
+      // Foreign-currency transactions remain in their original recorded currency
+      return tx;
+    }
+
     if (mode === 'keep') {
-      // Just switch symbol, keep numeric amount
+      // Just switch symbol for base-currency transactions, keep numeric amount
       return {
         ...tx,
         currency: newCurrency
       };
     } else {
-      // Convert past amounts using exchange rate
+      // Convert past base-currency amounts using exchange rate
       const newAmount = convertCurrencyAmount(tx.amount, oldCurrency, newCurrency, rates);
       return {
         ...tx,

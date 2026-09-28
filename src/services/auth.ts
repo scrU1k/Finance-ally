@@ -1,4 +1,5 @@
 import { UserProfile, CurrencyCode } from '../types';
+import { openDatabase } from './db';
 
 const USER_KEY = 'fa_user_profile';
 
@@ -82,7 +83,7 @@ export async function createInitialUser(username: string, password: string, base
     requirePassword: true,
     isUnlocked: true,
   };
-  localStorage.setItem(USER_KEY, JSON.stringify(profile));
+  saveUserProfile(profile);
   return profile;
 }
 
@@ -110,4 +111,20 @@ export async function changeUserPassword(newPassword: string): Promise<boolean> 
 
 export function saveUserProfile(profile: UserProfile): void {
   localStorage.setItem(USER_KEY, JSON.stringify(profile));
+  saveUserProfileToIDB(profile).catch(() => {});
+}
+
+export async function saveUserProfileToIDB(profile: UserProfile): Promise<void> {
+  try {
+    const db = await openDatabase();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('userProfile', 'readwrite');
+      const store = tx.objectStore('userProfile');
+      store.put(profile);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    console.warn('IDB saveUserProfile failed:', e);
+  }
 }

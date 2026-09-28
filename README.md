@@ -1,8 +1,8 @@
-# Finance-Ally — Private, Offline Financial Intelligence
+# Finance-Ally — Private, Local-First Financial Intelligence
 
 > **Know where every rupee goes. Small habits. Big savings.**
 
-Finance-Ally is a premium, beautifully crafted personal finance app designed for users who value privacy, speed, and sleek modern design. It operates 100% offline on your device, ensuring your sensitive spending data never touches a remote server or cloud network.
+Finance-Ally is a premium, beautifully crafted personal finance app designed for users who value privacy, speed, and sleek modern design. It operates as a local-first, offline-capable application with sandboxed local storage, ensuring your sensitive financial records, logs, and passwords never leave your device.
 
 *Made with Antigravity*
 
@@ -10,7 +10,7 @@ Finance-Ally is a premium, beautifully crafted personal finance app designed for
 
 ## Why Choose Finance-Ally?
 
-- **100% Offline & Private**: All your financial logs, trip budgets, and notes stay sandboxed on your device. No signup required, no cloud tracking, no hidden data sales. A local PIN lock guards your data from anyone else with access to your phone.
+- **Local-First & Offline-Capable with Sandboxed Storage**: All your financial logs, trip budgets, credentials, and notes stay sandboxed on your device in local IndexedDB storage. No account signup required, no cloud tracking, no analytics, and no third-party data sales. An optional PIN lock screen guards the app UI on your device.
 - **Stunning Glassmorphic Design**: Built with frosted glass surfaces, dynamic lighting, fluid micro-animations, and custom ambient glowing active tabs that feel alive.
 - **Smart Natural Language Quick Logging**: Simply type expenses the way you think (`450rs coffee 2nd aug 8pm`, `250 petrol tomorrow at 9a`, `1200 dinner at 8pn`) — Finance-Ally parses the amount, date, time, category, and payment method automatically.
 - **Scheduled Payments**: Set any expense for a future date and time. It registers as a scheduled payment, is excluded from your current total until due, and fires a native Android system notification the moment it activates — even if the app is closed.
@@ -73,9 +73,13 @@ Any expense with a future date/time is automatically recognized as a **Scheduled
 
 ### 4. Complete Privacy & Security
 
-- **Startup App Lock**: Optional PIN lock card to guard your database from local access.
-- **RSA-2048 + AES-256-GCM Encrypted Backups**: Export your complete financial backup as an encrypted `.json.enc` file with PIN protection. Furthermore enabling auto-backup ensures data `Snapshots` are backed onto device storage, fully encrypted as per user convenience - `Daily`, `Weekly`, `Monthly`, `Off(Manual)`. These snapshots can be restored by the user at any time, and to upto 5 snapshots are stored on-device at once.
-- **Zero Third-Party Tracking**: No analytics, no advertising SDKs, no external accounts — ever.
+- **Startup App Lock (UI Gateway)**: Optional 4-digit PIN lock screen that guards the application UI from unauthorized access on a shared or unlocked physical device. Local transaction data and profile settings reside in device-sandboxed browser IndexedDB/LocalStorage.
+- **AES-GCM Password Vault**: Credentials stored in the Password Vault are client-side encrypted using AES-GCM derived from your Master PIN via PBKDF2 before persistence.
+- **Encrypted Backups & Snapshots**: Export complete financial backups as password-protected `.json.enc` files encrypted using PBKDF2 key derivation and AES-GCM. Device snapshot backups (`Daily`, `Weekly`, `Monthly`, or manual) store up to 5 encrypted snapshots locally on your device for rapid disaster recovery.
+- **Zero Third-Party Tracking & Clear Network Disclosures**: No analytics, no advertising SDKs, and no external user accounts. Your financial data is never transmitted to any server. When online, network activity is strictly limited to:
+  1. *Real-time Foreign Exchange Rates*: Fetches public currency conversion rates for foreign trip conversions via Open Exchange / public forex APIs.
+  2. *Typography*: Standard web typography loaded from Google Fonts CDN.
+  3. *On-Device Embedding Model*: A one-time initial download of the lightweight `Xenova/bge-small-en-v1.5` INT8 ONNX model from Hugging Face for the offline Knowledge Assistant (cached locally in browser storage thereafter).
 
 ---
 
@@ -141,7 +145,7 @@ Managing shared expenses with friends made simple:
 
 ---
 
-### 10. Knowledge Assistant & Offline RAG Vector Engine
+### 11. Knowledge Assistant & Offline RAG Vector Engine
 
 Finance-Ally 2.0 features a state-of-the-art, 100% offline **Financial Knowledge Engine** powered by `Xenova/bge-small-en-v1.5` ONNX WebAssembly embeddings, an intent-driven expert system, and an auto-tag rules parser.
 

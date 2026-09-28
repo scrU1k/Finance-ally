@@ -19,10 +19,10 @@ export function exportTransactionsToCSV(transactions: Transaction[], categories:
   const rows = transactions.map(t => {
     const catName = t.customCategoryName || catMap.get(t.categoryId) || 'Others';
     return [
-      t.date,
-      t.time || '12:00',
+      sanitizeCSVCell(t.date),
+      sanitizeCSVCell(t.time || '12:00'),
       t.amount.toFixed(2),
-      t.currency,
+      sanitizeCSVCell(t.currency),
       sanitizeCSVCell(catName),
       sanitizeCSVCell(t.note || ''),
       sanitizeCSVCell(t.paymentMethod || ''),
@@ -41,14 +41,13 @@ export function importTransactionsFromCSV(
   const errors: string[] = [];
   const parsedTxs: Transaction[] = [];
 
-  const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
-  if (lines.length < 2) {
+  const rows = parseCSVRows(csvText);
+  if (rows.length < 2) {
     return { success: false, count: 0, transactions: [], errors: ['CSV file is empty or missing data rows.'] };
   }
 
   // Parse Header
-  const headerLine = lines[0];
-  const headers = parseCSVLine(headerLine).map(h => h.trim().toLowerCase());
+  const headers = rows[0].map(h => h.trim().toLowerCase());
 
   const dateIdx = headers.findIndex(h => h.includes('date'));
   const amountIdx = headers.findIndex(h => h.includes('amount') || h.includes('cost') || h.includes('price') || h.includes('value'));
@@ -62,28 +61,35 @@ export function importTransactionsFromCSV(
     return { success: false, count: 0, transactions: [], errors: ['Could not find an "Amount" column in the CSV file.'] };
   }
 
-  for (let i = 1; i < lines.length; i++) {
+  for (let i = 1; i < rows.length; i++) {
+    const rowIdx = i + 1;
     try {
-      const columns = parseCSVLine(lines[i]);
-      if (columns.length === 0) continue;
+      const columns = rows[i];
+      if (columns.length === 0 || columns.every(c => c.trim().length === 0)) continue;
 
-      const rawAmount = columns[amountIdx] ? columns[amountIdx].replace(/[^0-9.-]/g, '') : '';
-      const amount = parseFloat(rawAmount);
-      if (isNaN(amount) || amount <= 0) {
-        errors.push(`Row ${i + 1}: Invalid amount "${columns[amountIdx]}"`);
+      // Strict amount validation
+      const rawVal = columns[amountIdx] ? columns[amountIdx].trim() : '';
+      const cleanedAmount = rawVal.replace(/^[^\d.-]+/, '').replace(/,/g, '');
+      const isFormatValid = /^-?\d+(\.\d{1,4})?$/.test(cleanedAmount);
+      const amount = parseFloat(cleanedAmount);
+      if (!isFormatValid || isNaN(amount) || amount <= 0) {
+        errors.push(`Row ${rowIdx}: Invalid amount "${rawVal}"`);
         continue;
       }
 
-      // Date parsing
+      // Strict date parsing - do not silently falsify invalid dates to today
       let date = new Date().toISOString().split('T')[0];
       if (dateIdx !== -1 && columns[dateIdx]) {
         const rawDate = columns[dateIdx].trim();
-        if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate) && !isNaN(Date.parse(rawDate))) {
           date = rawDate;
         } else {
           const parsedD = new Date(rawDate);
           if (!isNaN(parsedD.getTime())) {
             date = parsedD.toISOString().split('T')[0];
+          } else {
+            errors.push(`Row ${rowIdx}: Invalid date "${rawDate}"`);
+            continue;
           }
         }
       }
@@ -128,7 +134,7 @@ export function importTransactionsFromCSV(
         createdAt: Date.now() - i
       });
     } catch {
-      errors.push(`Row ${i + 1}: Malformed line format.`);
+      errors.push(`Row ${rowIdx}: Malformed line format.`);
     }
   }
 
@@ -140,27 +146,45 @@ export function importTransactionsFromCSV(
   };
 }
 
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
-  let current = '';
+function parseCSVRows(csvText: string): string[][] {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentField = '';
   let inQuotes = false;
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
     if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
+      if (inQuotes && csvText[i + 1] === '"') {
+        currentField += '"';
         i++;
       } else {
         inQuotes = !inQuotes;
       }
     } else if (char === ',' && !inQuotes) {
-      result.push(current);
-      current = '';
+      currentRow.push(currentField);
+      currentField = '';
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      if (char === '\r' && csvText[i + 1] === '\n') {
+        i++;
+      }
+      currentRow.push(currentField);
+      currentField = '';
+      if (currentRow.some(cell => cell.trim().length > 0)) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
     } else {
-      current += char;
+      currentField += char;
     }
   }
-  result.push(current);
-  return result;
+
+  if (currentField.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentField);
+    if (currentRow.some(cell => cell.trim().length > 0)) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
 }

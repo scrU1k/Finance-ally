@@ -40,10 +40,8 @@
         </provider>
     </application>
 
-    <!-- Permissions for Persistent Notification & Foreground Background Service (Play Store Compliant) -->
+    <!-- Permissions for Scheduled Payment Notifications & Exact Alarms -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />

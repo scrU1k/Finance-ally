@@ -107,30 +107,35 @@
     <li><strong>No Telemetry or Profiling:</strong> No personal, financial, or analytical data is collected, transmitted, profiled, sold, or monitored.</li>
   </ul>
 
-  <h3>2. Local-Only Storage & Data Sovereignty</h3>
+  <h3>2. Local-Only Storage & Access Control Architecture</h3>
   <ul>
-    <li>All transactions, budget limits, categories, and period notes remain exclusively on your local device using client-side <code>IndexedDB</code> and <code>localStorage</code>.</li>
-    <li>Automated local snapshots are saved strictly within your device's isolated application storage or native filesystem.</li>
-    <li>Users retain full ownership, access, and control over their records at all times.</li>
+    <li>All transactions, budget limits, categories, and period notes remain exclusively on your local device within client-side <code>IndexedDB</code> and <code>localStorage</code> sandboxes.</li>
+    <li><strong>Application Gateway Lock:</strong> The app lock PIN / password provides local UI session access control against casual physical snooping; transaction records are stored within the operating system/browser sandboxed database without transmission to any cloud database.</li>
+    <li>Automated local snapshots and manual backup files are saved strictly within your device's isolated application storage or native filesystem.</li>
+    <li>Users retain full sovereignty, ownership, access, and export control over their financial records at all times.</li>
   </ul>
 
-  <h3>3. Password Manager & Local Cryptography</h3>
+  <h3>3. Password Manager Vault Cryptography</h3>
   <ul>
-    <li>All credentials, usernames, and passwords stored in the Password Manager are encrypted on-device using <strong>AES-256-GCM</strong> with keys derived via <strong>PBKDF2 (100,000 iterations)</strong>.</li>
-    <li>Keys exist in volatile memory only while unlocked and are never stored in plaintext or transmitted.</li>
-    <li>Operating on a Zero-Knowledge architecture, forgotten Master PINs cannot be recovered by any external party.</li>
+    <li>All credentials, usernames, and passwords stored in the dedicated Password Manager Vault are encrypted on-device using <strong>AES-256-GCM</strong> authenticated encryption with keys derived via <strong>PBKDF2 (100,000 iterations)</strong>.</li>
+    <li>Decrypted secrets exist in volatile memory only while unlocked and are never stored in plaintext or transmitted.</li>
+    <li>Operating on a Zero-Knowledge architecture, forgotten Vault PINs cannot be recovered by any external party.</li>
   </ul>
 
   <h3>4. On-Device Intelligence & Processing</h3>
   <ul>
-    <li>Expense categorization, natural language command parsing, and vector embeddings execute entirely in your local browser/device Web Worker thread.</li>
-    <li>No transaction text or financial notes are ever sent to third-party AI APIs or cloud services.</li>
+    <li>Expense categorization, rule matching, and vector embeddings execute entirely on-device within local Web Worker threads.</li>
+    <li>No transaction text, payee names, or financial notes are ever sent to third-party AI APIs or cloud services.</li>
   </ul>
 
   <h3>5. Outbound Network Requests</h3>
+  <p>Finance-Ally is built local-first. The only outbound network requests initiated by the application are for publicly available operational assets and data:</p>
   <ul>
-    <li>The only outbound network requests initiated by the application are to fetch publicly available foreign currency exchange rates (Forex API). These requests are automatically sent upon opening the app and when explicitly requested by the user. No user-identifying data or financial records are included in these requests.</li>
+    <li><strong>Forex Exchange Rates:</strong> Outbound requests to public currency exchange rate APIs to update conversion rates. No user-identifying data or financial records are included.</li>
+    <li><strong>Static UI Fonts (Web):</strong> Google Fonts stylesheets and typography files fetched on initial web asset load and cached locally by the browser.</li>
+    <li><strong>Initial Local AI Model Download:</strong> When semantic smart tagging is initialized, the lightweight quantized embedding model (<code>bge-small-en-v1.5</code>, ~22MB INT8) is downloaded once from Hugging Face and cached locally in the browser/device cache for permanent offline operation.</li>
   </ul>
+  <p><strong>At no time are your transactions, accounts, notes, balances, or passwords ever transmitted over any network.</strong></p>
 
   <h2>Part 2: Terms of Service</h2>
 

@@ -26,7 +26,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-others', name: 'Others', color: '#652d1f', icon: 'Tag', isDefault: true },
 ];
 
-function openDatabase(): Promise<IDBDatabase> {
+export function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -111,6 +111,7 @@ export async function saveTransaction(transaction: Transaction): Promise<void> {
     });
   } catch (e) {
     console.error('IndexedDB saveTransaction failed:', e);
+    throw e;
   }
 }
 
@@ -126,6 +127,7 @@ export async function deleteTransaction(id: string): Promise<void> {
     });
   } catch (e) {
     console.error('IndexedDB deleteTransaction failed:', e);
+    throw e;
   }
 }
 
@@ -185,6 +187,7 @@ export async function saveCategory(category: Category): Promise<void> {
     });
   } catch (e) {
     console.error('IndexedDB saveCategory failed:', e);
+    throw e;
   }
 }
 
@@ -200,6 +203,7 @@ export async function deleteCategory(id: string): Promise<void> {
     });
   } catch (e) {
     console.error('IndexedDB deleteCategory failed:', e);
+    throw e;
   }
 }
 
@@ -233,6 +237,7 @@ export async function saveTrip(trip: Trip): Promise<void> {
     });
   } catch (e) {
     console.error('IndexedDB saveTrip failed:', e);
+    throw e;
   }
 }
 
@@ -248,6 +253,7 @@ export async function deleteTrip(id: string): Promise<void> {
     });
   } catch (e) {
     console.error('IndexedDB deleteTrip failed:', e);
+    throw e;
   }
 }
 
@@ -327,6 +333,7 @@ export async function saveSubscription(sub: Subscription): Promise<void> {
     });
   } catch (e) {
     console.error('IndexedDB saveSubscription failed:', e);
+    throw e;
   }
 }
 
@@ -342,6 +349,7 @@ export async function deleteSubscription(id: string): Promise<void> {
     });
   } catch (e) {
     console.error('IndexedDB deleteSubscription failed:', e);
+    throw e;
   }
 }
 
@@ -361,18 +369,41 @@ export async function exportFullDataBackup(): Promise<string> {
   const subscriptions = await loadSubscriptions();
   const periodNotes = await loadPeriodNotes();
   
-  let profile = {};
+  let profile: any = {};
   try {
-    const db = await openDatabase();
-    profile = await new Promise((resolve) => {
-      const tx = db.transaction('userProfile', 'readonly');
-      const store = tx.objectStore('userProfile');
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result?.[0] || {});
-      req.onerror = () => resolve({});
-    });
+    const raw = localStorage.getItem('fa_user_profile');
+    if (raw) {
+      profile = JSON.parse(raw);
+    } else {
+      const db = await openDatabase();
+      profile = await new Promise((resolve) => {
+        const tx = db.transaction('userProfile', 'readonly');
+        const store = tx.objectStore('userProfile');
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result?.[0] || {});
+        req.onerror = () => resolve({});
+      });
+    }
   } catch {
-    profile = JSON.parse(localStorage.getItem('fa_user_profile') || '{}');
+    profile = {};
+  }
+
+  // Password Vault Envelope & Items
+  let passwordVaultEnvelope: any = null;
+  let passwordVaultItems: any[] = [];
+  try {
+    const rawEnv = localStorage.getItem('fa_password_vault_envelope');
+    if (rawEnv) {
+      passwordVaultEnvelope = JSON.parse(rawEnv);
+      passwordVaultItems = passwordVaultEnvelope.items || [];
+    } else {
+      passwordVaultItems = JSON.parse(localStorage.getItem('fa_password_vault_items') || '[]');
+      if (passwordVaultItems.length > 0) {
+        passwordVaultEnvelope = { version: '2.2', checksum: 'uncalculated', items: passwordVaultItems };
+      }
+    }
+  } catch {
+    passwordVaultItems = [];
   }
 
   const data = {
@@ -386,7 +417,8 @@ export async function exportFullDataBackup(): Promise<string> {
     exportPin: localStorage.getItem('fa_export_pin') || null,
     userTagRules: JSON.parse(localStorage.getItem('fa_user_tag_rules') || '[]'),
     customKnowledgeRules: JSON.parse(localStorage.getItem('fa_custom_knowledge_rules') || '[]'),
-    passwordVaultItems: JSON.parse(localStorage.getItem('fa_password_vault_items') || '[]'),
+    passwordVaultItems,
+    passwordVaultEnvelope,
     passwordVaultVerifier: localStorage.getItem('fa_pwd_vault_verifier') || null,
     exportTimestamp: Date.now(),
     appVersion: '2.2.0'
@@ -399,12 +431,26 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
     const data = JSON.parse(jsonString);
     if (!data || typeof data !== 'object') return false;
 
-    const db = await openDatabase();
+    // Strict schema & type validation before mutating any storage
+    if (data.transactions && !Array.isArray(data.transactions)) return false;
+    if (data.categories && !Array.isArray(data.categories)) return false;
+    if (data.trips && !Array.isArray(data.trips)) return false;
+    if (data.subscriptions && !Array.isArray(data.subscriptions)) return false;
+    if (data.smsTemplates && !Array.isArray(data.smsTemplates)) return false;
+    if (data.periodNotes && !Array.isArray(data.periodNotes)) return false;
+    if (data.profile && typeof data.profile !== 'object') return false;
 
-    // 1. Transactions Store
-    if (data.transactions && Array.isArray(data.transactions)) {
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction('transactions', 'readwrite');
+    const db = await openDatabase();
+    const storesToLock = ['transactions', 'categories', 'trips', 'smsTemplates', 'subscriptions', 'userProfile'];
+
+    // Atomic Multi-Store IndexedDB Transaction: all-or-nothing
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(storesToLock, 'readwrite');
+      tx.onerror = () => reject(tx.error);
+      tx.oncomplete = () => resolve();
+
+      // 1. Transactions Store
+      if (data.transactions && Array.isArray(data.transactions)) {
         const store = tx.objectStore('transactions');
         store.clear();
         data.transactions.forEach((t: Transaction) => {
@@ -415,12 +461,73 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
             });
           }
         });
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
+      }
+
+      // 2. Categories Store
+      if (data.categories && Array.isArray(data.categories)) {
+        const store = tx.objectStore('categories');
+        store.clear();
+        data.categories.forEach((c: Category) => {
+          if (c.id && c.name) store.put(c);
+        });
+      }
+
+      // 3. Trips Store
+      if (data.trips && Array.isArray(data.trips)) {
+        const store = tx.objectStore('trips');
+        store.clear();
+        data.trips.forEach((t: Trip) => {
+          if (t.id && t.name) store.put(t);
+        });
+      }
+
+      // 4. SMS Templates Store
+      if (data.smsTemplates && Array.isArray(data.smsTemplates)) {
+        const store = tx.objectStore('smsTemplates');
+        store.clear();
+        data.smsTemplates.forEach((st: SmsTemplate) => {
+          if (st.id && st.name) store.put(st);
+        });
+      }
+
+      // 5. Subscriptions Store
+      if (data.subscriptions && Array.isArray(data.subscriptions)) {
+        const store = tx.objectStore('subscriptions');
+        store.clear();
+        data.subscriptions.forEach((sub: Subscription) => {
+          if (sub.id && sub.name) store.put(sub);
+        });
+      }
+
+      // 6. User Profile Store
+      if (data.profile && typeof data.profile === 'object' && data.profile.username) {
+        const restoredProfile = { ...data.profile, isUnlocked: false };
+        const store = tx.objectStore('userProfile');
+        store.clear();
+        store.put(restoredProfile);
+      }
+    });
+
+    // Sync localStorage strictly AFTER atomic database transaction succeeds
+    if (data.transactions && Array.isArray(data.transactions)) {
       localStorage.setItem('fa_transactions', JSON.stringify(data.transactions));
     }
-
+    if (data.categories && Array.isArray(data.categories)) {
+      localStorage.setItem('fa_categories', JSON.stringify(data.categories));
+    }
+    if (data.trips && Array.isArray(data.trips)) {
+      localStorage.setItem('fa_trips', JSON.stringify(data.trips));
+    }
+    if (data.periodNotes && Array.isArray(data.periodNotes)) {
+      localStorage.setItem('fa_period_notes', JSON.stringify(data.periodNotes));
+    }
+    if (data.profile && typeof data.profile === 'object' && data.profile.username) {
+      const restoredProfile = { ...data.profile, isUnlocked: false };
+      localStorage.setItem('fa_user_profile', JSON.stringify(restoredProfile));
+    }
+    if (data.exportPin && typeof data.exportPin === 'string') {
+      localStorage.setItem('fa_export_pin', data.exportPin);
+    }
     if (data.userTagRules && Array.isArray(data.userTagRules)) {
       localStorage.setItem('fa_user_tag_rules', JSON.stringify(data.userTagRules));
       try {
@@ -430,98 +537,33 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
         console.warn('Rules trie sync failed on import:', e);
       }
     }
-
     if (data.customKnowledgeRules && Array.isArray(data.customKnowledgeRules)) {
       localStorage.setItem('fa_custom_knowledge_rules', JSON.stringify(data.customKnowledgeRules));
     }
 
-    if (data.passwordVaultItems && Array.isArray(data.passwordVaultItems)) {
+    // Reconcile Password Vault Envelope & Items
+    if (data.passwordVaultEnvelope && typeof data.passwordVaultEnvelope === 'object') {
+      localStorage.setItem('fa_password_vault_envelope', JSON.stringify(data.passwordVaultEnvelope));
+      if (data.passwordVaultEnvelope.items && Array.isArray(data.passwordVaultEnvelope.items)) {
+        localStorage.setItem('fa_password_vault_items', JSON.stringify(data.passwordVaultEnvelope.items));
+      }
+    } else if (data.passwordVaultItems && Array.isArray(data.passwordVaultItems)) {
       localStorage.setItem('fa_password_vault_items', JSON.stringify(data.passwordVaultItems));
+      const fallbackEnvelope = {
+        version: '2.2',
+        checksum: 'uncalculated',
+        items: data.passwordVaultItems
+      };
+      localStorage.setItem('fa_password_vault_envelope', JSON.stringify(fallbackEnvelope));
     }
 
     if (data.passwordVaultVerifier && typeof data.passwordVaultVerifier === 'string') {
       localStorage.setItem('fa_pwd_vault_verifier', data.passwordVaultVerifier);
     }
 
-    // 2. Categories Store
-    if (data.categories && Array.isArray(data.categories)) {
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction('categories', 'readwrite');
-        const store = tx.objectStore('categories');
-        store.clear();
-        data.categories.forEach((c: Category) => {
-          if (c.id && c.name) store.put(c);
-        });
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-      localStorage.setItem('fa_categories', JSON.stringify(data.categories));
-    }
-
-    // 3. Trips Store
-    if (data.trips && Array.isArray(data.trips)) {
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction('trips', 'readwrite');
-        const store = tx.objectStore('trips');
-        store.clear();
-        data.trips.forEach((t: Trip) => store.put(t));
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-      localStorage.setItem('fa_trips', JSON.stringify(data.trips));
-    }
-
-    // 4. SMS Templates Store
-    if (data.smsTemplates && Array.isArray(data.smsTemplates)) {
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction('smsTemplates', 'readwrite');
-        const store = tx.objectStore('smsTemplates');
-        store.clear();
-        data.smsTemplates.forEach((st: SmsTemplate) => store.put(st));
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-
-    // 5. Subscriptions Store
-    if (data.subscriptions && Array.isArray(data.subscriptions)) {
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction('subscriptions', 'readwrite');
-        const store = tx.objectStore('subscriptions');
-        store.clear();
-        data.subscriptions.forEach((sub: Subscription) => store.put(sub));
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-
-    // 6. Period Notes Store
-    if (data.periodNotes && Array.isArray(data.periodNotes)) {
-      localStorage.setItem('fa_period_notes', JSON.stringify(data.periodNotes));
-    }
-
-    // 7. User Profile Store
-    if (data.profile && typeof data.profile === 'object' && data.profile.username) {
-      // Force isUnlocked:false so the lock screen is shown after reload
-      const restoredProfile = { ...data.profile, isUnlocked: false };
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction('userProfile', 'readwrite');
-        const store = tx.objectStore('userProfile');
-        store.put(restoredProfile);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-      localStorage.setItem('fa_user_profile', JSON.stringify(restoredProfile));
-    }
-
-    // 8. Export PIN (snapshot/backup encryption PIN)
-    if (data.exportPin && typeof data.exportPin === 'string') {
-      localStorage.setItem('fa_export_pin', data.exportPin);
-    }
-
     return true;
   } catch (err) {
-    console.error('Failed to import backup:', err);
+    console.error('Failed to import backup atomically:', err);
     return false;
   }
 }

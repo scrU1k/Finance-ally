@@ -201,84 +201,148 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [transactions, baseCurrency]);
 
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt'>) => {
-    const isFuture = isFutureDateTime(txData.date, txData.time);
-    const newTx: Transaction = {
-      ...txData,
-      isScheduled: txData.isScheduled !== undefined ? txData.isScheduled : isFuture,
-      tripId: txData.tripId || activeTripVault?.id || undefined,
-      id: `tx-${Date.now()}-${crypto.randomUUID().split('-')[0]}`,
-      createdAt: Date.now(),
-    };
-    await saveTransaction(newTx);
-    setTransactions(prev => [newTx, ...prev]);
+    try {
+      const isFuture = isFutureDateTime(txData.date, txData.time);
+      const newTx: Transaction = {
+        ...txData,
+        isScheduled: txData.isScheduled !== undefined ? txData.isScheduled : isFuture,
+        tripId: txData.tripId || activeTripVault?.id || undefined,
+        id: `tx-${Date.now()}-${crypto.randomUUID().split('-')[0]}`,
+        createdAt: Date.now(),
+      };
+      await saveTransaction(newTx);
+      setTransactions(prev => [newTx, ...prev]);
 
-    if (newTx.isScheduled) {
-      scheduleFutureNativeNotification(newTx, baseCurrency);
+      if (newTx.isScheduled) {
+        scheduleFutureNativeNotification(newTx, baseCurrency);
+      }
+
+      checkAndPerformLocalAutoBackup(transactions.length + 1);
+    } catch (e) {
+      console.error('Failed to persist new transaction:', e);
+      throw e;
     }
-
-    checkAndPerformLocalAutoBackup(transactions.length + 1);
   };
 
   const editTransaction = async (tx: Transaction) => {
-    const isFuture = isFutureDateTime(tx.date, tx.time);
-    const updatedTx: Transaction = {
-      ...tx,
-      isScheduled: tx.isScheduled !== undefined ? tx.isScheduled : isFuture,
-    };
-    await saveTransaction(updatedTx);
-    setTransactions(prev => prev.map(t => (t.id === updatedTx.id ? updatedTx : t)));
+    try {
+      const isFuture = isFutureDateTime(tx.date, tx.time);
+      const updatedTx: Transaction = {
+        ...tx,
+        isScheduled: tx.isScheduled !== undefined ? tx.isScheduled : isFuture,
+      };
+      await saveTransaction(updatedTx);
+      setTransactions(prev => prev.map(t => (t.id === updatedTx.id ? updatedTx : t)));
 
-    if (updatedTx.isScheduled) {
-      scheduleFutureNativeNotification(updatedTx, baseCurrency);
+      if (updatedTx.isScheduled) {
+        scheduleFutureNativeNotification(updatedTx, baseCurrency);
+      }
+    } catch (e) {
+      console.error('Failed to persist transaction edit:', e);
+      throw e;
     }
   };
 
   const deleteTx = async (id: string) => {
-    await deleteTransaction(id);
-    setTransactions(prev => prev.filter(t => t.id !== id));
+    try {
+      await deleteTransaction(id);
+      setTransactions(prev => prev.filter(t => t.id !== id));
+    } catch (e) {
+      console.error('Failed to delete transaction:', e);
+      throw e;
+    }
   };
 
   const addCategoryItem = async (catData: Omit<Category, 'id'>) => {
-    const newCat: Category = {
-      ...catData,
-      id: `cat-${Date.now()}`
-    };
-    await saveCategory(newCat);
-    setCategories(prev => [...prev, newCat]);
+    try {
+      const newCat: Category = {
+        ...catData,
+        id: `cat-${Date.now()}`
+      };
+      await saveCategory(newCat);
+      setCategories(prev => [...prev, newCat]);
+    } catch (e) {
+      console.error('Failed to save category:', e);
+      throw e;
+    }
   };
 
   const updateCategoryItem = async (category: Category) => {
-    await saveCategory(category);
-    setCategories(prev => prev.map(c => (c.id === category.id ? category : c)));
+    try {
+      await saveCategory(category);
+      setCategories(prev => prev.map(c => (c.id === category.id ? category : c)));
+    } catch (e) {
+      console.error('Failed to update category:', e);
+      throw e;
+    }
   };
 
   const deleteCategoryItem = async (id: string) => {
-    await deleteCategory(id);
-    setCategories(prev => prev.filter(c => c.id !== id));
+    try {
+      const deletedCat = categories.find(c => c.id === id);
+      await deleteCategory(id);
+      setCategories(prev => prev.filter(c => c.id !== id));
+
+      // Cascade reassign orphaned transactions to 'cat-others'
+      const affected = transactions.filter(t => t.categoryId === id);
+      if (affected.length > 0) {
+        const updated = transactions.map(t => {
+          if (t.categoryId === id) {
+            const remapped: Transaction = {
+              ...t,
+              categoryId: 'cat-others',
+              customCategoryName: t.customCategoryName || deletedCat?.name || 'Others'
+            };
+            saveTransaction(remapped).catch(err => console.error('Failed to persist remapped category tx:', err));
+            return remapped;
+          }
+          return t;
+        });
+        setTransactions(updated);
+      }
+    } catch (e) {
+      console.error('Failed to delete category:', e);
+      throw e;
+    }
   };
 
   const addTripItem = async (tripData: Omit<Trip, 'id' | 'createdAt'>) => {
-    const newTrip: Trip = {
-      ...tripData,
-      id: `trip-${Date.now()}`,
-      createdAt: Date.now()
-    };
-    await saveTrip(newTrip);
-    setTrips(prev => [newTrip, ...prev]);
+    try {
+      const newTrip: Trip = {
+        ...tripData,
+        id: `trip-${Date.now()}`,
+        createdAt: Date.now()
+      };
+      await saveTrip(newTrip);
+      setTrips(prev => [newTrip, ...prev]);
+    } catch (e) {
+      console.error('Failed to add trip:', e);
+      throw e;
+    }
   };
 
   const updateTripItem = async (trip: Trip) => {
-    await saveTrip(trip);
-    setTrips(prev => prev.map(t => (t.id === trip.id ? trip : t)));
-    if (activeTripVault?.id === trip.id) {
-      setActiveTripVault(trip);
+    try {
+      await saveTrip(trip);
+      setTrips(prev => prev.map(t => (t.id === trip.id ? trip : t)));
+      if (activeTripVault?.id === trip.id) {
+        setActiveTripVault(trip);
+      }
+    } catch (e) {
+      console.error('Failed to update trip:', e);
+      throw e;
     }
   };
 
   const removeTripItem = async (id: string) => {
-    await deleteTrip(id);
-    setTrips(prev => prev.filter(t => t.id !== id));
-    if (activeTripVault?.id === id) setActiveTripVault(null);
+    try {
+      await deleteTrip(id);
+      setTrips(prev => prev.filter(t => t.id !== id));
+      if (activeTripVault?.id === id) setActiveTripVault(null);
+    } catch (e) {
+      console.error('Failed to delete trip:', e);
+      throw e;
+    }
   };
 
   const switchBaseCurrency = async (newCurrency: CurrencyCode, mode: 'convert' | 'keep') => {
