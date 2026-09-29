@@ -331,3 +331,147 @@ export async function deleteMultiplePasswordItems(ids: string[]): Promise<void> 
 export async function savePasswordItemsOrder(orderedItems: PasswordVaultItem[]): Promise<void> {
   await savePasswordEnvelope(orderedItems);
 }
+
+// ─── VAULT-ONLY BACKUP & RESTORE ──────────────────────────────────────────────
+// Double-layer encryption:
+//   Inner layer  → Each vault item's payload is already encrypted with the vault Master PIN (AES-GCM via PBKDF2)
+//   Outer layer  → The entire vault JSON is re-encrypted with the user's app password (AES-GCM via PBKDF2)
+
+const VAULT_BACKUP_MAGIC = 'FA_VAULT_BACKUP_V1';
+const VAULT_BACKUP_ITERATIONS = 200_000; // higher iteration count for app-password outer wrap
+
+async function deriveOuterKey(appPassword: string, salt: Uint8Array): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  const baseKey = await window.crypto.subtle.importKey('raw', enc.encode(appPassword), 'PBKDF2', false, ['deriveKey']);
+  return window.crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: salt.buffer as ArrayBuffer, iterations: VAULT_BACKUP_ITERATIONS, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+export interface VaultBackupBundle {
+  _fa_vault_backup: typeof VAULT_BACKUP_MAGIC;
+  /** Hex-encoded AES-GCM ciphertext of the vault JSON (inner-layer items remain vault-PIN encrypted) */
+  ciphertext: string;
+  /** Hex-encoded 12-byte IV for outer AES-GCM */
+  iv: string;
+  /** Hex-encoded 16-byte PBKDF2 salt for outer key derivation */
+  salt: string;
+  exportedAt: number;
+  itemCount: number;
+  appVersion: string;
+}
+
+/**
+ * Export a vault-only backup bundle.
+ * The vault items inside are already encrypted with the user's Master PIN (inner layer).
+ * The entire payload is then wrapped with AES-GCM derived from appPassword (outer layer).
+ */
+export async function exportVaultBackup(appPassword: string): Promise<string> {
+  const envelope = getStoredPasswordEnvelope();
+  const verifier = localStorage.getItem(VERIFIER_KEY);
+
+  const payload = JSON.stringify({
+    _magic: VAULT_BACKUP_MAGIC,
+    envelope,
+    verifier,       // vault PIN verifier — needed so the vault can be unlocked after restore
+    exportedAt: Date.now(),
+    appVersion: '2.2.0'
+  });
+
+  const salt = window.crypto.getRandomValues(new Uint8Array(16));
+  const iv   = window.crypto.getRandomValues(new Uint8Array(12));
+  const key  = await deriveOuterKey(appPassword, salt);
+
+  const enc = new TextEncoder();
+  const cipherBuf = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(payload));
+
+  const bundle: VaultBackupBundle = {
+    _fa_vault_backup: VAULT_BACKUP_MAGIC,
+    ciphertext: bufferToHex(cipherBuf),
+    iv: bufferToHex(iv.buffer as ArrayBuffer),
+    salt: bufferToHex(salt.buffer as ArrayBuffer),
+    exportedAt: Date.now(),
+    itemCount: envelope.items?.length ?? 0,
+    appVersion: '2.2.0'
+  };
+
+  return JSON.stringify(bundle, null, 2);
+}
+
+/**
+ * Import a vault-only backup bundle.
+ * @param jsonString  The vault backup JSON string.
+ * @param appPassword The user's app password to decrypt the outer layer.
+ * @returns 'ok' on success, 'wrong_password' if decryption fails, 'invalid' if the file is not a vault backup.
+ */
+export async function importVaultBackup(
+  jsonString: string,
+  appPassword: string
+): Promise<{ result: 'ok' | 'wrong_password' | 'invalid'; itemCount?: number }> {
+  let parsed: VaultBackupBundle;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch {
+    return { result: 'invalid' };
+  }
+
+  if (parsed._fa_vault_backup !== VAULT_BACKUP_MAGIC) {
+    return { result: 'invalid' };
+  }
+
+  // Outer layer: decrypt with app password
+  try {
+    const salt = hexToBuffer(parsed.salt);
+    const iv   = hexToBuffer(parsed.iv);
+    const data = hexToBuffer(parsed.ciphertext);
+    const key  = await deriveOuterKey(appPassword, salt);
+
+    let plainBuf: ArrayBuffer;
+    try {
+      plainBuf = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+        key,
+        data.buffer as ArrayBuffer
+      );
+    } catch {
+      return { result: 'wrong_password' };
+    }
+
+    const inner = JSON.parse(new TextDecoder().decode(plainBuf));
+
+    // Validate magic
+    if (inner._magic !== VAULT_BACKUP_MAGIC) {
+      return { result: 'invalid' };
+    }
+
+    // Restore vault envelope (items remain vault-PIN encrypted)
+    if (inner.envelope && Array.isArray(inner.envelope.items)) {
+      localStorage.setItem(ENVELOPE_KEY, JSON.stringify(inner.envelope));
+      localStorage.setItem(ITEMS_KEY, JSON.stringify(inner.envelope.items));
+    }
+
+    // Restore vault verifier so the vault Master PIN still works
+    if (inner.verifier && typeof inner.verifier === 'string') {
+      localStorage.setItem(VERIFIER_KEY, inner.verifier);
+    }
+
+    resetFailedPinAttempts();
+
+    return { result: 'ok', itemCount: inner.envelope?.items?.length ?? 0 };
+  } catch {
+    return { result: 'invalid' };
+  }
+}
+
+export function isVaultBackup(jsonString: string): boolean {
+  try {
+    const p = JSON.parse(jsonString);
+    return p._fa_vault_backup === VAULT_BACKUP_MAGIC;
+  } catch {
+    return false;
+  }
+}

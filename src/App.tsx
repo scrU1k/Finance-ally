@@ -18,7 +18,6 @@ import { Capacitor } from '@capacitor/core';
 
 import { SubscriptionPage } from './components/subscriptions/SubscriptionPage';
 import { TripList } from './components/trips/TripList';
-import { NotificationScannerModal } from './components/scanner/NotificationScannerModal';
 import { EndOfMonthAudit } from './components/audit/EndOfMonthAudit';
 import { SplitBillModal } from './components/tools/SplitBillModal';
 import { SmartSuggestions } from './components/insights/SmartSuggestions';
@@ -127,7 +126,6 @@ const MainAppContent: React.FC = () => {
           setEditingTransaction(null);
           setIsQuickAddOpen(true);
         }}
-        onOpenScanner={() => navigateToTab('scanner')}
         onTitleClick={() => navigateToTab('dashboard')}
         onOpenSpendInsights={() => navigateToTab('insights')}
       />
@@ -162,7 +160,6 @@ const MainAppContent: React.FC = () => {
 
           {activeTab === 'subscriptions' && <SubscriptionPage />}
           {activeTab === 'trips' && <TripList setActiveTab={navigateToTab} />}
-          {activeTab === 'scanner' && <NotificationScannerModal />}
           {activeTab === 'audit' && <EndOfMonthAudit />}
           {activeTab === 'split' && <SplitBillModal />}
           {activeTab === 'passwords' && <PasswordManagerTab />}

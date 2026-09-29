@@ -24,7 +24,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
-import { hasMasterPin, setMasterPin, verifyMasterPin, getStoredPasswordItems, decryptCardPayload, encryptCardPayload, savePasswordEnvelope } from '../../services/passwordVaultService';
+import { hasMasterPin, setMasterPin, verifyMasterPin, getStoredPasswordItems, decryptCardPayload, encryptCardPayload, savePasswordEnvelope, isVaultBackup } from '../../services/passwordVaultService';
 import {
   X,
   Settings as SettingsIcon,
@@ -385,6 +385,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     reader.onload = async (event) => {
       const content = event.target?.result as string;
       if (!content) {
+        resetSystemPickerBypass();
+        return;
+      }
+
+      if (isVaultBackup(content)) {
+        setImportStatus('Notice: This file is a dedicated Password Vault backup. Please restore it in Password Manager > Backup & Restore.');
         resetSystemPickerBypass();
         return;
       }

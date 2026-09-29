@@ -9,12 +9,11 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onOpenCategories: () => void;
   onOpenQuickAdd?: () => void;
-  onOpenScanner?: () => void;
   onTitleClick?: () => void;
   onOpenSpendInsights?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories, onOpenScanner: _onOpenScanner, onTitleClick, onOpenSpendInsights }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories, onTitleClick, onOpenSpendInsights }) => {
   const { logout } = useAuth();
   const { baseCurrency, activeTripVault, setActiveTripVault } = useFinance();
 

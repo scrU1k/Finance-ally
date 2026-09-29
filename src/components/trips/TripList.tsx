@@ -5,8 +5,10 @@ import { TripModal } from './TripModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 import { Plane, Plus, Trash2, Calendar, Edit2 } from 'lucide-react';
 
+import { NavTab } from '../layout/SidebarNav';
+
 interface TripListProps {
-  setActiveTab?: (tab: 'dashboard' | 'subscriptions' | 'trips' | 'scanner' | 'audit' | 'split' | 'insights') => void;
+  setActiveTab?: (tab: NavTab) => void;
 }
 
 export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {

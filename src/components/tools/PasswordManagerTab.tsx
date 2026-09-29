@@ -23,7 +23,12 @@ import {
   ChevronDown,
   ChevronRight,
   ShieldAlert,
-  Clock
+  Clock,
+  Database,
+  Download,
+  Upload,
+  Shield,
+  FileText
 } from 'lucide-react';
 import { PasswordVaultItem, DecryptedPasswordCard } from '../../types';
 import {
@@ -38,8 +43,16 @@ import {
   verifyMasterPin,
   decryptCardPayload,
   verifyVaultIntegrity,
-  getLockoutStatus
+  getLockoutStatus,
+  exportVaultBackup,
+  importVaultBackup,
+  isVaultBackup
 } from '../../services/passwordVaultService';
+import { verifyUserPassword } from '../../services/auth';
+import { suppressLockForSystemPicker, resetSystemPickerBypass } from '../../context/AuthContext';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { Capacitor } from '@capacitor/core';
 
 type SortMode = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc' | 'custom';
 
@@ -107,6 +120,183 @@ export const PasswordManagerTab: React.FC = () => {
   const [formMasterPin, setFormMasterPin] = useState('');
   const [formConfirmPin, setFormConfirmPin] = useState('');
   const [formError, setFormError] = useState('');
+
+  // Vault Backup & Restore State (Double-Layer Encrypted)
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
+  const [backupSubTab, setBackupSubTab] = useState<'export' | 'restore'>('export');
+  
+  // Export State
+  const [exportAppPassword, setExportAppPassword] = useState('');
+  const [showExportAppPassword, setShowExportAppPassword] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportError, setExportError] = useState('');
+  const [exportedData, setExportedData] = useState<string | null>(null);
+  const [exportCopied, setExportCopied] = useState(false);
+
+  // Restore State
+  const [restoreFileContent, setRestoreFileContent] = useState<string | null>(null);
+  const [restoreFileName, setRestoreFileName] = useState('');
+  const [restoreAppPassword, setRestoreAppPassword] = useState('');
+  const [showRestoreAppPassword, setShowRestoreAppPassword] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [restoreError, setRestoreError] = useState('');
+  const [restoreSuccess, setRestoreSuccess] = useState('');
+  const restoreFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const resetBackupModalState = () => {
+    setIsBackupModalOpen(false);
+    setExportedData(null);
+    setExportAppPassword('');
+    setExportError('');
+    setExportCopied(false);
+    setRestoreFileContent(null);
+    setRestoreFileName('');
+    setRestoreAppPassword('');
+    setRestoreError('');
+    setRestoreSuccess('');
+  };
+
+  const handleExportVault = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setExportError('');
+    if (!exportAppPassword) {
+      setExportError('Main App Password is required to seal the outer encryption layer.');
+      return;
+    }
+    setExportLoading(true);
+    try {
+      const isValid = await verifyUserPassword(exportAppPassword);
+      if (!isValid) {
+        setExportLoading(false);
+        setExportError('Incorrect Main App Password. Authentication failed.');
+        return;
+      }
+      const bundle = await exportVaultBackup(exportAppPassword);
+      setExportLoading(false);
+      setExportedData(bundle);
+    } catch (err: any) {
+      setExportLoading(false);
+      setExportError(err?.message || 'Failed to generate vault backup bundle.');
+    }
+  };
+
+  const handleDownloadVaultExport = async () => {
+    if (!exportedData) return;
+    suppressLockForSystemPicker();
+    const filename = `FinanceAlly_Vault_Backup_${new Date().toISOString().split('T')[0]}.favault.json`;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const writeResult = await Filesystem.writeFile({
+          path: `Finance-Ally/${filename}`,
+          data: exportedData,
+          directory: Directory.Documents,
+          encoding: 'utf8' as any,
+          recursive: true
+        });
+        await Share.share({
+          title: 'Finance-Ally Password Vault Backup',
+          url: writeResult.uri,
+          dialogTitle: 'Save Password Vault Backup'
+        });
+      } catch {
+        const writeResult = await Filesystem.writeFile({
+          path: filename,
+          data: exportedData,
+          directory: Directory.Cache,
+          encoding: 'utf8' as any
+        });
+        await Share.share({
+          title: 'Finance-Ally Password Vault Backup',
+          url: writeResult.uri,
+          dialogTitle: 'Save Password Vault Backup'
+        });
+      }
+    } else {
+      const a = document.createElement('a');
+      a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(exportedData);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    resetSystemPickerBypass();
+  };
+
+  const handleCopyVaultExport = () => {
+    if (!exportedData) return;
+    navigator.clipboard.writeText(exportedData);
+    setExportCopied(true);
+    setTimeout(() => setExportCopied(false), 2000);
+  };
+
+  const handleVaultFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    suppressLockForSystemPicker();
+    const file = e.target.files?.[0];
+    if (!file) {
+      resetSystemPickerBypass();
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      resetSystemPickerBypass();
+      if (!content) return;
+      if (!isVaultBackup(content)) {
+        setRestoreError('Invalid file: this is not a valid Finance-Ally Password Vault backup.');
+        return;
+      }
+      setRestoreFileContent(content);
+      setRestoreFileName(file.name);
+      setRestoreError('');
+      setRestoreSuccess('');
+    };
+    reader.readAsText(file);
+  };
+
+  const handleRestoreVault = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRestoreError('');
+    setRestoreSuccess('');
+
+    if (!restoreFileContent) {
+      setRestoreError('Please select a vault backup file first.');
+      return;
+    }
+    if (!restoreAppPassword) {
+      setRestoreError('Enter your Main App Password to decrypt the outer layer.');
+      return;
+    }
+
+    setRestoreLoading(true);
+    try {
+      const isPassValid = await verifyUserPassword(restoreAppPassword);
+      if (!isPassValid) {
+        setRestoreLoading(false);
+        setRestoreError('Incorrect Main App Password. Authentication failed.');
+        return;
+      }
+
+      const res = await importVaultBackup(restoreFileContent, restoreAppPassword);
+      setRestoreLoading(false);
+
+      if (res.result === 'ok') {
+        setRestoreSuccess(`Successfully restored ${res.itemCount ?? 0} password card${(res.itemCount ?? 0) !== 1 ? 's' : ''} into your vault!`);
+        setRestoreFileContent(null);
+        setRestoreFileName('');
+        setRestoreAppPassword('');
+        lockVault();
+        await refreshItems();
+      } else if (res.result === 'wrong_password') {
+        setRestoreError('Decryption failed. The app password does not match the backup encryption.');
+      } else {
+        setRestoreError('Corrupted or invalid vault backup file structure.');
+      }
+    } catch (err: any) {
+      setRestoreLoading(false);
+      setRestoreError(err?.message || 'Failed to restore vault backup.');
+    }
+  };
 
   // Lock Vault Helper
   const lockVault = () => {
@@ -830,9 +1020,33 @@ export const PasswordManagerTab: React.FC = () => {
                       </button>
                     </>
                   )}
+
+                  <div className="h-px bg-hairline/80 my-1" />
+                  <button
+                    onClick={() => {
+                      setIsFilterDropdownOpen(false);
+                      setIsBackupModalOpen(true);
+                    }}
+                    className="w-full text-left px-3 py-1.5 rounded-xl text-xs font-mono font-semibold flex items-center justify-between text-ink hover:bg-surface-soft hover:text-[#005687] transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Database className="w-3.5 h-3.5 text-[#005687] dark:text-[#0088cc]" />
+                      <span>Vault Backup & Restore</span>
+                    </span>
+                  </button>
                 </div>
               )}
             </div>
+
+            {/* Vault Backup & Restore Button */}
+            <button
+              onClick={() => setIsBackupModalOpen(true)}
+              className="px-2.5 sm:px-3 py-1.5 text-[11px] whitespace-nowrap font-mono font-bold rounded-xl border border-hairline bg-surface-soft hover:border-[#005687] hover:text-[#005687] transition-all flex items-center gap-1.5 cursor-pointer text-ink"
+              title="Vault Backup & Restore (Double-Layer Encrypted)"
+            >
+              <Database className="w-3.5 h-3.5 text-[#005687] dark:text-[#0088cc]" />
+              <span className="hidden sm:inline">Backup & Restore</span>
+            </button>
 
             {hasPin && (
               <button
@@ -1490,6 +1704,281 @@ export const PasswordManagerTab: React.FC = () => {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Vault-Only Backup & Restore Modal (Double-Layer Encrypted) */}
+      {isBackupModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-surface-card border border-hairline rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-hairline flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#005687]/15 border border-[#005687]/30 text-[#005687] dark:text-[#0088cc] flex items-center justify-center">
+                  <Database className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-mono font-bold text-sm text-ink">Vault Backup & Restore</h3>
+                  <p className="text-[10px] font-mono text-muted-custom flex items-center gap-1">
+                    <Shield className="w-3 h-3 text-brand-mint inline" /> Double-Layer Encrypted
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={resetBackupModalState}
+                className="w-8 h-8 rounded-xl border border-hairline text-muted-custom hover:text-ink flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Sub-tabs: Export vs Restore */}
+            <div className="px-4 sm:px-5 pt-3 shrink-0">
+              <div className="grid grid-cols-2 p-1 bg-surface-soft rounded-xl border border-hairline text-xs font-mono">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBackupSubTab('export');
+                    setExportError('');
+                    setRestoreError('');
+                  }}
+                  className={`py-1.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    backupSubTab === 'export'
+                      ? 'bg-[#005687] text-white shadow-sm'
+                      : 'text-muted-custom hover:text-ink'
+                  }`}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Backup Vault</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBackupSubTab('restore');
+                    setExportError('');
+                    setRestoreError('');
+                  }}
+                  className={`py-1.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    backupSubTab === 'restore'
+                      ? 'bg-[#005687] text-white shadow-sm'
+                      : 'text-muted-custom hover:text-ink'
+                  }`}
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Restore Vault</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+              
+              {/* Security Architecture Badge */}
+              <div className="p-3 bg-[#005687]/10 border border-[#005687]/30 rounded-xl space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-[#005687] dark:text-[#0088cc]">
+                  <ShieldCheck className="w-4 h-4 shrink-0" />
+                  <span>Double-Layer Security Guarantee</span>
+                </div>
+                <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                  <strong>Layer 1 (Outer):</strong> Sealed with AES-256-GCM derived from your <em>Main App Password</em> (PBKDF2 200,000 iterations).<br />
+                  <strong>Layer 2 (Inner):</strong> Each credential inside remains individually encrypted with your <em>Vault Master PIN</em>.
+                </p>
+              </div>
+
+              {backupSubTab === 'export' ? (
+                /* EXPORT FLOW */
+                <div className="space-y-4">
+                  {!exportedData ? (
+                    <form onSubmit={handleExportVault} className="space-y-3">
+                      <p className="text-xs font-mono text-muted-custom">
+                        Enter your <strong>Main App Password</strong> to authenticate and wrap the encrypted backup file:
+                      </p>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono font-bold text-muted-custom uppercase block">
+                          Main App Password *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showExportAppPassword ? 'text' : 'password'}
+                            value={exportAppPassword}
+                            onChange={e => setExportAppPassword(e.target.value)}
+                            placeholder="Enter your Main App Password..."
+                            required
+                            className="w-full px-3.5 py-2 pr-10 text-xs font-mono bg-surface-soft border border-hairline rounded-xl text-ink focus:outline-none focus:border-[#005687]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowExportAppPassword(!showExportAppPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-custom hover:text-ink cursor-pointer"
+                          >
+                            {showExportAppPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {exportError && (
+                        <p className="text-[11px] font-mono text-red-500 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {exportError}
+                        </p>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={exportLoading}
+                        className="w-full py-2.5 px-4 rounded-xl text-xs font-mono font-bold bg-[#005687] hover:bg-[#004269] text-white flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {exportLoading ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Encrypting Vault (200k PBKDF2)...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Generate Encrypted Vault Backup</span>
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  ) : (
+                    /* EXPORT READY */
+                    <div className="space-y-3 animate-in fade-in duration-150">
+                      <div className="p-3 bg-brand-mint/15 border border-brand-mint/30 rounded-xl flex items-center gap-2.5 text-xs font-mono text-brand-mint">
+                        <Check className="w-4 h-4 shrink-0" />
+                        <div>
+                          <strong>Vault Backup Ready!</strong><br />
+                          {rawItems.length} card{rawItems.length !== 1 ? 's' : ''} sealed with double-layer encryption.
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={handleDownloadVaultExport}
+                          className="py-2 px-3 rounded-xl text-xs font-mono font-bold bg-[#005687] hover:bg-[#004269] text-white flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Save / Share File</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCopyVaultExport}
+                          className="py-2 px-3 rounded-xl text-xs font-mono font-bold bg-surface-soft border border-hairline hover:border-[#005687] text-ink flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          {exportCopied ? <Check className="w-3.5 h-3.5 text-brand-mint" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{exportCopied ? 'Copied!' : 'Copy Data'}</span>
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExportedData(null);
+                          setExportAppPassword('');
+                        }}
+                        className="w-full text-center text-[11px] font-mono text-muted-custom hover:text-ink pt-1 cursor-pointer"
+                      >
+                        Create another backup
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* RESTORE FLOW */
+                <form onSubmit={handleRestoreVault} className="space-y-3">
+                  <input
+                    type="file"
+                    ref={restoreFileInputRef}
+                    onChange={handleVaultFileSelect}
+                    accept=".json,.favault.json"
+                    className="hidden"
+                  />
+
+                  {/* File Selector Box */}
+                  <div
+                    onClick={() => {
+                      suppressLockForSystemPicker();
+                      restoreFileInputRef.current?.click();
+                    }}
+                    className="border-2 border-dashed border-hairline hover:border-[#005687] p-4 rounded-xl text-center cursor-pointer transition-colors bg-surface-soft/50 hover:bg-[#005687]/5"
+                  >
+                    <Upload className="w-6 h-6 text-[#005687] dark:text-[#0088cc] mx-auto mb-1.5" />
+                    {restoreFileName ? (
+                      <div className="text-xs font-mono font-bold text-ink flex items-center justify-center gap-1.5">
+                        <FileText className="w-4 h-4 text-brand-mint" />
+                        <span className="truncate max-w-[220px]">{restoreFileName}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-xs font-mono font-bold text-ink">Choose Vault Backup File</p>
+                        <p className="text-[10px] font-mono text-muted-custom mt-0.5">Select a .favault.json or .json file</p>
+                      </>
+                    )}
+                  </div>
+
+                  {restoreFileContent && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono font-bold text-muted-custom uppercase block">
+                        Main App Password * (to Decrypt Outer Layer)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showRestoreAppPassword ? 'text' : 'password'}
+                          value={restoreAppPassword}
+                          onChange={e => setRestoreAppPassword(e.target.value)}
+                          placeholder="Enter your Main App Password..."
+                          required
+                          className="w-full px-3.5 py-2 pr-10 text-xs font-mono bg-surface-soft border border-hairline rounded-xl text-ink focus:outline-none focus:border-[#005687]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowRestoreAppPassword(!showRestoreAppPassword)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-custom hover:text-ink cursor-pointer"
+                        >
+                          {showRestoreAppPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {restoreError && (
+                    <p className="text-[11px] font-mono text-red-500 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {restoreError}
+                    </p>
+                  )}
+
+                  {restoreSuccess && (
+                    <div className="p-3 bg-brand-mint/15 border border-brand-mint/30 rounded-xl flex items-center gap-2 text-xs font-mono text-brand-mint">
+                      <Check className="w-4 h-4 shrink-0" />
+                      <div>{restoreSuccess}</div>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={restoreLoading || !restoreFileContent}
+                    className="w-full py-2.5 px-4 rounded-xl text-xs font-mono font-bold bg-[#005687] hover:bg-[#004269] text-white flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {restoreLoading ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Decrypting Outer Layer...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Decrypt & Restore Password Vault</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+
+            </div>
           </div>
         </div>
       )}

@@ -50,17 +50,7 @@ Forget tedious multi-step form fields. Just type your expenses naturally into th
 
 ---
 
-### 2. Notification Extraction (Offline & Privacy-First)
-
-Finance-Ally features a dedicated **Notification Extraction** module designed to convert bank debit alerts, UPI messages, and transaction SMS text into logged expenses.
-
-#### Extraction Capabilities
-- **One-Tap Clipboard Extraction**: Copy a debit alert from HDFC, ICICI, SBI, Axis, GPay, Paytm, Swiggy, etc., and tap **"Paste Clipboard"** to extract the amount, merchant name, currency, and category instantly.
-- **Custom Pattern Engine**: Create custom regex/placeholder templates (e.g. `Debited {CURRENCY} {AMOUNT} to {MERCHANT}`) to support any regional bank or payment app.
-
----
-
-### 3. Scheduled Payments
+### 2. Scheduled Payments
 
 Any expense with a future date/time is automatically recognized as a **Scheduled Payment**.
 
@@ -71,7 +61,7 @@ Any expense with a future date/time is automatically recognized as a **Scheduled
 
 ---
 
-### 4. Complete Privacy & Security
+### 3. Complete Privacy & Security
 
 - **Startup App Lock (UI Gateway)**: Optional 4-digit PIN lock screen that guards the application UI from unauthorized access on a shared or unlocked physical device. Local transaction data and profile settings reside in device-sandboxed browser IndexedDB/LocalStorage.
 - **AES-GCM Password Vault**: Credentials stored in the Password Vault are client-side encrypted using AES-GCM derived from your Master PIN via PBKDF2 before persistence.
@@ -83,7 +73,7 @@ Any expense with a future date/time is automatically recognized as a **Scheduled
 
 ---
 
-### 5. Trip Vaults
+### 4. Trip Vaults
 
 Keep travel expenses organized and separate from your home budget:
 
@@ -94,7 +84,7 @@ Keep travel expenses organized and separate from your home budget:
 
 ---
 
-### 6. Split Bills Engine
+### 5. Split Bills Engine
 
 Managing shared expenses with friends made simple:
 
@@ -105,7 +95,7 @@ Managing shared expenses with friends made simple:
 
 ---
 
-### 7. Interactive Timeline & Multi-Period View Engine
+### 6. Interactive Timeline & Multi-Period View Engine
 
 - **Single-Line Controls Toolbar**: Built with icon-only **Search**, direct **Chart Jump**, **Multi-Log**, and **View** pill buttons — guaranteed to sit on a single line on any mobile screen without wrapping or truncation.
 - **Collapsible Daily Headers**: Click the cyan calendar icon or date text to collapse/expand that day's logs into a single compact line showing the date and total daily spend. When collapsed, the icon dynamically switches to a grey chevron down icon.
@@ -121,15 +111,16 @@ Managing shared expenses with friends made simple:
 
 ---
 
-### 8. Password Manager  
+### 7. Password Manager  
 
 - **Additional Protection**: A separate Master PIN that can be set-up that is different from the backup and app-lock PIN to access and create password vault.
   Master PIN is used in addition to the backup PIN to enable double layer of security to ensure that even if in a highly improbable scenario the backup gets decrypted, the passwords still remain encrypted via the additional layer of the Master PIN.
 - **Username and Password**: Users can securely store Username and Password for quick access and tag it with a visible name to denote the service they represent. The Username and Password are both encrypted by the Master PIN. 
+- **Dedicated Vault Backup & Restore**: Independently export and import encrypted password vaults with double-layer encryption (outer layer encrypted via the app password, inner layer encrypted via the Master PIN).
 
 ---
 
-### 9. Monthly Financial Audits & Smart Insights
+### 8. Monthly Financial Audits & Smart Insights
 
 - **Financial Health Grade**: Monthly grade from `A+` to `F` based on budget adherence and spending consistency (with explicit `O (Building Baseline)` indicator for accounts under 3 months).
 - **Coefficient of Variation (CV) Volatility**: Measures week-to-week spend erraticness weighted by category spend share, with week bucketing capped at 4 to eliminate month-boundary distortions.
@@ -138,14 +129,14 @@ Managing shared expenses with friends made simple:
 
 ---
 
-### 10. Dynamic Tab Navigation
+### 9. Dynamic Tab Navigation
 
-- **Scrolling Tab Row**: Core tabs (`Expenditure`, `Subscriptions`, `Trip Manager`) and More Tools (`Notification Extraction`, `Financial Audit`, `Split Bills`, `Spend Insights`) are organized into a smart dynamic row.
+- **Scrolling Tab Row**: Core tabs (`Expenditure`, `Subscriptions`, `Trip Manager`) and More Tools (`Financial Audit`, `Split Bills`, `Spend Insights`, `Password Manager`) are organized into a smart dynamic row.
 - **Clutter-Free Dropdown**: Viewing a core tab shows a chevron dropdown for tools; viewing a tool shows the tool row with a dropdown back to core tabs — always one tap from anywhere.
 
 ---
 
-### 11. Knowledge Assistant & Offline RAG Vector Engine
+### 10. Knowledge Assistant & Offline RAG Vector Engine
 
 Finance-Ally 2.0 features a state-of-the-art, 100% offline **Financial Knowledge Engine** powered by `Xenova/bge-small-en-v1.5` ONNX WebAssembly embeddings, an intent-driven expert system, and an auto-tag rules parser.
 
