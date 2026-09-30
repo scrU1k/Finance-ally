@@ -1,39 +1,19 @@
 import { UserProfile, CurrencyCode } from '../types';
 import { openDatabase } from './db';
+import { hashPasswordArgon2id } from './kdfService';
 
 const USER_KEY = 'fa_user_profile';
 
-// Generate new PBKDF2 hash and random salt
+// Generate new Argon2id hash and random salt
 async function createPasswordHashAndSalt(password: string): Promise<{ hash: string, salt: string }> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(password),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveBits']
-  );
-
-  const derivedBits = await crypto.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      salt: salt,
-      iterations: 100000,
-      hash: 'SHA-256'
-    },
-    keyMaterial,
-    256
-  );
-
-  const hashBase64 = btoa(String.fromCharCode(...new Uint8Array(derivedBits)));
+  const hash = await hashPasswordArgon2id(password, salt);
   const saltBase64 = btoa(String.fromCharCode(...salt));
-  
-  return { hash: hashBase64, salt: saltBase64 };
+  return { hash, salt: saltBase64 };
 }
 
-// Verify against an existing PBKDF2 salt
-async function verifyPasswordWithSalt(password: string, storedHash: string, storedSaltBase64: string): Promise<boolean> {
+// Legacy PBKDF2 verification for seamless profile migration
+async function verifyLegacyPbkdf2Password(password: string, storedHash: string, storedSaltBase64: string): Promise<boolean> {
   const salt = Uint8Array.from(atob(storedSaltBase64), c => c.charCodeAt(0));
   
   const keyMaterial = await crypto.subtle.importKey(
@@ -82,6 +62,7 @@ export async function createInitialUser(username: string, password: string, base
     monthlyBudget: 3000,
     requirePassword: true,
     isUnlocked: true,
+    kdf: 'argon2id',
   };
   saveUserProfile(profile);
   return profile;
@@ -89,12 +70,28 @@ export async function createInitialUser(username: string, password: string, base
 
 export async function verifyUserPassword(password: string): Promise<boolean> {
   const profile = getStoredUserProfile();
-  if (!profile) return false;
-  
-  if (profile.passwordSalt) {
-    return await verifyPasswordWithSalt(password, profile.passwordHash, profile.passwordSalt);
+  if (!profile || !profile.passwordSalt) return false;
+
+  const salt = Uint8Array.from(atob(profile.passwordSalt), c => c.charCodeAt(0));
+
+  // Modern Argon2id verification
+  if (profile.kdf === 'argon2id') {
+    const computedHash = await hashPasswordArgon2id(password, salt);
+    return computedHash === profile.passwordHash;
   }
-  
+
+  // Legacy PBKDF2 path + Seamless auto-upgrade to Argon2id
+  const isLegacyValid = await verifyLegacyPbkdf2Password(password, profile.passwordHash, profile.passwordSalt);
+  if (isLegacyValid) {
+    // Automatically upgrade this user profile to Argon2id
+    const { hash: newHash, salt: newSalt } = await createPasswordHashAndSalt(password);
+    profile.passwordHash = newHash;
+    profile.passwordSalt = newSalt;
+    profile.kdf = 'argon2id';
+    saveUserProfile(profile);
+    return true;
+  }
+
   return false;
 }
 
@@ -105,6 +102,7 @@ export async function changeUserPassword(newPassword: string): Promise<boolean> 
   const { hash: newHash, salt: newSalt } = await createPasswordHashAndSalt(newPassword);
   profile.passwordHash = newHash;
   profile.passwordSalt = newSalt;
+  profile.kdf = 'argon2id';
   saveUserProfile(profile);
   return true;
 }

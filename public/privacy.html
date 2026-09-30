@@ -129,10 +129,9 @@
   </ul>
 
   <h3>5. Outbound Network Requests</h3>
-  <p>Finance-Ally is built local-first. The only outbound network requests initiated by the application are for publicly available operational assets and data:</p>
+  <p>Finance-Ally is built local-first. All UI typography, styles, and core features are bundled directly within the app and operate 100% offline. The only optional outbound network requests initiated by the application are for publicly available operational assets and data:</p>
   <ul>
     <li><strong>Forex Exchange Rates:</strong> Outbound requests to public currency exchange rate APIs to update conversion rates. No user-identifying data or financial records are included.</li>
-    <li><strong>Static UI Fonts (Web):</strong> Google Fonts stylesheets and typography files fetched on initial web asset load and cached locally by the browser.</li>
     <li><strong>Initial Local AI Model Download:</strong> When semantic smart tagging is initialized, the lightweight quantized embedding model (<code>bge-small-en-v1.5</code>, ~22MB INT8) is downloaded once from Hugging Face and cached locally in the browser/device cache for permanent offline operation.</li>
   </ul>
   <p><strong>At no time are your transactions, accounts, notes, balances, or passwords ever transmitted over any network.</strong></p>

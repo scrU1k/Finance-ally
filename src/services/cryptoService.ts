@@ -1,12 +1,17 @@
 /**
  * cryptoService.ts
- * Asymmetric Hybrid Crypto Engine (v2) for Finance-Ally backups.
- * Utilizes RSA-OAEP for asymmetric key transport and AES-256-GCM for bulk encryption.
+ * Asymmetric Hybrid Crypto Engine (v4) for Finance-Ally backups.
+ * Utilizes RSA-OAEP for asymmetric key transport, AES-256-GCM for bulk encryption,
+ * and Argon2id WebAssembly for memory-hard PIN key derivation.
+ * 
+ * Supports backward compatibility for v3 (PBKDF2 Hybrid) while discarding obsolete v1 and v2.
  */
 
-const PBKDF2_ITERATIONS = 100_000;
+import { deriveKeyArgon2id } from './kdfService';
+
 const SALT_LENGTH = 16; // bytes
 const IV_LENGTH = 12;   // bytes (96-bit IV for GCM)
+const PIN_KEY = 'fa_export_pin';
 
 function bufToBase64(buf: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -16,9 +21,9 @@ function base64ToBuf(b64: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(atob(b64), c => c.charCodeAt(0)) as Uint8Array<ArrayBuffer>;
 }
 
-// ─── AES KEY DERIVATION FROM PIN ──────────────────────────────────────────────
+// ─── LEGACY PBKDF2 KEY DERIVATION (FOR V3 RESTORE ONLY) ─────────────────────────
 
-async function deriveKey(pin: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
+async function deriveKeyPbkdf2(pin: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
   const enc = new TextEncoder();
   const baseKey = await crypto.subtle.importKey(
     'raw',
@@ -28,7 +33,7 @@ async function deriveKey(pin: string, salt: Uint8Array<ArrayBuffer>): Promise<Cr
     ['deriveKey']
   );
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' },
     baseKey,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -36,7 +41,7 @@ async function deriveKey(pin: string, salt: Uint8Array<ArrayBuffer>): Promise<Cr
   );
 }
 
-// ─── HYBRID CRYPTO ENGINE ─────────────────────────────────────────────────────
+// ─── HYBRID CRYPTO TYPES ───────────────────────────────────────────────────────
 
 export interface EncryptedPrivateKey {
   ciphertext: string; // base64
@@ -45,25 +50,27 @@ export interface EncryptedPrivateKey {
 }
 
 export interface HybridCryptoBundle {
-  _fa_encrypted_v2: true;
+  _fa_encrypted_v2?: true; // v3 legacy tag
+  _fa_encrypted_v3?: true; // v4 modern tag
+  v?: 3 | 4;
+  kdf?: 'argon2id' | 'pbkdf2';
   encryptedPayload: string;     // base64 (AES-GCM of JSON)
   payloadIv: string;            // base64
   encryptedDek: string;         // base64 (RSA-OAEP of AES key)
   encryptedPrivateKey: EncryptedPrivateKey; // Allows portability to other devices
 }
 
-const PIN_KEY = 'fa_export_pin';
-
 export interface StoredHybridKeys {
-  v: 3; // v=3 means Hybrid Crypto
+  v: 3 | 4; // v=3: PBKDF2 hybrid, v=4: Argon2id hybrid
+  kdf?: 'argon2id' | 'pbkdf2';
   publicKeyJwk: JsonWebKey;
   encryptedPrivateKey: EncryptedPrivateKey;
 }
 
-// --- Key Management ---
+// ─── KEY MANAGEMENT ────────────────────────────────────────────────────────────
 
 export async function saveExportPin(pin: string): Promise<void> {
-  // 1. Generate RSA-OAEP Key Pair
+  // 1. Generate RSA-OAEP Key Pair (2048-bit)
   const keyPair = await crypto.subtle.generateKey(
     {
       name: 'RSA-OAEP',
@@ -79,10 +86,10 @@ export async function saveExportPin(pin: string): Promise<void> {
   const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
   const privateKeyPkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
 
-  // 3. Encrypt Private Key with PIN (AES-GCM)
+  // 3. Encrypt Private Key with PIN via Argon2id (AES-256-GCM)
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
-  const aesKey = await deriveKey(pin, salt);
+  const aesKey = await deriveKeyArgon2id(pin, salt);
 
   const encryptedPrivateKeyBuf = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
@@ -96,9 +103,10 @@ export async function saveExportPin(pin: string): Promise<void> {
     salt: bufToBase64(salt.buffer as ArrayBuffer)
   };
 
-  // 4. Save to localStorage
+  // 4. Save to localStorage with v: 4 (Argon2id)
   const stored: StoredHybridKeys = {
-    v: 3,
+    v: 4,
+    kdf: 'argon2id',
     publicKeyJwk,
     encryptedPrivateKey
   };
@@ -109,26 +117,51 @@ export async function verifyExportPin(pin: string): Promise<boolean> {
   const raw = localStorage.getItem(PIN_KEY);
   if (!raw) return false;
   try {
-    const stored = JSON.parse(raw);
-    
-    // Legacy v2 verification (PBKDF2 hash only)
-    if (stored.v === 2) {
-      const salt = base64ToBuf(stored.salt) as Uint8Array<ArrayBuffer>;
-      const hash = await pbkdf2HashPin(pin, salt);
-      return hash === stored.hash;
-    }
+    const stored: StoredHybridKeys = JSON.parse(raw);
 
-    // Hybrid v3 verification (Decrypt private key)
-    if (stored.v === 3) {
-      const { encryptedPrivateKey } = stored as StoredHybridKeys;
+    // v4 Verification (Argon2id)
+    if (stored.v === 4 || stored.kdf === 'argon2id') {
+      const { encryptedPrivateKey } = stored;
       const salt = base64ToBuf(encryptedPrivateKey.salt);
       const iv = base64ToBuf(encryptedPrivateKey.iv);
       const data = base64ToBuf(encryptedPrivateKey.ciphertext);
-      const aesKey = await deriveKey(pin, salt);
+      const aesKey = await deriveKeyArgon2id(pin, salt);
 
       try {
         await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, data);
-        return true; // Successfully decrypted private key
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    // v3 Verification (PBKDF2 Hybrid) + Auto-upgrade to v4
+    if (stored.v === 3) {
+      const { encryptedPrivateKey } = stored;
+      const salt = base64ToBuf(encryptedPrivateKey.salt);
+      const iv = base64ToBuf(encryptedPrivateKey.iv);
+      const data = base64ToBuf(encryptedPrivateKey.ciphertext);
+      const aesKey = await deriveKeyPbkdf2(pin, salt);
+
+      try {
+        const decryptedPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, data);
+        // Successfully verified, seamlessly upgrade stored key to Argon2id
+        const newSalt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
+        const newIv = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
+        const newAesKey = await deriveKeyArgon2id(pin, newSalt);
+        const newEncryptedBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: newIv }, newAesKey, decryptedPkcs8);
+        const upgraded: StoredHybridKeys = {
+          v: 4,
+          kdf: 'argon2id',
+          publicKeyJwk: stored.publicKeyJwk,
+          encryptedPrivateKey: {
+            ciphertext: bufToBase64(newEncryptedBuf),
+            iv: bufToBase64(newIv.buffer as ArrayBuffer),
+            salt: bufToBase64(newSalt.buffer as ArrayBuffer)
+          }
+        };
+        localStorage.setItem(PIN_KEY, JSON.stringify(upgraded));
+        return true;
       } catch {
         return false;
       }
@@ -153,7 +186,7 @@ export function getStoredHybridKeys(): StoredHybridKeys | null {
   if (!raw) return null;
   try {
     const stored = JSON.parse(raw);
-    if (stored.v === 3) return stored as StoredHybridKeys;
+    if (stored.v === 3 || stored.v === 4) return stored as StoredHybridKeys;
     return null;
   } catch {
     return null;
@@ -162,7 +195,7 @@ export function getStoredHybridKeys(): StoredHybridKeys | null {
 
 // ─── HYBRID ENCRYPTION & DECRYPTION ──────────────────────────────────────────
 
-/** Encrypts data using Hybrid Cryptography. Requires Hybrid Keys to be set. */
+/** Encrypts data using Hybrid Cryptography (Argon2id + RSA-OAEP + AES-256-GCM) */
 export async function encryptHybridJSON(plaintext: string): Promise<string> {
   const storedKeys = getStoredHybridKeys();
   if (!storedKeys) {
@@ -202,9 +235,11 @@ export async function encryptHybridJSON(plaintext: string): Promise<string> {
     dekRaw
   );
 
-  // 5. Package and Return
+  // 5. Package and Return (Tagged as v4 Argon2id)
   const bundle: HybridCryptoBundle = {
-    _fa_encrypted_v2: true,
+    _fa_encrypted_v3: true,
+    v: 4,
+    kdf: 'argon2id',
     encryptedPayload: bufToBase64(encryptedPayloadBuf),
     payloadIv: bufToBase64(payloadIv.buffer as ArrayBuffer),
     encryptedDek: bufToBase64(encryptedDekBuf),
@@ -214,126 +249,75 @@ export async function encryptHybridJSON(plaintext: string): Promise<string> {
   return JSON.stringify(bundle);
 }
 
-/** Legacy PBKDF2 hash (used for v2 fallback) */
-async function pbkdf2HashPin(pin: string, salt: Uint8Array<ArrayBuffer>): Promise<string> {
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(pin),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveBits']
-  );
-  const derivedBits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' },
-    keyMaterial,
-    256
-  );
-  return bufToBase64(derivedBits);
-}
-
-/** Decrypts Hybrid JSON (v2) or Legacy JSON (v1). */
+/** Decrypts Hybrid JSON: handles modern v4 (Argon2id) and legacy v3 (PBKDF2 Hybrid). */
 export async function decryptJSON(encryptedString: string, pin: string): Promise<string> {
   const parsed = JSON.parse(encryptedString);
-  if (!parsed._fa_encrypted && !parsed._fa_encrypted_v2) {
+  if (!parsed._fa_encrypted_v2 && !parsed._fa_encrypted_v3) {
     return encryptedString;
   }
 
-  // Handle Legacy v1 (Symmetric Only)
-  if (parsed._fa_encrypted) {
-    const salt = base64ToBuf(parsed.salt);
-    const iv   = base64ToBuf(parsed.iv);
-    const data = base64ToBuf(parsed.encrypted);
-    const key  = await deriveKey(pin, salt);
-    const decBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
-    return new TextDecoder().decode(decBuf);
+  const bundle = parsed as HybridCryptoBundle;
+  const isArgon2id = bundle._fa_encrypted_v3 || bundle.v === 4 || bundle.kdf === 'argon2id';
+
+  // 1. Decrypt Private Key using PIN (Argon2id for v4, PBKDF2 for v3)
+  const privSalt = base64ToBuf(bundle.encryptedPrivateKey.salt);
+  const privIv = base64ToBuf(bundle.encryptedPrivateKey.iv);
+  const privData = base64ToBuf(bundle.encryptedPrivateKey.ciphertext);
+  
+  const pinKey = isArgon2id
+    ? await deriveKeyArgon2id(pin, privSalt)
+    : await deriveKeyPbkdf2(pin, privSalt);
+  
+  let privateKeyPkcs8: ArrayBuffer;
+  try {
+    privateKeyPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: privIv }, pinKey, privData);
+  } catch {
+    throw new Error('Incorrect PIN (Failed to decrypt private key)');
   }
 
-  // Handle Hybrid v2
-  if (parsed._fa_encrypted_v2) {
-    const bundle = parsed as HybridCryptoBundle;
+  // 2. Import Private Key
+  const privateKey = await crypto.subtle.importKey(
+    'pkcs8',
+    privateKeyPkcs8,
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
+    false,
+    ['decrypt']
+  );
 
-    // 1. Decrypt Private Key using PIN
-    const privSalt = base64ToBuf(bundle.encryptedPrivateKey.salt);
-    const privIv = base64ToBuf(bundle.encryptedPrivateKey.iv);
-    const privData = base64ToBuf(bundle.encryptedPrivateKey.ciphertext);
-    const pinKey = await deriveKey(pin, privSalt);
-    
-    let privateKeyPkcs8: ArrayBuffer;
-    try {
-      privateKeyPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: privIv }, pinKey, privData);
-    } catch {
-      throw new Error('Incorrect PIN (Failed to decrypt private key)');
-    }
-
-    // 2. Import Private Key
-    const privateKey = await crypto.subtle.importKey(
-      'pkcs8',
-      privateKeyPkcs8,
-      { name: 'RSA-OAEP', hash: 'SHA-256' },
-      false,
-      ['decrypt']
-    );
-
-    // 3. Decrypt DEK using Private Key
-    const encryptedDek = base64ToBuf(bundle.encryptedDek);
-    let dekRaw: ArrayBuffer;
-    try {
-      dekRaw = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, encryptedDek);
-    } catch {
-      throw new Error('Corrupt backup file (Failed to decrypt DEK)');
-    }
-
-    // 4. Import DEK and Decrypt Payload
-    const dek = await crypto.subtle.importKey(
-      'raw',
-      dekRaw,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['decrypt']
-    );
-
-    const encryptedPayload = base64ToBuf(bundle.encryptedPayload);
-    const payloadIv = base64ToBuf(bundle.payloadIv);
-    const payloadBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: payloadIv }, dek, encryptedPayload);
-
-    return new TextDecoder().decode(payloadBuf);
+  // 3. Decrypt DEK using Private Key
+  const encryptedDek = base64ToBuf(bundle.encryptedDek);
+  let dekRaw: ArrayBuffer;
+  try {
+    dekRaw = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, encryptedDek);
+  } catch {
+    throw new Error('Corrupt backup file (Failed to decrypt DEK)');
   }
 
-  throw new Error('Unknown encryption format');
+  // 4. Import DEK and Decrypt Payload
+  const dek = await crypto.subtle.importKey(
+    'raw',
+    dekRaw,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt']
+  );
+
+  const encryptedPayload = base64ToBuf(bundle.encryptedPayload);
+  const payloadIv = base64ToBuf(bundle.payloadIv);
+  const payloadBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: payloadIv }, dek, encryptedPayload);
+
+  return new TextDecoder().decode(payloadBuf);
 }
 
 export function isEncryptedBackup(jsonString: string): boolean {
   try {
     const p = JSON.parse(jsonString);
-    return !!p._fa_encrypted || !!p._fa_encrypted_v2;
+    return !!p._fa_encrypted_v2 || !!p._fa_encrypted_v3;
   } catch {
     return false;
   }
 }
 
-// Keep encryptJSON signature for legacy manual exports, but map it to hybrid if available.
-export async function encryptJSON(plaintext: string, pin: string): Promise<string> {
-  const keys = getStoredHybridKeys();
-  if (keys) {
-    return encryptHybridJSON(plaintext); // Use new hybrid approach
-  }
-  
-  // Fallback to legacy v1 if for some reason they have an old PIN hash and haven't upgraded yet
-  const enc = new TextEncoder();
-  const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
-  const iv   = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
-  const key  = await deriveKey(pin, salt);
-
-  const cipherBuf = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    enc.encode(plaintext)
-  );
-
-  return JSON.stringify({
-    _fa_encrypted: true,
-    encrypted: bufToBase64(cipherBuf),
-    iv:        bufToBase64(iv.buffer as ArrayBuffer),
-    salt:      bufToBase64(salt.buffer as ArrayBuffer),
-  });
+export async function encryptJSON(plaintext: string, _pin: string): Promise<string> {
+  return encryptHybridJSON(plaintext);
 }

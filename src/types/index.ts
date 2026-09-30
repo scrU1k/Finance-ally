@@ -73,6 +73,7 @@ export interface UserProfile {
   monthlyBudget?: number;
   requirePassword?: boolean; // If false, skips lock screen on startup
   isUnlocked: boolean;
+  kdf?: 'argon2id' | 'pbkdf2'; // Key Derivation Function algorithm
 }
 
 export interface ParsedNotification {
@@ -161,6 +162,7 @@ export interface PasswordVaultItem {
   encryptedBlob: string; // Encrypted JSON containing { serviceName, username, password, createdAt, updatedAt }
   iv: string;
   salt: string;
+  kdf?: 'argon2id' | 'pbkdf2';
   updatedAt: string;
   // Legacy fields for backwards migration compatibility
   serviceName?: string;

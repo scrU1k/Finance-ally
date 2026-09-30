@@ -66,10 +66,9 @@ Any expense with a future date/time is automatically recognized as a **Scheduled
 - **Startup App Lock (UI Gateway)**: Optional 4-digit PIN lock screen that guards the application UI from unauthorized access on a shared or unlocked physical device. Local transaction data and profile settings reside in device-sandboxed browser IndexedDB/LocalStorage.
 - **AES-GCM Password Vault**: Credentials stored in the Password Vault are client-side encrypted using AES-GCM derived from your Master PIN via PBKDF2 before persistence.
 - **Encrypted Backups & Snapshots**: Export complete financial backups as password-protected `.json.enc` files encrypted using PBKDF2 key derivation and AES-GCM. Device snapshot backups (`Daily`, `Weekly`, `Monthly`, or manual) store up to 5 encrypted snapshots locally on your device for rapid disaster recovery.
-- **Zero Third-Party Tracking & Clear Network Disclosures**: No analytics, no advertising SDKs, and no external user accounts. Your financial data is never transmitted to any server. When online, network activity is strictly limited to:
+- **Zero Third-Party Tracking & Clear Network Disclosures**: No analytics, no advertising SDKs, and no external user accounts. Your financial data is never transmitted to any server. Typography is 100% locally embedded. When online, network activity is strictly limited to:
   1. *Real-time Foreign Exchange Rates*: Fetches public currency conversion rates for foreign trip conversions via Open Exchange / public forex APIs.
-  2. *Typography*: Standard web typography loaded from Google Fonts CDN.
-  3. *On-Device Embedding Model*: A one-time initial download of the lightweight `Xenova/bge-small-en-v1.5` INT8 ONNX model from Hugging Face for the offline Knowledge Assistant (cached locally in browser storage thereafter).
+  2. *On-Device Embedding Model*: A one-time initial download of the lightweight `Xenova/bge-small-en-v1.5` INT8 ONNX model from Hugging Face for the offline Knowledge Assistant (cached locally in browser storage thereafter).
 
 ---
 
