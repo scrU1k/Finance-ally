@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { X, Lock, Eye, EyeOff } from 'lucide-react';
+import { X, Lock, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 interface PinModalProps {
-  mode: 'verify' | 'set' | 'change';
+  mode: 'verify' | 'set' | 'change' | 'recover' | 'reset';
   title: string;
   description?: string;
-  onConfirm: (pin: string) => void;
+  // If mode is change or recover, onConfirm gets two strings (oldPin/recoveryKey, newPin)
+  onConfirm: (pin1: string, pin2?: string) => void;
   onCancel: () => void;
+  onForgotPin?: () => void;
   loading?: boolean;
   error?: string;
 }
@@ -18,12 +20,15 @@ export const PinModal: React.FC<PinModalProps> = ({
   description,
   onConfirm,
   onCancel,
+  onForgotPin,
   loading = false,
   error,
 }) => {
-  const [pin, setPin] = useState('');
+  const [pin, setPin] = useState(''); // Serves as old PIN or Recovery Key in change/recover mode
+  const [newPin, setNewPin] = useState(''); 
   const [confirmPin, setConfirmPin] = useState('');
   const [showPin, setShowPin] = useState(false);
+  const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [localError, setLocalError] = useState('');
 
@@ -31,20 +36,35 @@ export const PinModal: React.FC<PinModalProps> = ({
     e.preventDefault();
     setLocalError('');
 
-    if (!pin || pin.length < 4) {
-      setLocalError('PIN must be at least 4 characters.');
-      return;
+    if (mode === 'verify' || mode === 'set' || mode === 'reset') {
+      if (!pin || pin.length < 4) {
+        setLocalError('PIN must be at least 4 characters.');
+        return;
+      }
+      if ((mode === 'set' || mode === 'reset') && pin !== confirmPin) {
+        setLocalError('PINs do not match. Please re-check.');
+        return;
+      }
+      onConfirm(pin);
+    } else if (mode === 'change' || mode === 'recover') {
+      if (!pin) {
+        setLocalError(mode === 'change' ? 'Current PIN is required.' : 'Recovery Key is required.');
+        return;
+      }
+      if (!newPin || newPin.length < 4) {
+        setLocalError('New PIN must be at least 4 characters.');
+        return;
+      }
+      if (newPin !== confirmPin) {
+        setLocalError('New PINs do not match. Please re-check.');
+        return;
+      }
+      onConfirm(pin, newPin);
     }
-
-    if ((mode === 'set' || mode === 'change') && pin !== confirmPin) {
-      setLocalError('PINs do not match. Please re-check.');
-      return;
-    }
-
-    onConfirm(pin);
   };
 
   const displayError = error || localError;
+  const isMultiInput = mode === 'change' || mode === 'recover';
 
   return createPortal(
     <div
@@ -55,7 +75,6 @@ export const PinModal: React.FC<PinModalProps> = ({
         className="w-full max-w-sm bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-2xl p-6 shadow-2xl shadow-black/30 space-y-4 ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-150"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-hairline pb-3">
           <div className="flex items-center gap-2">
             <Lock className="w-4 h-4 text-brand-blue" />
@@ -70,38 +89,80 @@ export const PinModal: React.FC<PinModalProps> = ({
           </button>
         </div>
 
-        {description && (
+        {mode === 'reset' && (
+          <div className="bg-brand-coral/10 border border-brand-coral/30 rounded-xl p-3 flex gap-2">
+            <AlertTriangle className="w-4 h-4 text-brand-coral shrink-0 mt-0.5" />
+            <p className="text-[10px] font-mono text-ink leading-relaxed">
+              <strong className="text-brand-coral">WARNING:</strong> Creating a new PIN from scratch will generate new encryption keys for future backups. Because your PIN is used to encrypt the backup keys, existing encrypted backups will remain permanently unrecoverable without the old PIN.
+            </p>
+          </div>
+        )}
+
+        {description && mode !== 'reset' && (
           <p className="text-[11px] font-mono text-muted-custom leading-relaxed">{description}</p>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {/* PIN input */}
           <div className="space-y-1">
-            <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">
-              {mode === 'verify' ? 'Enter Your Backup PIN' : 'New PIN (min 4 characters)'}
+            <label className="text-[10px] font-mono text-muted-custom uppercase font-bold flex justify-between">
+              <span>
+                {mode === 'verify' ? 'Enter Your Backup PIN' :
+                 mode === 'change' ? 'Current Backup PIN' :
+                 mode === 'recover' ? 'Recovery Key' :
+                 'New PIN (min 4 characters)'}
+              </span>
+              {(mode === 'change' || mode === 'verify') && onForgotPin && (
+                <button type="button" onClick={onForgotPin} className="text-brand-blue hover:underline cursor-pointer">
+                  Forgot PIN?
+                </button>
+              )}
             </label>
             <div className="relative">
               <input
-                type={showPin ? 'text' : 'password'}
+                type={showPin || mode === 'recover' ? 'text' : 'password'}
                 value={pin}
                 onChange={e => setPin(e.target.value)}
-                placeholder="••••"
+                placeholder={mode === 'recover' ? 'JOH-xxxx-xxxx-xxxx' : '••••'}
                 autoFocus
                 className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-10 py-2 text-sm font-mono text-ink focus:outline-none focus:border-ink tracking-widest"
-                maxLength={20}
+                maxLength={40}
               />
-              <button
-                type="button"
-                onClick={() => setShowPin(!showPin)}
-                className="absolute right-3 top-2 text-muted-custom hover:text-ink cursor-pointer"
-              >
-                {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              </button>
+              {mode !== 'recover' && (
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  className="absolute right-3 top-2 text-muted-custom hover:text-ink cursor-pointer"
+                >
+                  {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Confirm PIN for set/change modes */}
-          {(mode === 'set' || mode === 'change') && (
+          {isMultiInput && (
+            <div className="space-y-1 pt-2">
+              <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">New PIN (min 4 characters)</label>
+              <div className="relative">
+                <input
+                  type={showNew ? 'text' : 'password'}
+                  value={newPin}
+                  onChange={e => setNewPin(e.target.value)}
+                  placeholder="••••"
+                  className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-10 py-2 text-sm font-mono text-ink focus:outline-none focus:border-ink tracking-widest"
+                  maxLength={20}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNew(!showNew)}
+                  className="absolute right-3 top-2 text-muted-custom hover:text-ink cursor-pointer"
+                >
+                  {showNew ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {(mode === 'set' || mode === 'change' || mode === 'recover' || mode === 'reset') && (
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Confirm PIN</label>
               <div className="relative">
@@ -139,9 +200,13 @@ export const PinModal: React.FC<PinModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-2 rounded-xl border border-brand-blue text-brand-blue text-xs font-mono font-bold hover:bg-surface-soft transition-all cursor-pointer disabled:opacity-50"
+              className={`flex-1 py-2 rounded-xl border text-xs font-mono font-bold transition-all cursor-pointer disabled:opacity-50 ${mode === 'reset' ? 'border-brand-coral text-brand-coral hover:bg-brand-coral/10' : 'border-brand-blue text-brand-blue hover:bg-surface-soft'}`}
             >
-              {loading ? 'Verifying...' : (mode === 'verify' ? 'Unlock & Import' : 'Set PIN')}
+              {loading ? 'Processing...' : (
+                mode === 'verify' ? 'Unlock & Import' : 
+                mode === 'change' || mode === 'recover' ? 'Update PIN' : 
+                mode === 'reset' ? 'Reset PIN' : 'Set PIN'
+              )}
             </button>
           </div>
         </form>

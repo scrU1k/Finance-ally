@@ -65,11 +65,19 @@ export interface StoredHybridKeys {
   kdf?: 'argon2id' | 'pbkdf2';
   publicKeyJwk: JsonWebKey;
   encryptedPrivateKey: EncryptedPrivateKey;
+  encryptedPrivateKeyRecovery?: EncryptedPrivateKey; // Encrypted with Recovery Key (AES-GCM from PBKDF2 of Recovery Key string)
 }
 
 // ─── KEY MANAGEMENT ────────────────────────────────────────────────────────────
 
-export async function saveExportPin(pin: string): Promise<void> {
+export async function generateRecoveryKey(username: string): Promise<string> {
+  const prefix = (username.substring(0, 3) || 'USR').toUpperCase();
+  const rand = crypto.getRandomValues(new Uint8Array(6));
+  const chars = Array.from(rand).map(b => b.toString(16).padStart(2, '0')).join('');
+  return `${prefix}-${chars.substring(0,4)}-${chars.substring(4,8)}-${chars.substring(8,12)}`;
+}
+
+export async function setupExportPin(pin: string, username: string): Promise<string> {
   // 1. Generate RSA-OAEP Key Pair (2048-bit)
   const keyPair = await crypto.subtle.generateKey(
     {
@@ -103,14 +111,118 @@ export async function saveExportPin(pin: string): Promise<void> {
     salt: bufToBase64(salt.buffer as ArrayBuffer)
   };
 
-  // 4. Save to localStorage with v: 4 (Argon2id)
+  // 4. Encrypt Private Key with Recovery Key via PBKDF2 (AES-256-GCM)
+  const recoveryKey = await generateRecoveryKey(username);
+  const rSalt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
+  const rIv = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
+  const rAesKey = await deriveKeyPbkdf2(recoveryKey, rSalt);
+  
+  const rEncryptedPrivateKeyBuf = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: rIv },
+    rAesKey,
+    privateKeyPkcs8
+  );
+
+  const encryptedPrivateKeyRecovery: EncryptedPrivateKey = {
+    ciphertext: bufToBase64(rEncryptedPrivateKeyBuf),
+    iv: bufToBase64(rIv.buffer as ArrayBuffer),
+    salt: bufToBase64(rSalt.buffer as ArrayBuffer)
+  };
+
+  // 5. Save to localStorage with v: 4 (Argon2id)
   const stored: StoredHybridKeys = {
     v: 4,
     kdf: 'argon2id',
     publicKeyJwk,
-    encryptedPrivateKey
+    encryptedPrivateKey,
+    encryptedPrivateKeyRecovery
   };
   localStorage.setItem(PIN_KEY, JSON.stringify(stored));
+  return recoveryKey;
+}
+
+export async function changeExportPin(oldPin: string, newPin: string): Promise<boolean> {
+  const raw = localStorage.getItem(PIN_KEY);
+  if (!raw) throw new Error('No existing PIN configuration found.');
+  const stored: StoredHybridKeys = JSON.parse(raw);
+
+  // Verify and decrypt with old PIN
+  const { encryptedPrivateKey } = stored;
+  const salt = base64ToBuf(encryptedPrivateKey.salt);
+  const iv = base64ToBuf(encryptedPrivateKey.iv);
+  const data = base64ToBuf(encryptedPrivateKey.ciphertext);
+  
+  const isArgon2id = stored.v === 4 || stored.kdf === 'argon2id';
+  const aesKey = isArgon2id ? await deriveKeyArgon2id(oldPin, salt) : await deriveKeyPbkdf2(oldPin, salt);
+
+  let privateKeyPkcs8: ArrayBuffer;
+  try {
+    privateKeyPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, data);
+  } catch {
+    return false; // Wrong old PIN
+  }
+
+  // Re-encrypt with new PIN
+  const newSalt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
+  const newIv = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
+  const newAesKey = await deriveKeyArgon2id(newPin, newSalt);
+  const newEncryptedPrivateKeyBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: newIv }, newAesKey, privateKeyPkcs8);
+
+  stored.encryptedPrivateKey = {
+    ciphertext: bufToBase64(newEncryptedPrivateKeyBuf),
+    iv: bufToBase64(newIv.buffer as ArrayBuffer),
+    salt: bufToBase64(newSalt.buffer as ArrayBuffer)
+  };
+  
+  // Ensure upgraded to v4 if it was v3
+  stored.v = 4;
+  stored.kdf = 'argon2id';
+  localStorage.setItem(PIN_KEY, JSON.stringify(stored));
+  return true;
+}
+
+export async function recoverExportPin(recoveryKey: string, newPin: string): Promise<boolean> {
+  const raw = localStorage.getItem(PIN_KEY);
+  if (!raw) throw new Error('No existing PIN configuration found.');
+  const stored: StoredHybridKeys = JSON.parse(raw);
+  
+  if (!stored.encryptedPrivateKeyRecovery) {
+    throw new Error('No recovery key configuration exists for this vault.');
+  }
+
+  // Verify and decrypt with Recovery Key
+  const rSalt = base64ToBuf(stored.encryptedPrivateKeyRecovery.salt);
+  const rIv = base64ToBuf(stored.encryptedPrivateKeyRecovery.iv);
+  const rData = base64ToBuf(stored.encryptedPrivateKeyRecovery.ciphertext);
+  const rAesKey = await deriveKeyPbkdf2(recoveryKey, rSalt);
+
+  let privateKeyPkcs8: ArrayBuffer;
+  try {
+    privateKeyPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: rIv }, rAesKey, rData);
+  } catch {
+    return false; // Wrong recovery key
+  }
+
+  // Re-encrypt with new PIN
+  const newSalt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
+  const newIv = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
+  const newAesKey = await deriveKeyArgon2id(newPin, newSalt);
+  const newEncryptedPrivateKeyBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: newIv }, newAesKey, privateKeyPkcs8);
+
+  stored.encryptedPrivateKey = {
+    ciphertext: bufToBase64(newEncryptedPrivateKeyBuf),
+    iv: bufToBase64(newIv.buffer as ArrayBuffer),
+    salt: bufToBase64(newSalt.buffer as ArrayBuffer)
+  };
+  
+  stored.v = 4;
+  stored.kdf = 'argon2id';
+  localStorage.setItem(PIN_KEY, JSON.stringify(stored));
+  return true;
+}
+
+export async function resetExportPin(pin: string, username: string): Promise<string> {
+  return setupExportPin(pin, username);
 }
 
 export async function verifyExportPin(pin: string): Promise<boolean> {

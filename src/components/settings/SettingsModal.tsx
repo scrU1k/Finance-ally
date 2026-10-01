@@ -5,7 +5,8 @@ import { useTheme, ThemeMode, FontFamily } from '../../context/ThemeContext';
 import { TOP_CURRENCIES, convertCurrencyAmount, formatCurrency } from '../../services/currency';
 import { exportFullDataBackup, importFullDataBackup } from '../../services/db';
 import { exportTransactionsToCSV, importTransactionsFromCSV } from '../../services/csvParser';
-import { encryptJSON, decryptJSON, isEncryptedBackup, saveExportPin, hasExportPin, clearExportPin } from '../../services/cryptoService';
+import { encryptJSON, decryptJSON, isEncryptedBackup, setupExportPin, changeExportPin, recoverExportPin, resetExportPin, hasExportPin, clearExportPin } from '../../services/cryptoService';
+import { RecoveryKeyModal } from '../common/RecoveryKeyModal';
 import {
   getLocalAutoBackupConfig,
   saveLocalAutoBackupConfig,
@@ -207,7 +208,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   // Export PIN / Encryption state
   const [pinEnabled, setPinEnabled] = useState<boolean>(hasExportPin);
-  const [showSetPinModal, setShowSetPinModal] = useState<'set' | 'change' | null>(null);
+  const [showSetPinModal, setShowSetPinModal] = useState<'set' | 'change' | 'recover' | 'reset' | null>(null);
+  const [generatedRecoveryKey, setGeneratedRecoveryKey] = useState<string | null>(null);
   const [pinActionLoading, setPinActionLoading] = useState(false);
   const [pinActionError, setPinActionError] = useState('');
   const [pinMsg, setPinMsg] = useState('');
@@ -434,16 +436,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   };
 
-  const handleSavePin = async (pin: string) => {
+  const handleSavePin = async (pin1: string, pin2?: string) => {
     setPinActionLoading(true);
     setPinActionError('');
     try {
-      await saveExportPin(pin);
-      setPinEnabled(true);
-      setPinMsg('Backup encryption PIN set successfully!');
-      setShowSetPinModal(null);
-    } catch {
-      setPinActionError('Error saving PIN. Please try again.');
+      if (showSetPinModal === 'set' || showSetPinModal === 'reset') {
+        const username = user?.username || 'USER';
+        const recoveryKey = showSetPinModal === 'set' 
+          ? await setupExportPin(pin1, username)
+          : await resetExportPin(pin1, username);
+        setPinEnabled(true);
+        setPinMsg(showSetPinModal === 'set' ? 'Backup encryption PIN set successfully!' : 'Backup PIN reset successfully. Old backups are orphaned.');
+        setShowSetPinModal(null);
+        setGeneratedRecoveryKey(recoveryKey);
+      } else if (showSetPinModal === 'change') {
+        const ok = await changeExportPin(pin1, pin2!);
+        if (ok) {
+          setPinMsg('Backup encryption PIN changed successfully!');
+          setShowSetPinModal(null);
+        } else {
+          setPinActionError('Incorrect Current PIN.');
+        }
+      } else if (showSetPinModal === 'recover') {
+        const ok = await recoverExportPin(pin1, pin2!);
+        if (ok) {
+          setPinMsg('Backup encryption PIN recovered and updated!');
+          setShowSetPinModal(null);
+        } else {
+          setPinActionError('Invalid Recovery Key.');
+        }
+      }
+    } catch (err: any) {
+      setPinActionError(err.message || 'Error processing PIN request. Please try again.');
     }
     setPinActionLoading(false);
   };
@@ -1190,13 +1214,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
 
               {pinEnabled && (
-                <button
-                  type="button"
-                  onClick={() => setShowSetPinModal('change')}
-                  className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
-                >
-                  Change Export PIN
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSetPinModal('change')}
+                    className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-brand-blue text-brand-blue hover:bg-surface-soft transition-all cursor-pointer"
+                  >
+                    Change Export PIN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowSetPinModal('reset')}
+                    className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-brand-coral text-brand-coral hover:bg-brand-coral/10 transition-all cursor-pointer"
+                  >
+                    Hard Reset PIN
+                  </button>
+                </div>
               )}
               {pinMsg && <p className="text-[10px] font-mono text-brand-mint font-bold">{pinMsg}</p>}
             </div>
@@ -1620,10 +1653,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         {showSetPinModal && (
           <PinModal
             mode={showSetPinModal}
-            title={showSetPinModal === 'set' ? 'Set Backup Encryption PIN' : 'Change Export PIN'}
-            description="This PIN will AES-256 encrypt your backup exports. You need it to restore from an encrypted backup."
+            title={
+              showSetPinModal === 'set' ? 'Set Backup Encryption PIN' : 
+              showSetPinModal === 'change' ? 'Change Export PIN' : 
+              showSetPinModal === 'recover' ? 'Recover Export PIN' : 'Reset Export PIN'
+            }
+            description={
+              showSetPinModal === 'set' ? 'This PIN will AES-256 encrypt your backup exports.' :
+              showSetPinModal === 'change' ? 'Change your PIN securely without losing access to older backups.' :
+              showSetPinModal === 'recover' ? 'Enter your 12-character Recovery Key to securely set a new PIN.' : undefined
+            }
             onConfirm={handleSavePin}
             onCancel={() => { setShowSetPinModal(null); setPinActionError(''); }}
+            onForgotPin={showSetPinModal === 'change' ? () => { setShowSetPinModal('recover'); setPinActionError(''); } : undefined}
             loading={pinActionLoading}
             error={pinActionError}
           />
@@ -1638,6 +1680,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             onCancel={() => { setShowVerifyPinModal(false); setVerifyPinError(''); setPendingImportContent(null); }}
             loading={verifyPinLoading}
             error={verifyPinError}
+          />
+        )}
+
+        {generatedRecoveryKey && (
+          <RecoveryKeyModal 
+            recoveryKey={generatedRecoveryKey}
+            onDismiss={() => setGeneratedRecoveryKey(null)}
           />
         )}
 
