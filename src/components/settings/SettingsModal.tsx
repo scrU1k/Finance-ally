@@ -16,6 +16,7 @@ import {
   getSnapshotPayload,
   deleteLocalSnapshot,
   syncSnapshotsFromFilesystem,
+  getRetentionLimit,
   LocalAutoBackupConfig,
   LocalSnapshotMetadata
 } from '../../services/localAutoBackupService';
@@ -693,8 +694,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   };
 
-  const handleDeleteSnapshotItem = (snapId: string) => {
-    const updated = deleteLocalSnapshot(snapId);
+  const handleDeleteSnapshotItem = async (snapId: string) => {
+    const updated = await deleteLocalSnapshot(snapId);
     setLocalSnapshotsState(updated);
     setLocalBackupMsg('Snapshot removed.');
   };
@@ -1787,6 +1788,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </div>
               </div>
 
+              {/* Snapshot Retention Limit */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">
+                    Snapshot Retention Limit
+                  </label>
+                  <span className="text-[9.5px] font-mono text-muted-custom">
+                    Auto-purges older files from storage
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[5, 10].map(limit => (
+                    <button
+                      key={limit}
+                      type="button"
+                      onClick={async () => {
+                        const updated = saveLocalAutoBackupConfig({ retentionLimit: limit });
+                        setLocalAutoConfig(updated);
+                        const refreshed = await syncSnapshotsFromFilesystem();
+                        setLocalSnapshotsState(refreshed);
+                        setLocalBackupMsg(`Retention limit set to ${limit} snapshots. Storage cleaned.`);
+                      }}
+                      className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold transition-all text-center cursor-pointer ${
+                        (localAutoConfig.retentionLimit || 10) === limit
+                          ? 'border-brand-mint text-brand-mint bg-surface-card shadow-sm'
+                          : 'bg-surface-card border-hairline text-muted-custom hover:text-ink'
+                      }`}
+                    >
+                      Keep Latest {limit}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Repeat Day for Monthly */}
               {localAutoConfig.schedule === 'monthly' && (
                 <div className="flex items-center justify-between gap-2 pt-1">
@@ -1845,7 +1880,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </button>
               </div>
 
-              {localBackupMsg && <p className="text-[10px] font-mono text-brand-mint text-center font-bold">{localBackupMsg}</p>}
+              {localBackupMsg && (
+                <p className={`text-[10px] font-mono text-center font-bold ${
+                  localBackupMsg.toLowerCase().includes('error') || localBackupMsg.toLowerCase().includes('fail')
+                    ? 'text-red-400'
+                    : 'text-brand-mint'
+                }`}>
+                  {localBackupMsg}
+                </p>
+              )}
 
               {/* Local Snapshots List */}
               {localSnapshots.length > 0 && (

@@ -10,7 +10,6 @@ import { encryptHybridJSON, hasExportPin } from './cryptoService';
 import { triggerSystemNotification } from './notificationService';
 import { getLocalDateString } from '../utils/dateUtils';
 
-
 export type LocalSyncSchedule = 'daily' | 'weekly' | 'monthly' | 'off';
 
 export interface LocalSnapshotMetadata {
@@ -22,10 +21,62 @@ export interface LocalSnapshotMetadata {
   sizeBytes: number;
 }
 
+export interface LastBackupError {
+  timestamp: number;
+  message: string;
+  dismissed: boolean;
+}
+
 const CONFIG_KEY = 'fa_local_autobackup_config';
 const SNAPSHOTS_KEY = 'fa_local_snapshots_list';
 const ACCOUNT_CREATED_KEY = 'fa_account_created_at';
-const MAX_SNAPSHOTS = 5;
+const ERROR_KEY = 'fa_last_backup_error';
+
+const backupErrorListeners: Array<(err: LastBackupError) => void> = [];
+
+export function getLastBackupError(): LastBackupError | null {
+  try {
+    const raw = localStorage.getItem(ERROR_KEY);
+    if (raw) {
+      const err: LastBackupError = JSON.parse(raw);
+      if (!err.dismissed) return err;
+    }
+  } catch {}
+  return null;
+}
+
+export function dismissLastBackupError(): void {
+  try {
+    const raw = localStorage.getItem(ERROR_KEY);
+    if (raw) {
+      const err: LastBackupError = JSON.parse(raw);
+      err.dismissed = true;
+      localStorage.setItem(ERROR_KEY, JSON.stringify(err));
+    }
+  } catch {}
+}
+
+export function setLastBackupError(message: string): void {
+  const err: LastBackupError = {
+    timestamp: Date.now(),
+    message,
+    dismissed: false,
+  };
+  try {
+    localStorage.setItem(ERROR_KEY, JSON.stringify(err));
+  } catch {}
+  backupErrorListeners.forEach(listener => {
+    try { listener(err); } catch {}
+  });
+}
+
+export function onBackupError(listener: (err: LastBackupError) => void): () => void {
+  backupErrorListeners.push(listener);
+  return () => {
+    const idx = backupErrorListeners.indexOf(listener);
+    if (idx >= 0) backupErrorListeners.splice(idx, 1);
+  };
+}
 
 export function getAccountCreatedAt(): number {
   try {
@@ -46,13 +97,18 @@ export interface LocalAutoBackupConfig {
   schedule: LocalSyncSchedule;
   monthlyDay: number; // 1 - 31
   lastBackupTime: number; // ms timestamp
+  retentionLimit: number; // 5 or 10 (default: 10)
 }
 
 export function getLocalAutoBackupConfig(): LocalAutoBackupConfig {
   try {
     const raw = localStorage.getItem(CONFIG_KEY);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      return {
+        retentionLimit: parsed.retentionLimit === 5 ? 5 : 10,
+        ...parsed,
+      };
     }
   } catch (e) {
     console.warn('Failed to parse local autobackup config:', e);
@@ -62,13 +118,21 @@ export function getLocalAutoBackupConfig(): LocalAutoBackupConfig {
     schedule: 'weekly',
     monthlyDay: 1,
     lastBackupTime: 0,
+    retentionLimit: 10,
   };
+}
+
+export function getRetentionLimit(): number {
+  return getLocalAutoBackupConfig().retentionLimit || 10;
 }
 
 export function saveLocalAutoBackupConfig(config: Partial<LocalAutoBackupConfig>): LocalAutoBackupConfig {
   const current = getLocalAutoBackupConfig();
   const updated = { ...current, ...config };
   localStorage.setItem(CONFIG_KEY, JSON.stringify(updated));
+  if (config.retentionLimit) {
+    pruneFilesystemSnapshots(config.retentionLimit).catch(() => {});
+  }
   return updated;
 }
 
@@ -89,46 +153,105 @@ function saveSnapshotsList(list: LocalSnapshotMetadata[]) {
 }
 
 /**
- * Scans the native filesystem for snapshots (in case App Data / localStorage was wiped),
- * cleans up any surplus files on disk beyond MAX_SNAPSHOTS, and repopulates the metadata list.
+ * Extracts a dependable timestamp from a snapshot file's name and metadata.
+ * Ensures newest-first ordering even if Android filesystem readdir omits mtime.
+ */
+export function getFileTime(f: { name: string; mtime?: number }): number {
+  if (f.mtime && f.mtime > 0) return f.mtime;
+  // Match fa_autobackup_YYYY-MM-DD_1727891234567 or fa_autobackup_YYYY-MM-DD_1234
+  const match = f.name.match(/fa_autobackup_(\d{4}-\d{2}-\d{2})(?:_(\d+))?/);
+  if (match) {
+    const datePart = match[1];
+    const suffix = match[2];
+    const baseTime = new Date(datePart).getTime();
+    if (suffix && suffix.length >= 10) {
+      return parseInt(suffix, 10);
+    }
+    if (suffix) {
+      return baseTime + parseInt(suffix, 10);
+    }
+    return baseTime;
+  }
+  return 0;
+}
+
+/**
+ * Robustly prunes older snapshots directly from device filesystem storage beyond retentionLimit.
+ */
+export async function pruneFilesystemSnapshots(retentionLimit: number): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+
+  const locations = [
+    { path: 'Finance-Ally/Snapshots', dir: Directory.Documents },
+    { path: '', dir: Directory.Cache },
+    { path: 'Finance-Ally', dir: Directory.Documents }
+  ];
+
+  for (const loc of locations) {
+    try {
+      const res = await Filesystem.readdir({
+        path: loc.path,
+        directory: loc.dir,
+      });
+
+      const snapshotFiles = res.files.filter(f =>
+        f.name.startsWith('fa_autobackup_') && (f.name.endsWith('.json') || f.name.endsWith('.json.enc'))
+      );
+
+      if (snapshotFiles.length > retentionLimit) {
+        snapshotFiles.sort((a, b) => getFileTime(b) - getFileTime(a));
+        const surplus = snapshotFiles.slice(retentionLimit);
+        for (const file of surplus) {
+          const filePath = loc.path ? `${loc.path}/${file.name}` : file.name;
+          try {
+            await Filesystem.deleteFile({
+              path: filePath,
+              directory: loc.dir,
+            });
+            console.log(`Pruned surplus snapshot from filesystem: ${filePath}`);
+          } catch (e) {
+            console.warn(`Could not delete surplus snapshot: ${filePath}`, e);
+          }
+        }
+      }
+    } catch {}
+  }
+}
+
+/**
+ * Scans the native filesystem for snapshots, removes surplus files on disk beyond retentionLimit,
+ * and repopulates the local metadata list.
  */
 export async function syncSnapshotsFromFilesystem(): Promise<LocalSnapshotMetadata[]> {
-  if (!Capacitor.isNativePlatform()) return getLocalSnapshots().slice(0, MAX_SNAPSHOTS);
+  const limit = getRetentionLimit();
+  if (!Capacitor.isNativePlatform()) return getLocalSnapshots().slice(0, limit);
 
   try {
+    // 1. Physically prune surplus files on disk first
+    await pruneFilesystemSnapshots(limit);
+
+    // 2. Read current files
     const res = await Filesystem.readdir({
       path: 'Finance-Ally/Snapshots',
       directory: Directory.Documents,
     });
 
-    const validFiles = res.files.filter(f => f.name.endsWith('.json') || f.name.endsWith('.json.enc'));
-    if (validFiles.length === 0) return getLocalSnapshots().slice(0, MAX_SNAPSHOTS);
+    const validFiles = res.files.filter(f =>
+      f.name.startsWith('fa_autobackup_') && (f.name.endsWith('.json') || f.name.endsWith('.json.enc'))
+    );
+    if (validFiles.length === 0) return getLocalSnapshots().slice(0, limit);
 
-    // Sort validFiles by mtime / timestamp descending (newest first)
-    validFiles.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+    // Sort newest first
+    validFiles.sort((a, b) => getFileTime(b) - getFileTime(a));
 
-    // If more files exist on disk than MAX_SNAPSHOTS, physically delete all older surplus files!
-    if (validFiles.length > MAX_SNAPSHOTS) {
-      const surplusFiles = validFiles.slice(MAX_SNAPSHOTS);
-      for (const f of surplusFiles) {
-        Filesystem.deleteFile({
-          path: `Finance-Ally/Snapshots/${f.name}`,
-          directory: Directory.Documents,
-        }).catch(() => {});
-      }
-    }
-
-    const keptFiles = validFiles.slice(0, MAX_SNAPSHOTS);
+    const keptFiles = validFiles.slice(0, limit);
 
     // Rebuild metadata array for the kept files
     const rebuilt: LocalSnapshotMetadata[] = keptFiles.map((f, i) => {
-      const parts = f.name.split('_');
-      let timestamp = new Date(f.mtime || Date.now()).toLocaleString();
-      if (parts.length >= 3) {
-        timestamp = parts[2];
-      }
+      const timeMs = getFileTime(f) || Date.now();
+      const timestamp = new Date(timeMs).toLocaleString();
       return {
-        id: `snap_recovered_${f.mtime || Date.now()}_${i}`,
+        id: `snap_recovered_${timeMs}_${i}`,
         filename: f.name,
         timestamp,
         schedule: 'off' as LocalSyncSchedule,
@@ -151,7 +274,7 @@ export async function syncSnapshotsFromFilesystem(): Promise<LocalSnapshotMetada
       }
     }
 
-    const finalMerged = merged.slice(0, MAX_SNAPSHOTS);
+    const finalMerged = merged.slice(0, limit);
     saveSnapshotsList(finalMerged);
 
     // Purge any orphan cache keys from localStorage
@@ -171,7 +294,7 @@ export async function syncSnapshotsFromFilesystem(): Promise<LocalSnapshotMetada
     return finalMerged;
   } catch (err) {
     console.warn('Could not scan native filesystem for snapshots:', err);
-    return getLocalSnapshots().slice(0, MAX_SNAPSHOTS);
+    return getLocalSnapshots().slice(0, limit);
   }
 }
 
@@ -230,6 +353,7 @@ export async function createLocalAutoBackup(
 ): Promise<{ success: boolean; snapshot?: LocalSnapshotMetadata; message: string }> {
   try {
     const config = getLocalAutoBackupConfig();
+    const limit = config.retentionLimit || 10;
     const jsonStr = await exportFullDataBackup();
 
     // Automatically encrypt if a PIN is set (uses stored RSA Public Key)
@@ -238,7 +362,7 @@ export async function createLocalAutoBackup(
 
     const isoDate = getLocalDateString();
     const timestampStr = new Date().toLocaleString();
-    const filename = `fa_autobackup_${isoDate}_${Date.now().toString().slice(-4)}.${isEncrypted ? 'json.enc' : 'json'}`;
+    const filename = `fa_autobackup_${isoDate}_${Date.now()}.${isEncrypted ? 'json.enc' : 'json'}`;
     const sizeBytes = new Blob([finalPayload]).size;
 
     // Save payload to Native Filesystem if on Android/iOS, else localStorage fallback
@@ -278,11 +402,11 @@ export async function createLocalAutoBackup(
       console.warn('LocalStorage cache write failed:', e);
     }
 
-    // Update snapshots list and prune old ones beyond MAX_SNAPSHOTS
+    // Update snapshots list and prune old ones beyond retentionLimit
     const snapshots = getLocalSnapshots();
     snapshots.unshift(newSnapshot);
-    const trimmedSnapshots = snapshots.slice(0, MAX_SNAPSHOTS);
-    const evictedSnapshots = snapshots.slice(MAX_SNAPSHOTS);
+    const trimmedSnapshots = snapshots.slice(0, limit);
+    const evictedSnapshots = snapshots.slice(limit);
 
     // Evict old snapshots from cache & filesystem
     for (const evicted of evictedSnapshots) {
@@ -291,19 +415,28 @@ export async function createLocalAutoBackup(
       } catch {}
 
       if (Capacitor.isNativePlatform()) {
-        Filesystem.deleteFile({
-          path: `Finance-Ally/Snapshots/${evicted.filename}`,
-          directory: Directory.Documents,
-        }).catch(() => {
-          Filesystem.deleteFile({
-            path: evicted.filename,
-            directory: Directory.Cache,
-          }).catch(() => {});
-        });
+        try {
+          await Filesystem.deleteFile({
+            path: `Finance-Ally/Snapshots/${evicted.filename}`,
+            directory: Directory.Documents,
+          });
+        } catch {
+          try {
+            await Filesystem.deleteFile({
+              path: evicted.filename,
+              directory: Directory.Cache,
+            });
+          } catch {}
+        }
       }
     }
 
     saveSnapshotsList(trimmedSnapshots);
+
+    // Deep prune filesystem to remove any historic accumulation of files
+    if (Capacitor.isNativePlatform()) {
+      await pruneFilesystemSnapshots(limit);
+    }
 
     // Update last backup time
     saveLocalAutoBackupConfig({ lastBackupTime: Date.now() });
@@ -323,10 +456,22 @@ export async function createLocalAutoBackup(
       message: `${manualTrigger ? 'Manual' : 'Automated'} local snapshot created successfully (${(sizeBytes / 1024).toFixed(1)} KB).`,
     };
   } catch (err: any) {
+    const errorMsg = err?.message || String(err) || 'Failed to generate snapshot.';
     console.error('Failed to create local auto backup:', err);
+
+    setLastBackupError(errorMsg);
+
+    if (!manualTrigger) {
+      triggerSystemNotification(
+        'Auto-Backup Failed',
+        `Database snapshot failed: ${errorMsg}`,
+        `snap_err_${Date.now()}`
+      );
+    }
+
     return {
       success: false,
-      message: `Local backup error: ${err?.message || 'Failed to generate snapshot.'}`,
+      message: `Local backup error: ${errorMsg}`,
     };
   }
 }
@@ -378,22 +523,26 @@ export async function getSnapshotPayload(snap: LocalSnapshotMetadata): Promise<s
 /**
  * Deletes a snapshot.
  */
-export function deleteLocalSnapshot(snapshotId: string): LocalSnapshotMetadata[] {
+export async function deleteLocalSnapshot(snapshotId: string): Promise<LocalSnapshotMetadata[]> {
   const list = getLocalSnapshots();
   const snap = list.find(s => s.id === snapshotId);
   
   localStorage.removeItem(`fa_snap_data_${snapshotId}`);
   
   if (snap && Capacitor.isNativePlatform()) {
-    Filesystem.deleteFile({
-      path: `Finance-Ally/Snapshots/${snap.filename}`,
-      directory: Directory.Documents
-    }).catch(() => {
-      Filesystem.deleteFile({
-        path: snap.filename,
-        directory: Directory.Cache
-      }).catch(() => {});
-    });
+    try {
+      await Filesystem.deleteFile({
+        path: `Finance-Ally/Snapshots/${snap.filename}`,
+        directory: Directory.Documents
+      });
+    } catch {
+      try {
+        await Filesystem.deleteFile({
+          path: snap.filename,
+          directory: Directory.Cache
+        });
+      } catch {}
+    }
   }
   
   const updatedList = list.filter(s => s.id !== snapshotId);

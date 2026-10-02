@@ -12,7 +12,13 @@ import { DailyTimeline } from './components/dashboard/DailyTimeline';
 import { TransactionModal } from './components/dashboard/TransactionModal';
 import { ScheduledPaymentToastBanner } from './components/common/ScheduledPaymentToastBanner';
 import { Transaction } from './types';
-import { checkAndPerformLocalAutoBackup } from './services/localAutoBackupService';
+import {
+  checkAndPerformLocalAutoBackup,
+  syncSnapshotsFromFilesystem,
+  getLastBackupError,
+  onBackupError,
+  LastBackupError
+} from './services/localAutoBackupService';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 
@@ -25,6 +31,7 @@ import { PasswordManagerTab } from './components/tools/PasswordManagerTab';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { CategoryManagerModal } from './components/categories/CategoryManagerModal';
 import { RecoveryKeyModal } from './components/common/RecoveryKeyModal';
+import { BackupErrorModal } from './components/common/BackupErrorModal';
 import { initializeGlobalRecoveryKey } from './services/recoveryService';
 
 const V3_RECOVERY_ONBOARDED_KEY = 'fa_v3_recovery_onboarded';
@@ -32,6 +39,7 @@ const V3_RECOVERY_ONBOARDED_KEY = 'fa_v3_recovery_onboarded';
 const MainAppContent: React.FC = () => {
   const { user, needsOnboarding, isUnlocked } = useAuth();
   const [v3RecoveryKey, setV3RecoveryKey] = useState<string | null>(null);
+  const [backupError, setBackupError] = useState<LastBackupError | null>(null);
   
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [tabHistory, setTabHistory] = useState<NavTab[]>(['dashboard']);
@@ -54,6 +62,16 @@ const MainAppContent: React.FC = () => {
 
     if (!needsOnboarding && isUnlocked) {
       checkAndPerformLocalAutoBackup();
+      syncSnapshotsFromFilesystem().catch(() => {});
+
+      const pendingErr = getLastBackupError();
+      if (pendingErr) {
+        setBackupError(pendingErr);
+      }
+
+      const unsubscribe = onBackupError(err => {
+        setBackupError(err);
+      });
 
       const alreadyOnboarded = localStorage.getItem(V3_RECOVERY_ONBOARDED_KEY);
       if (!alreadyOnboarded) {
@@ -62,6 +80,10 @@ const MainAppContent: React.FC = () => {
           setV3RecoveryKey(key);
         });
       }
+
+      return () => {
+        unsubscribe();
+      };
     }
   }, [needsOnboarding, isUnlocked, user?.username]);
 
@@ -72,6 +94,12 @@ const MainAppContent: React.FC = () => {
     let listenerHandle: { remove: () => void } | null = null;
 
     CapApp.addListener('backButton', () => {
+      // 0. If Backup Error modal is open -> close it
+      if (backupError) {
+        setBackupError(null);
+        return;
+      }
+
       // 1. If QuickAdd or Edit Transaction modal is open -> close it
       if (isQuickAddOpen || editingTransaction) {
         setIsQuickAddOpen(false);
@@ -232,6 +260,15 @@ const MainAppContent: React.FC = () => {
               localStorage.setItem(V3_RECOVERY_ONBOARDED_KEY, 'true');
               setV3RecoveryKey(null);
             }}
+          />
+        )}
+
+        {/* Local Database Backup Error Modal */}
+        {backupError && (
+          <BackupErrorModal
+            errorMessage={backupError.message}
+            timestamp={backupError.timestamp}
+            onDismiss={() => setBackupError(null)}
           />
         )}
 

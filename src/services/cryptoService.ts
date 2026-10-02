@@ -17,7 +17,7 @@ const PIN_KEY = 'fa_export_pin';
 function bufToBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
   let binary = '';
-  const chunkSize = 0x8000; // 32KB safe chunk to prevent Maximum call stack size exceeded
+  const chunkSize = 1024; // 1024-byte safe chunk to completely prevent 'Maximum call stack size exceeded' on Android WebView
   for (let i = 0; i < bytes.length; i += chunkSize) {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
   }
