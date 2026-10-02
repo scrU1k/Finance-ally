@@ -209,7 +209,7 @@ export const AuthModal: React.FC = () => {
                   type="text"
                   value={recoveryKey}
                   onChange={e => setRecoveryKey(e.target.value)}
-                  placeholder="USR-xxxx-xxxx-xxxx"
+                  placeholder="USR-xxxx-xxxx-xxxx-xxxx"
                   autoFocus
                   required
                   className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink tracking-wider focus:outline-none focus:border-brand-blue"

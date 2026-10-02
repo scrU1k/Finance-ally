@@ -3,7 +3,7 @@ import { X, Lock, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 interface PinModalProps {
-  mode: 'verify' | 'set' | 'change' | 'recover' | 'reset';
+  mode: 'verify' | 'set' | 'change' | 'recover' | 'reset' | 'disable' | 'recover-disable';
   title: string;
   description?: string;
   // If mode is change or recover, onConfirm gets two strings (oldPin/recoveryKey, newPin)
@@ -24,7 +24,7 @@ export const PinModal: React.FC<PinModalProps> = ({
   loading = false,
   error,
 }) => {
-  const [pin, setPin] = useState(''); // Serves as old PIN or Recovery Key in change/recover mode
+  const [pin, setPin] = useState(''); // Serves as old PIN or Recovery Key in change/recover/recover-disable mode
   const [newPin, setNewPin] = useState(''); 
   const [confirmPin, setConfirmPin] = useState('');
   const [showPin, setShowPin] = useState(false);
@@ -36,9 +36,9 @@ export const PinModal: React.FC<PinModalProps> = ({
     e.preventDefault();
     setLocalError('');
 
-    if (mode === 'verify' || mode === 'set' || mode === 'reset') {
-      if (!pin || pin.length < 4) {
-        setLocalError('PIN must be at least 4 characters.');
+    if (mode === 'verify' || mode === 'set' || mode === 'reset' || mode === 'disable' || mode === 'recover-disable') {
+      if (!pin || (mode !== 'recover-disable' && pin.length < 4)) {
+        setLocalError(mode === 'recover-disable' ? 'Recovery Key is required.' : 'PIN must be at least 4 characters.');
         return;
       }
       if ((mode === 'set' || mode === 'reset') && pin !== confirmPin) {
@@ -107,11 +107,11 @@ export const PinModal: React.FC<PinModalProps> = ({
             <label className="text-[10px] font-mono text-muted-custom uppercase font-bold flex justify-between">
               <span>
                 {mode === 'verify' ? 'Enter Your Backup PIN' :
-                 mode === 'change' ? 'Current Backup PIN' :
-                 mode === 'recover' ? 'Recovery Key' :
+                 mode === 'change' || mode === 'disable' ? 'Current Backup PIN' :
+                 mode === 'recover' || mode === 'recover-disable' ? 'Global Recovery Key' :
                  'New PIN (min 4 characters)'}
               </span>
-              {(mode === 'change' || mode === 'verify') && onForgotPin && (
+              {(mode === 'change' || mode === 'verify' || mode === 'disable') && onForgotPin && (
                 <button type="button" onClick={onForgotPin} className="text-brand-blue hover:underline cursor-pointer">
                   Forgot PIN?
                 </button>
@@ -119,15 +119,15 @@ export const PinModal: React.FC<PinModalProps> = ({
             </label>
             <div className="relative">
               <input
-                type={showPin || mode === 'recover' ? 'text' : 'password'}
+                type={showPin || mode === 'recover' || mode === 'recover-disable' ? 'text' : 'password'}
                 value={pin}
                 onChange={e => setPin(e.target.value)}
-                placeholder={mode === 'recover' ? 'JOH-xxxx-xxxx-xxxx' : '••••'}
+                placeholder={mode === 'recover' || mode === 'recover-disable' ? 'USR-xxxx-xxxx-xxxx-xxxx' : '••••'}
                 autoFocus
                 className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-10 py-2 text-sm font-mono text-ink focus:outline-none focus:border-ink tracking-widest"
-                maxLength={40}
+                maxLength={mode === 'recover' || mode === 'recover-disable' ? 60 : 40}
               />
-              {mode !== 'recover' && (
+              {mode !== 'recover' && mode !== 'recover-disable' && (
                 <button
                   type="button"
                   onClick={() => setShowPin(!showPin)}
@@ -206,12 +206,13 @@ export const PinModal: React.FC<PinModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className={`flex-1 py-2 rounded-xl border text-xs font-mono font-bold transition-all cursor-pointer disabled:opacity-50 ${mode === 'reset' ? 'border-brand-coral text-brand-coral hover:bg-brand-coral/10' : 'border-brand-blue text-brand-blue hover:bg-surface-soft'}`}
+              className={`flex-1 py-2 rounded-xl border text-xs font-mono font-bold transition-all cursor-pointer disabled:opacity-50 ${mode === 'reset' || mode === 'disable' || mode === 'recover-disable' ? 'border-brand-coral text-brand-coral hover:bg-brand-coral/10' : 'border-brand-blue text-brand-blue hover:bg-surface-soft'}`}
             >
               {loading ? 'Processing...' : (
                 mode === 'verify' ? 'Unlock & Import' : 
                 mode === 'change' || mode === 'recover' ? 'Update PIN' : 
-                mode === 'reset' ? 'Reset PIN' : 'Set PIN'
+                mode === 'reset' ? 'Reset PIN' : 
+                mode === 'disable' || mode === 'recover-disable' ? 'Disable PIN' : 'Set PIN'
               )}
             </button>
           </div>

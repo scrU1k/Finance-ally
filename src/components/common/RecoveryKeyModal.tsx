@@ -5,9 +5,18 @@ import { createPortal } from 'react-dom';
 interface RecoveryKeyModalProps {
   recoveryKey: string;
   onDismiss: () => void;
+  title?: string;
+  subtitle?: string;
+  noticeText?: string;
 }
 
-export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({ recoveryKey, onDismiss }) => {
+export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({ 
+  recoveryKey, 
+  onDismiss,
+  title = 'Master Security Recovery Key',
+  subtitle = 'One-Time Zero-Knowledge Key',
+  noticeText
+}) => {
   const [copied, setCopied] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
 
@@ -26,8 +35,8 @@ export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({ recoveryKey,
             <ShieldCheck className="w-5 h-5 text-brand-yellow" />
           </div>
           <div>
-            <h2 className="text-lg font-display font-bold text-ink">Master Security Recovery Key</h2>
-            <p className="text-[11px] font-mono text-brand-yellow">One-Time Zero-Knowledge Key</p>
+            <h2 className="text-lg font-display font-bold text-ink">{title}</h2>
+            <p className="text-[11px] font-mono text-brand-yellow">{subtitle}</p>
           </div>
         </div>
 
@@ -36,7 +45,11 @@ export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({ recoveryKey,
           <div className="bg-brand-coral/10 border border-brand-coral/30 rounded-xl p-3 flex gap-2">
             <AlertTriangle className="w-4 h-4 text-brand-coral shrink-0 mt-0.5" />
             <p className="text-[11px] font-mono text-ink leading-relaxed">
-              This key is <strong className="text-brand-coral">shown once and NEVER saved on this device</strong>. If you ever forget your App Password, Password Vault PIN, or Backup PIN, this key is the <strong className="text-brand-coral">ONLY way</strong> to recover your account and encrypted data.
+              {noticeText ? (
+                noticeText
+              ) : (
+                <>This key is <strong className="text-brand-coral">shown once and NEVER saved on this device</strong>. If you ever forget your App Password, Password Vault PIN, or Backup PIN, this key is the <strong className="text-brand-coral">ONLY way</strong> to recover your account and encrypted data.</>
+              )}
             </p>
           </div>
 

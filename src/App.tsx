@@ -24,9 +24,14 @@ import { SmartSuggestions } from './components/insights/SmartSuggestions';
 import { PasswordManagerTab } from './components/tools/PasswordManagerTab';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { CategoryManagerModal } from './components/categories/CategoryManagerModal';
+import { RecoveryKeyModal } from './components/common/RecoveryKeyModal';
+import { initializeGlobalRecoveryKey } from './services/recoveryService';
+
+const V3_RECOVERY_ONBOARDED_KEY = 'fa_v3_recovery_onboarded';
 
 const MainAppContent: React.FC = () => {
-  const { needsOnboarding, isUnlocked } = useAuth();
+  const { user, needsOnboarding, isUnlocked } = useAuth();
+  const [v3RecoveryKey, setV3RecoveryKey] = useState<string | null>(null);
   
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [tabHistory, setTabHistory] = useState<NavTab[]>(['dashboard']);
@@ -49,8 +54,16 @@ const MainAppContent: React.FC = () => {
 
     if (!needsOnboarding && isUnlocked) {
       checkAndPerformLocalAutoBackup();
+
+      const alreadyOnboarded = localStorage.getItem(V3_RECOVERY_ONBOARDED_KEY);
+      if (!alreadyOnboarded) {
+        const username = user?.username || 'USER';
+        initializeGlobalRecoveryKey(username).then(key => {
+          setV3RecoveryKey(key);
+        });
+      }
     }
-  }, [needsOnboarding, isUnlocked]);
+  }, [needsOnboarding, isUnlocked, user?.username]);
 
   // Native Android Hardware / Gesture Back Button Navigation Handler
   React.useEffect(() => {
@@ -205,6 +218,20 @@ const MainAppContent: React.FC = () => {
           <SettingsModal
             isOpen={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
+          />
+        )}
+
+        {/* v3.0 Global Recovery Key First-Launch Modal */}
+        {v3RecoveryKey && (
+          <RecoveryKeyModal
+            recoveryKey={v3RecoveryKey}
+            title="Welcome to Finance-Ally v3.0"
+            subtitle="Global Security Recovery Key"
+            noticeText="A new emergency recovery system has been added in v3.0 so you can recover your App Password, Password Vault PIN, or Backup PIN if you ever forget them. This key is shown ONCE and NEVER stored on this device. Save it safely!"
+            onDismiss={() => {
+              localStorage.setItem(V3_RECOVERY_ONBOARDED_KEY, 'true');
+              setV3RecoveryKey(null);
+            }}
           />
         )}
 

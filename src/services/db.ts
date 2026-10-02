@@ -421,7 +421,7 @@ export async function exportFullDataBackup(): Promise<string> {
     passwordVaultEnvelope,
     passwordVaultVerifier: localStorage.getItem('fa_pwd_vault_verifier') || null,
     exportTimestamp: Date.now(),
-    appVersion: '2.2.0'
+    appVersion: '3.0.0'
   };
   return JSON.stringify(data, null, 2);
 }

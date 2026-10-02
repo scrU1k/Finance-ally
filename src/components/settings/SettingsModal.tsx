@@ -5,7 +5,8 @@ import { useTheme, ThemeMode, FontFamily } from '../../context/ThemeContext';
 import { TOP_CURRENCIES, convertCurrencyAmount, formatCurrency } from '../../services/currency';
 import { exportFullDataBackup, importFullDataBackup } from '../../services/db';
 import { exportTransactionsToCSV, importTransactionsFromCSV } from '../../services/csvParser';
-import { encryptJSON, decryptJSON, isEncryptedBackup, setupExportPin, changeExportPin, recoverExportPin, resetExportPin, hasExportPin, clearExportPin } from '../../services/cryptoService';
+import { encryptJSON, decryptJSON, isEncryptedBackup, setupExportPin, changeExportPin, recoverExportPin, resetExportPin, hasExportPin, clearExportPin, verifyExportPin } from '../../services/cryptoService';
+import { verifyUserPassword } from '../../services/auth';
 import { RecoveryKeyModal } from '../common/RecoveryKeyModal';
 import {
   getLocalAutoBackupConfig,
@@ -65,7 +66,8 @@ import {
   User,
   Edit2,
   Check,
-  Key
+  Key,
+  AlertTriangle
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -305,10 +307,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   };
 
-  const handleRegenerateRecoveryKey = async () => {
-    const username = user?.username || 'USER';
-    const newKey = await initializeGlobalRecoveryKey(username);
-    setGeneratedRecoveryKey(newKey);
+  // Rotate Recovery Key State
+  const [showRotateWarningModal, setShowRotateWarningModal] = useState(false);
+  const [rotateAuthPassword, setRotateAuthPassword] = useState('');
+  const [rotateAuthError, setRotateAuthError] = useState('');
+  const [rotateLoading, setRotateLoading] = useState(false);
+
+  const handleConfirmRotateRecoveryKey = async () => {
+    setRotateAuthError('');
+    if (user?.requirePassword) {
+      if (!rotateAuthPassword) {
+        setRotateAuthError('Please enter your App Password to authorize rotation.');
+        return;
+      }
+      setRotateLoading(true);
+      const valid = await verifyUserPassword(rotateAuthPassword);
+      if (!valid) {
+        setRotateLoading(false);
+        setRotateAuthError('Incorrect App Password.');
+        return;
+      }
+    }
+
+    setRotateLoading(true);
+    try {
+      const username = user?.username || 'USER';
+      const newKey = await initializeGlobalRecoveryKey(username);
+      setShowRotateWarningModal(false);
+      setRotateAuthPassword('');
+      setRotateAuthError('');
+      setGeneratedRecoveryKey(newKey);
+    } catch (err: any) {
+      setRotateAuthError(err.message || 'Failed to rotate recovery key.');
+    } finally {
+      setRotateLoading(false);
+    }
   };
 
   // Backup State
@@ -327,7 +360,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   // Export PIN / Encryption state
   const [pinEnabled, setPinEnabled] = useState<boolean>(hasExportPin);
-  const [showSetPinModal, setShowSetPinModal] = useState<'set' | 'change' | 'recover' | 'reset' | null>(null);
+  const [showSetPinModal, setShowSetPinModal] = useState<'set' | 'change' | 'recover' | 'reset' | 'disable' | 'recover-disable' | null>(null);
   const [generatedRecoveryKey, setGeneratedRecoveryKey] = useState<string | null>(null);
   const [pinActionLoading, setPinActionLoading] = useState(false);
   const [pinActionError, setPinActionError] = useState('');
@@ -591,6 +624,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         } else {
           setPinActionError('Invalid Recovery Key.');
         }
+      } else if (showSetPinModal === 'disable') {
+        const ok = await verifyExportPin(pin1);
+        if (ok) {
+          clearExportPin();
+          setPinEnabled(false);
+          setPinMsg('Backup encryption disabled. Future exports will be plain JSON.');
+          setShowSetPinModal(null);
+        } else {
+          setPinActionError('Incorrect Current Backup PIN.');
+        }
+      } else if (showSetPinModal === 'recover-disable') {
+        const isKeyValid = await verifyGlobalRecoveryKey(pin1.trim());
+        if (isKeyValid) {
+          clearExportPin();
+          setPinEnabled(false);
+          setPinMsg('Backup encryption disabled using Recovery Key.');
+          setShowSetPinModal(null);
+        } else {
+          setPinActionError('Invalid Recovery Key.');
+        }
       }
     } catch (err: any) {
       setPinActionError(err.message || 'Error processing PIN request. Please try again.');
@@ -644,9 +697,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   const handleDisablePin = () => {
-    clearExportPin();
-    setPinEnabled(false);
-    setPinMsg('Backup encryption disabled. Future exports will be plain JSON.');
+    setPinActionError('');
+    setShowSetPinModal('disable');
   };
 
   const themes: { id: ThemeMode; label: string; bg: string }[] = [
@@ -711,7 +763,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   {activeSubPage === 'privacy' && 'Privacy Policy & Terms'}
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-purple/15 text-brand-purple border border-brand-purple/30 font-bold shrink-0">
-                  v2.2
+                  v3.0
                 </span>
               </h2>
               {activeSubPage === 'main' && (
@@ -1204,7 +1256,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         type="text"
                         value={appPasswordRecoveryKey}
                         onChange={e => setAppPasswordRecoveryKey(e.target.value)}
-                        placeholder="USR-xxxx-xxxx-xxxx"
+                        placeholder="USR-xxxx-xxxx-xxxx-xxxx"
                         required
                         className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink tracking-wider"
                       />
@@ -1389,7 +1441,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         type="text"
                         value={pwdVaultRecoveryKey}
                         onChange={e => setPwdVaultRecoveryKey(e.target.value)}
-                        placeholder="USR-xxxx-xxxx-xxxx"
+                        placeholder="USR-xxxx-xxxx-xxxx-xxxx"
                         required
                         className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink tracking-wider"
                       />
@@ -1574,11 +1626,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
               <div className="pt-3 border-t border-hairline/60 flex items-center justify-between gap-3">
                 <p className="text-[11px] font-mono text-muted-custom">
-                  Keep your 12-character key written down or in a password manager. Need a new one?
+                  Keep your 16-character key written down or in a password manager. Need a new one?
                 </p>
                 <button
                   type="button"
-                  onClick={handleRegenerateRecoveryKey}
+                  onClick={() => {
+                    setShowRotateWarningModal(true);
+                    setRotateAuthPassword('');
+                    setRotateAuthError('');
+                  }}
                   className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-brand-yellow text-brand-yellow hover:bg-brand-yellow/10 transition-all cursor-pointer shrink-0"
                 >
                   {hasGlobalRecoveryKey() ? 'Rotate Recovery Key' : 'Generate Recovery Key'}
@@ -2021,16 +2077,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             title={
               showSetPinModal === 'set' ? 'Set Backup Encryption PIN' : 
               showSetPinModal === 'change' ? 'Change Export PIN' : 
-              showSetPinModal === 'recover' ? 'Recover Export PIN' : 'Reset Export PIN'
+              showSetPinModal === 'recover' ? 'Recover Export PIN' : 
+              showSetPinModal === 'disable' ? 'Disable Backup Encryption' :
+              showSetPinModal === 'recover-disable' ? 'Disable Backup Encryption' : 'Reset Export PIN'
             }
             description={
               showSetPinModal === 'set' ? 'This PIN will AES-256 encrypt your backup exports.' :
               showSetPinModal === 'change' ? 'Change your PIN securely without losing access to older backups.' :
-              showSetPinModal === 'recover' ? 'Enter your 12-character Recovery Key to securely set a new PIN.' : undefined
+              showSetPinModal === 'recover' ? 'Enter your 16-character Recovery Key to securely set a new PIN.' :
+              showSetPinModal === 'disable' ? 'Enter your Current Backup PIN to authorize disabling backup encryption.' :
+              showSetPinModal === 'recover-disable' ? 'Enter your 16-character Global Recovery Key to disable encryption.' : undefined
             }
             onConfirm={handleSavePin}
             onCancel={() => { setShowSetPinModal(null); setPinActionError(''); }}
-            onForgotPin={showSetPinModal === 'change' ? () => { setShowSetPinModal('recover'); setPinActionError(''); } : undefined}
+            onForgotPin={
+              showSetPinModal === 'change' ? () => { setShowSetPinModal('recover'); setPinActionError(''); } :
+              showSetPinModal === 'disable' ? () => { setShowSetPinModal('recover-disable'); setPinActionError(''); } : undefined
+            }
             loading={pinActionLoading}
             error={pinActionError}
           />
@@ -2046,6 +2109,75 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             loading={verifyPinLoading}
             error={verifyPinError}
           />
+        )}
+
+        {showRotateWarningModal && (
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-surface-card/95 backdrop-blur-2xl saturate-[180%] border border-brand-coral/40 rounded-2xl p-6 shadow-2xl shadow-black/50 space-y-4 ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center gap-3 border-b border-hairline pb-3">
+                <div className="w-10 h-10 rounded-full bg-brand-coral/20 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-brand-coral" />
+                </div>
+                <div>
+                  <h2 className="text-base font-display font-bold text-ink">Invalidate Current Recovery Key?</h2>
+                  <p className="text-[11px] font-mono text-brand-coral font-bold">Irreversible Action</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-xs font-mono text-ink leading-relaxed">
+                  Generating a new recovery key will <strong className="text-brand-coral">permanently invalidate</strong> your current one. Any previously saved paper copy or digital note will no longer work.
+                </p>
+                <div className="bg-surface-soft border border-hairline rounded-xl p-3">
+                  <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                    💡 <em>Note: Your current transactions, password vault cards, and existing backups remain completely safe as long as you remember your current PINs and password.</em>
+                  </p>
+                </div>
+
+                {user?.requirePassword && (
+                  <div className="space-y-1 pt-1">
+                    <label className="text-[10px] font-mono text-muted-custom uppercase font-bold block">
+                      Enter App Password to Authorize
+                    </label>
+                    <input
+                      type="password"
+                      value={rotateAuthPassword}
+                      onChange={e => { setRotateAuthPassword(e.target.value); setRotateAuthError(''); }}
+                      placeholder="Your App Password"
+                      autoFocus
+                      className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-brand-coral"
+                    />
+                  </div>
+                )}
+
+                {rotateAuthError && (
+                  <p className="text-[10px] font-mono text-brand-coral font-bold">{rotateAuthError}</p>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-hairline">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRotateWarningModal(false);
+                    setRotateAuthPassword('');
+                    setRotateAuthError('');
+                  }}
+                  className="flex-1 py-2 rounded-xl border border-hairline text-muted-custom text-xs font-mono font-bold hover:border-ink hover:text-ink transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={rotateLoading}
+                  onClick={handleConfirmRotateRecoveryKey}
+                  className="flex-1 py-2 rounded-xl border border-brand-coral bg-brand-coral/10 hover:bg-brand-coral text-brand-coral hover:text-white text-xs font-mono font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  {rotateLoading ? 'Generating...' : 'Proceed & Generate'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {generatedRecoveryKey && (

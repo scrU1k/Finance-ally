@@ -37,16 +37,29 @@ export function normalizeRecoveryKey(raw: string): string {
 }
 
 /**
- * Generates a high-entropy 12-character recovery key with username prefix:
- * e.g. JOH-a1b2-c3d4-e5f6
+ * Generates a high-entropy 16-character full Base-62 recovery key with username prefix:
+ * e.g. JOH-k7B2-9xLm-4PqR-v8Tw
  * This key is shown ONCE to the user and NEVER saved in plaintext or reversible form on the device.
  */
 export function generateRecoveryKey(username: string): string {
   const cleanName = username.replace(/[^a-zA-Z0-9]/g, '');
   const prefix = (cleanName.substring(0, 3) || 'USR').toUpperCase().padEnd(3, 'X');
-  const rand = crypto.getRandomValues(new Uint8Array(6));
-  const chars = Array.from(rand).map(b => b.toString(16).padStart(2, '0')).join('');
-  return `${prefix}-${chars.substring(0, 4)}-${chars.substring(4, 8)}-${chars.substring(8, 12)}`;
+  const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  const rand = new Uint8Array(32);
+  crypto.getRandomValues(rand);
+  let keyChars = '';
+  let i = 0;
+  while (keyChars.length < 16) {
+    if (i >= rand.length) {
+      crypto.getRandomValues(rand);
+      i = 0;
+    }
+    const b = rand[i++];
+    if (b < 248) { // 248 = 62 * 4, completely eliminates modulo bias
+      keyChars += charset[b % 62];
+    }
+  }
+  return `${prefix}-${keyChars.substring(0, 4)}-${keyChars.substring(4, 8)}-${keyChars.substring(8, 12)}-${keyChars.substring(12, 16)}`;
 }
 
 /**

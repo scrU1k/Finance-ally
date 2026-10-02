@@ -1494,7 +1494,7 @@ export const PasswordManagerTab: React.FC = () => {
                     type="text"
                     value={vaultRecoveryKey}
                     onChange={e => { setVaultRecoveryKey(e.target.value); setVaultRecoveryError(''); }}
-                    placeholder="USR-xxxx-xxxx-xxxx"
+                    placeholder="USR-xxxx-xxxx-xxxx-xxxx"
                     autoFocus
                     required
                     className="w-full text-xs font-mono px-3 py-2 bg-surface-soft border border-hairline rounded-xl text-ink tracking-wider focus:outline-none focus:border-[#005687]"
