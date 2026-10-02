@@ -5,6 +5,7 @@ import { TOP_CURRENCIES } from '../../services/currency';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { X, Check, Plane } from 'lucide-react';
+import { getLocalDateString } from '../../utils/dateUtils';
 
 interface TripModalProps {
   isOpen: boolean;
@@ -18,8 +19,8 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose, tripToEdi
   const [name, setName] = useState('');
   const [destination, setDestination] = useState('');
   const [tripType, setTripType] = useState<'domestic' | 'foreign'>('domestic');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(getLocalDateString());
+  const [endDate, setEndDate] = useState(getLocalDateString(new Date(Date.now() + 86400000 * 7)));
   const [budget, setBudget] = useState('15000');
   const [currency, setCurrency] = useState<CurrencyCode>('USD');
 
@@ -41,8 +42,8 @@ export const TripModal: React.FC<TripModalProps> = ({ isOpen, onClose, tripToEdi
       setName('');
       setDestination('');
       setTripType('domestic');
-      setStartDate(new Date().toISOString().split('T')[0]);
-      setEndDate(new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]);
+      setStartDate(getLocalDateString());
+      setEndDate(getLocalDateString(new Date(Date.now() + 86400000 * 7)));
       setBudget('15000');
       setCurrency('USD');
     }

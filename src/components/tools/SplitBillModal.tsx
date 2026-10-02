@@ -6,6 +6,7 @@ import { CurrencyCode, SplitMember } from '../../types';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { Users, Copy, Plus, Trash2, Check, Calculator, Percent } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { getLocalDateString } from '../../utils/dateUtils';
 
 export const SplitBillModal: React.FC = () => {
   const { baseCurrency, addTransaction } = useFinance();
@@ -62,7 +63,7 @@ export const SplitBillModal: React.FC = () => {
       amount: perPersonEqual,
       currency,
       categoryId: 'cat-others',
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalDateString(),
       time: new Date().toTimeString().split(' ')[0].substring(0, 5),
       note: `Split bill share for: ${members.map(m => m.name).join(', ')}`,
       paymentMethod: 'UPI',

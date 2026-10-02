@@ -185,6 +185,12 @@ export const PinModal: React.FC<PinModalProps> = ({
             </div>
           )}
 
+          {(mode === 'set' || mode === 'reset' || mode === 'change' || mode === 'recover') && (
+            <p className="text-[10px] font-mono text-muted-custom/90 italic">
+              💡 Recommended: 6+ digits or a passphrase for maximum offline resistance.
+            </p>
+          )}
+
           {displayError && (
             <p className="text-[10px] font-mono text-brand-coral font-bold">{displayError}</p>
           )}

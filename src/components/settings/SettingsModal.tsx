@@ -77,7 +77,17 @@ type SettingsSubPage = 'main' | 'security' | 'csv' | 'backup' | 'privacy';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { user, toggleRequirePassword, changePassword, updateUsername } = useAuth();
-  const { baseCurrency, switchBaseCurrency, syncForexRates, forexRates, transactions, categories, addTransaction } = useFinance();
+  const {
+    baseCurrency,
+    switchBaseCurrency,
+    syncForexRates,
+    forexRates,
+    transactions,
+    categories,
+    addTransaction,
+    includeTripExpensesInTimeline,
+    setIncludeTripExpensesInTimeline,
+  } = useFinance();
   const { theme, setTheme, fontFamily, setFontFamily } = useTheme();
 
   // Active Sub-Page Navigation State
@@ -1022,6 +1032,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
             </div>
 
+            {/* TIMELINE PREFERENCES */}
+            <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                    <span>Trip Expenses in Timeline</span>
+                  </h3>
+                  <p className="text-[11px] font-mono text-muted-custom">
+                    Include expenses logged under trips in the main dashboard & period totals
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIncludeTripExpensesInTimeline(!includeTripExpensesInTimeline)}
+                  className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
+                    includeTripExpensesInTimeline ? 'bg-brand-mint' : 'bg-surface-card border border-hairline'
+                  }`}
+                >
+                  <div
+                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                      includeTripExpensesInTimeline ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -1725,6 +1762,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </button>
               </div>
 
+              {!pinEnabled && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex gap-2.5 items-start">
+                  <Shield className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-[10px] font-mono text-ink leading-relaxed">
+                    <strong className="text-amber-500">Unencrypted Notice:</strong> Without a Backup PIN configured, automated local snapshots and exports are stored as plaintext JSON on device. Enable Backup PIN above to encrypt them with AES-256-GCM.
+                  </p>
+                </div>
+              )}
+
               {/* Perform Manual Snapshot Button */}
               <div className="pt-2">
                 <button
@@ -1754,9 +1800,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                           <span className="text-[9.5px] text-muted-custom">{snap.timestamp} • {(snap.sizeBytes / 1024).toFixed(1)} KB</span>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {snap.isEncrypted && (
+                          {snap.isEncrypted ? (
                             <span className="text-[9px] font-bold text-brand-blue border border-brand-blue/30 px-1.5 py-0.5 rounded">
                               AES-256
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold text-amber-500 border border-amber-500/30 px-1.5 py-0.5 rounded">
+                              PLAINTEXT
                             </span>
                           )}
                           <button

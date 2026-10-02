@@ -6,6 +6,7 @@ import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { CustomTimePicker } from '../common/CustomTimePicker';
 import { isFutureDateTime } from '../../utils/scheduledUtils';
+import { getLocalDateString } from '../../utils/dateUtils';
 import { X, Check, Calendar, Clock, CreditCard, Plane } from 'lucide-react';
 
 interface TransactionModalProps {
@@ -23,7 +24,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
   const [customCategoryName, setCustomCategoryName] = useState<string>('');
   const [customTagColor, setCustomTagColor] = useState<string>('#ec4899');
   const [tagSaveMsg, setTagSaveMsg] = useState<string>('');
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState<string>(getLocalDateString());
   const [time, setTime] = useState<string>(
     new Date().toTimeString().split(' ')[0].substring(0, 5)
   );
@@ -72,7 +73,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
       setCurrency(baseCurrency);
       setCategoryId(categories[0]?.id || 'cat-food');
       setCustomCategoryName('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(getLocalDateString());
       setTime(new Date().toTimeString().split(' ')[0].substring(0, 5));
       setNote('');
       setPaymentMethod('UPI');

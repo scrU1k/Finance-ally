@@ -8,6 +8,7 @@ import { Capacitor } from '@capacitor/core';
 import { exportFullDataBackup } from './db';
 import { encryptHybridJSON, hasExportPin } from './cryptoService';
 import { triggerSystemNotification } from './notificationService';
+import { getLocalDateString } from '../utils/dateUtils';
 
 
 export type LocalSyncSchedule = 'daily' | 'weekly' | 'monthly' | 'off';
@@ -189,8 +190,8 @@ export function isBackupDue(config: LocalAutoBackupConfig, transactionCount: num
     if (transactionCount === 0) return false;
 
     const createdMs = getAccountCreatedAt();
-    const createdDate = new Date(createdMs).toISOString().split('T')[0];
-    const currentDate = now.toISOString().split('T')[0];
+    const createdDate = getLocalDateString(new Date(createdMs));
+    const currentDate = getLocalDateString(now);
 
     // Same day as account creation -> do NOT take snapshot yet
     if (currentDate === createdDate) {
@@ -235,7 +236,7 @@ export async function createLocalAutoBackup(
     const isEncrypted = hasExportPin();
     const finalPayload = isEncrypted ? await encryptHybridJSON(jsonStr) : jsonStr;
 
-    const isoDate = new Date().toISOString().split('T')[0];
+    const isoDate = getLocalDateString();
     const timestampStr = new Date().toLocaleString();
     const filename = `fa_autobackup_${isoDate}_${Date.now().toString().slice(-4)}.${isEncrypted ? 'json.enc' : 'json'}`;
     const sizeBytes = new Blob([finalPayload]).size;

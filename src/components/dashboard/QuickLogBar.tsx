@@ -4,6 +4,7 @@ import { parseNaturalLanguageExpense, ParsedNaturalExpense } from '../../service
 import { formatCurrency } from '../../services/currency';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { isFutureDateTime } from '../../utils/scheduledUtils';
+import { getLocalDateString } from '../../utils/dateUtils';
 import { ArrowRight, Check, X, CreditCard, Calendar, Clock, Tag, Plus, Plane } from 'lucide-react';
 
 interface QuickLogBarProps {
@@ -39,7 +40,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
   const [selectedCustomColor, setSelectedCustomColor] = useState('#EE5F1C');
 
   // Internal Date State for Multi-Log mode
-  const [internalBatchDate, setInternalBatchDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [internalBatchDate, setInternalBatchDate] = useState<string>(getLocalDateString());
   const batchDate = batchDateProp !== undefined ? batchDateProp : internalBatchDate;
 
   const setBatchDate = (newDate: string) => {

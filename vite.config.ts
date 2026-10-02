@@ -8,9 +8,9 @@ export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss(), basicSsl()],
   server: {
-    host: '0.0.0.0',
+    host: process.env.VITE_HOST || '127.0.0.1',
     port: 5173,
-    allowedHosts: true,
+    allowedHosts: process.env.VITE_HOST ? true : undefined,
     watch: {
       ignored: ['**/android/**', '**/*.apk', '**/node_modules/**']
     }

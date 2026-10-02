@@ -153,6 +153,10 @@ function parseExhaustiveDate(lower: string): { dateStr: string; label: string; m
   // Helper to build date string from d/m/y
   const toDateStr = (d: number, m: number, y: number): string | null => {
     if (d < 1 || d > 31 || m < 1 || m > 12) return null;
+    const testDate = new Date(y, m - 1, d);
+    if (testDate.getFullYear() !== y || testDate.getMonth() !== m - 1 || testDate.getDate() !== d) {
+      return null;
+    }
     return `${y}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
   };
 

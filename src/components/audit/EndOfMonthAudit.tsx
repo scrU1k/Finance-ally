@@ -12,6 +12,7 @@ import {
 import { saveUserProfile } from '../../services/auth';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { AuditDimensionScore, Subscription, PeriodNote } from '../../types';
+import { getLocalMonthKey } from '../../utils/dateUtils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -276,10 +277,10 @@ const UserRuleComplianceCard: React.FC<{ selectedMonth: string }> = ({ selectedM
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const EndOfMonthAudit: React.FC = () => {
-  const { transactions, categories, baseCurrency } = useFinance();
+  const { transactions, categories, baseCurrency, forexRates } = useFinance();
   const { user } = useAuth();
 
-  const currentMonthKey = new Date().toISOString().substring(0, 7);
+  const currentMonthKey = getLocalMonthKey();
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
   const [showGradeExplanation, setShowGradeExplanation] = useState(false);
   const [isMonthModalOpen, setIsMonthModalOpen] = useState(false);
@@ -335,8 +336,8 @@ export const EndOfMonthAudit: React.FC = () => {
   };
 
   const auditReport = useMemo(
-    () => generateEndOfMonthAudit(transactions, categories, selectedMonth, baseCurrency, subscriptions),
-    [transactions, categories, selectedMonth, baseCurrency, subscriptions]
+    () => generateEndOfMonthAudit(transactions, categories, selectedMonth, baseCurrency, subscriptions, forexRates),
+    [transactions, categories, selectedMonth, baseCurrency, subscriptions, forexRates]
   );
 
   const handleSaveEmailConfig = () => {

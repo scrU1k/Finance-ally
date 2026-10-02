@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { getLocalDateString } from '../../utils/dateUtils';
 
 interface CustomDatePickerProps {
   value: string; // YYYY-MM-DD
@@ -73,7 +74,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   const setPreset = (daysAgo: number) => {
     const d = new Date();
     d.setDate(d.getDate() - daysAgo);
-    const formatted = d.toISOString().split('T')[0];
+    const formatted = getLocalDateString(d);
     onChange(formatted);
     setIsOpen(false);
   };
@@ -297,7 +298,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                 const d = day.toString().padStart(2, '0');
                 const dayStr = `${viewYear}-${m}-${d}`;
                 const isSelected = value === dayStr;
-                const isToday = new Date().toISOString().split('T')[0] === dayStr;
+                const isToday = getLocalDateString() === dayStr;
 
                 return (
                   <button

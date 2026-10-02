@@ -7,6 +7,7 @@ import { formatCurrency, TOP_CURRENCIES } from '../../services/currency';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { CustomDatePicker } from '../common/CustomDatePicker';
 import { CalendarCheck, Plus, Trash2, RefreshCw, CreditCard, Sparkles, Check, Edit2 } from 'lucide-react';
+import { getLocalDateString } from '../../utils/dateUtils';
 
 export const SubscriptionPage: React.FC = () => {
   const { categories, baseCurrency, addTransaction } = useFinance();
@@ -19,7 +20,7 @@ export const SubscriptionPage: React.FC = () => {
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState<CurrencyCode>(baseCurrency);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'bi-monthly' | 'tri-monthly' | 'annually'>('monthly');
-  const [nextDueDate, setNextDueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [nextDueDate, setNextDueDate] = useState(getLocalDateString());
   const [categoryId, setCategoryId] = useState(categories[0]?.id || 'cat-housing');
   const [paymentMethod, setPaymentMethod] = useState('Bank Auto-Debit');
 
@@ -105,24 +106,49 @@ export const SubscriptionPage: React.FC = () => {
 
   const [isProcessingDue, setIsProcessingDue] = useState(false);
 
+  const advanceDueDate = (currentDueDateStr: string, cycle: Subscription['billingCycle']): string => {
+    const [curY, curM, curD] = currentDueDateStr.split('-').map(Number);
+    let targetY = curY;
+    let targetM = curM - 1; // 0-indexed
+    const originalDay = curD;
+
+    if (cycle === 'monthly') targetM += 1;
+    else if (cycle === 'bi-monthly') targetM += 2;
+    else if (cycle === 'tri-monthly') targetM += 3;
+    else if (cycle === 'annually') targetY += 1;
+
+    if (targetM >= 12) {
+      targetY += Math.floor(targetM / 12);
+      targetM = targetM % 12;
+    }
+
+    const maxDays = new Date(targetY, targetM + 1, 0).getDate();
+    const targetD = Math.min(originalDay, maxDays);
+    return `${targetY}-${String(targetM + 1).padStart(2, '0')}-${String(targetD).padStart(2, '0')}`;
+  };
+
   const handleProcessDueSubscriptions = async () => {
     if (isProcessingDue) return;
     setIsProcessingDue(true);
 
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       let loggedCount = 0;
 
       const updatedSubs = [...subscriptions];
       for (let i = 0; i < updatedSubs.length; i++) {
-        const sub = updatedSubs[i];
-        if (sub.nextDueDate <= today && sub.lastProcessedDate !== today) {
-          // Auto log expense transaction
+        let sub = { ...updatedSubs[i] };
+        let cyclesProcessed = 0;
+        const maxCycles = 12; // Cap missed cycles to prevent runaway
+
+        while (sub.nextDueDate <= today && cyclesProcessed < maxCycles) {
+          const cycleDate = sub.nextDueDate;
+          // Auto log expense transaction with its actual due date
           await addTransaction({
             amount: sub.amount,
             currency: sub.currency,
             categoryId: sub.categoryId,
-            date: today,
+            date: cycleDate,
             time: '09:00',
             note: `${sub.name} (Recurring Subscription)`,
             paymentMethod: sub.paymentMethod,
@@ -133,35 +159,19 @@ export const SubscriptionPage: React.FC = () => {
           const formattedAmt = formatCurrency(sub.amount, sub.currency || baseCurrency);
           triggerSystemNotification(
             '🔄 Subscription Logged',
-            `${sub.name} subscription of ${formattedAmt} was automatically logged today.`,
-            `sub_${sub.id}_${today}`
+            `${sub.name} subscription of ${formattedAmt} for ${cycleDate} was automatically logged.`,
+            `sub_${sub.id}_${cycleDate}`
           );
 
-          // Advance next due date based on selected cycle with month-end day clamping
-          const [curY, curM, curD] = sub.nextDueDate.split('-').map(Number);
-          let targetY = curY;
-          let targetM = curM - 1; // 0-indexed
-          const originalDay = curD;
-
-          if (sub.billingCycle === 'monthly') targetM += 1;
-          else if (sub.billingCycle === 'bi-monthly') targetM += 2;
-          else if (sub.billingCycle === 'tri-monthly') targetM += 3;
-          else if (sub.billingCycle === 'annually') targetY += 1;
-
-          if (targetM >= 12) {
-            targetY += Math.floor(targetM / 12);
-            targetM = targetM % 12;
-          }
-
-          const maxDays = new Date(targetY, targetM + 1, 0).getDate();
-          const targetD = Math.min(originalDay, maxDays);
-          const newDateStr = `${targetY}-${String(targetM + 1).padStart(2, '0')}-${String(targetD).padStart(2, '0')}`;
-
-          const updatedSub = { ...sub, nextDueDate: newDateStr, lastProcessedDate: today };
-          await saveSubscription(updatedSub);
-          updatedSubs[i] = updatedSub;
+          // Advance next due date
+          const newDateStr = advanceDueDate(sub.nextDueDate, sub.billingCycle);
+          sub = { ...sub, nextDueDate: newDateStr, lastProcessedDate: today };
+          await saveSubscription(sub);
+          cyclesProcessed++;
           loggedCount++;
         }
+
+        updatedSubs[i] = sub;
       }
 
       setSubscriptions(updatedSubs);
@@ -384,7 +394,7 @@ export const SubscriptionPage: React.FC = () => {
         ) : (
           subscriptions.map(sub => {
             const catObj = categories.find(c => c.id === sub.categoryId);
-            const isDueToday = sub.nextDueDate <= new Date().toISOString().split('T')[0];
+            const isDueToday = sub.nextDueDate <= getLocalDateString();
 
             return (
               <div

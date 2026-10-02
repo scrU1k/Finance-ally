@@ -44,6 +44,7 @@ export async function fetchLiveExchangeRates(): Promise<{ success: boolean; rate
         }
       });
       localStorage.setItem(LOCAL_RATES_KEY, JSON.stringify(updatedRates));
+      localStorage.setItem('fa_rates_last_sync', Date.now().toString());
       return { success: true, rates: updatedRates, timestamp: Date.now() };
     }
   } catch {

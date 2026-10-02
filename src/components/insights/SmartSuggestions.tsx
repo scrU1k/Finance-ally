@@ -22,13 +22,13 @@ interface SmartSuggestionsProps {
 }
 
 export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTransaction }) => {
-  const { filteredTransactions, categories, baseCurrency, addCategoryItem } = useFinance();
+  const { filteredTransactions, categories, baseCurrency, forexRates, addCategoryItem } = useFinance();
 
   const [insightTimeframe, setInsightTimeframe] = useState<'week' | 'month' | 'year'>('month');
 
   const suggestions = useMemo(() => {
-    return generateSmartSpendingSuggestions(filteredTransactions, categories, baseCurrency, insightTimeframe);
-  }, [filteredTransactions, categories, baseCurrency, insightTimeframe]);
+    return generateSmartSpendingSuggestions(filteredTransactions, categories, baseCurrency, insightTimeframe, forexRates);
+  }, [filteredTransactions, categories, baseCurrency, insightTimeframe, forexRates]);
 
   // Knowledge Base State
   const [queryInput, setQueryInput] = useState('');
@@ -54,7 +54,7 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
     setIsLoading(true);
 
     // LAYER 1: Check for Direct Local Command / Transaction Query (Instant Math & Rules Engine)
-    const localQueryResult = await parseAndExecuteLocalQuery(input, filteredTransactions, categories, baseCurrency);
+    const localQueryResult = await parseAndExecuteLocalQuery(input, filteredTransactions, categories, baseCurrency, forexRates);
     if (localQueryResult.matched) {
       setAnswerResult(
         <div className="p-4 bg-brand-purple/10 border border-brand-purple/20 rounded-xl space-y-2">

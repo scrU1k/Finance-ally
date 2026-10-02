@@ -6,8 +6,17 @@ import {
   CurrencyCode,
   Subscription,
 } from '../types';
-import { formatCurrency } from './currency';
+import { formatCurrency, convertCurrencyAmount } from './currency';
 import { isPendingScheduledTx } from '../utils/scheduledUtils';
+import { getLocalDateString, getLocalMonthKey } from '../utils/dateUtils';
+
+function getNormalizedAmount(
+  t: Transaction,
+  baseCurrency: CurrencyCode,
+  forexRates?: Record<CurrencyCode, number>
+): number {
+  return convertCurrencyAmount(t.amount, t.currency || baseCurrency, baseCurrency, forexRates);
+}
 
 // ─── Pure Helpers ────────────────────────────────────────────────────────────
 
@@ -87,7 +96,11 @@ function getDayOfWeekLocal(dateStr: string): number {
   return new Date(dateStr).getDay();
 }
 
-function computeDayOfWeekPattern(txs: Transaction[]): {
+function computeDayOfWeekPattern(
+  txs: Transaction[],
+  currency?: CurrencyCode,
+  rates?: Record<CurrencyCode, number>
+): {
   maxDayIndex: number;
   multiplierVsWeekday: number;
   hasMeaningfulPattern: boolean;
@@ -99,7 +112,8 @@ function computeDayOfWeekPattern(txs: Transaction[]): {
 
   txs.forEach(t => {
     const dow = getDayOfWeekLocal(t.date);
-    dowSpend[dow] += t.amount;
+    const amt = currency ? getNormalizedAmount(t, currency, rates) : t.amount;
+    dowSpend[dow] += amt;
     dowDates[dow].add(t.date);
   });
 
@@ -124,7 +138,11 @@ function computeDayOfWeekPattern(txs: Transaction[]): {
  * Uses coefficient of variation (CV = σ/μ), weighted by spend share.
  * Fully percentage-based — no absolute thresholds.
  */
-function computeVolatilityScore(monthTxs: Transaction[]): AuditDimensionScore {
+function computeVolatilityScore(
+  monthTxs: Transaction[],
+  currency?: CurrencyCode,
+  rates?: Record<CurrencyCode, number>
+): AuditDimensionScore {
   if (monthTxs.length === 0) {
     return { score: 100, label: 'Excellent', detail: 'No transactions to evaluate' };
   }
@@ -134,7 +152,8 @@ function computeVolatilityScore(monthTxs: Transaction[]): AuditDimensionScore {
   monthTxs.forEach(t => {
     const weekNum = Math.min(4, Math.ceil(new Date(t.date).getDate() / 7));
     if (!weeklyMap[weekNum]) weeklyMap[weekNum] = {};
-    weeklyMap[weekNum][t.categoryId] = (weeklyMap[weekNum][t.categoryId] || 0) + t.amount;
+    const amt = currency ? getNormalizedAmount(t, currency, rates) : t.amount;
+    weeklyMap[weekNum][t.categoryId] = (weeklyMap[weekNum][t.categoryId] || 0) + amt;
   });
 
   const weeks = Object.keys(weeklyMap).map(Number);
@@ -142,7 +161,7 @@ function computeVolatilityScore(monthTxs: Transaction[]): AuditDimensionScore {
     return { score: 85, label: 'Excellent', detail: 'Not enough weeks to measure volatility' };
   }
 
-  const totalSpent = monthTxs.reduce((s, t) => s + t.amount, 0);
+  const totalSpent = monthTxs.reduce((s, t) => s + (currency ? getNormalizedAmount(t, currency, rates) : t.amount), 0);
   const allCatIds = new Set(monthTxs.map(t => t.categoryId));
 
   let weightedCV = 0;
@@ -159,7 +178,7 @@ function computeVolatilityScore(monthTxs: Transaction[]): AuditDimensionScore {
 
     const catTotal = monthTxs
       .filter(t => t.categoryId === catId)
-      .reduce((s, t) => s + t.amount, 0);
+      .reduce((s, t) => s + (currency ? getNormalizedAmount(t, currency, rates) : t.amount), 0);
     const weight = catTotal / totalSpent;
 
     weightedCV += cv * weight;
@@ -197,16 +216,19 @@ function computeSavingsPressureScore(
   categories: Category[],
   allTransactions: Transaction[],
   hasBaseline: boolean,
-  monthKey: string
+  monthKey: string,
+  currency?: CurrencyCode,
+  rates?: Record<CurrencyCode, number>
 ): AuditDimensionScore {
-  const totalSpent = monthTxs.reduce((s, t) => s + t.amount, 0);
+  const getAmt = (t: Transaction) => (currency ? getNormalizedAmount(t, currency, rates) : t.amount);
+  const totalSpent = monthTxs.reduce((s, t) => s + getAmt(t), 0);
   if (totalSpent === 0) {
     return { score: 100, label: 'Excellent', detail: 'No spending recorded' };
   }
 
   const discretionarySpent = monthTxs
     .filter(t => classifyCategory(t.categoryId, categories) === 'discretionary')
-    .reduce((s, t) => s + t.amount, 0);
+    .reduce((s, t) => s + getAmt(t), 0);
   const discPct = (discretionarySpent / totalSpent) * 100;
 
   let score: number;
@@ -216,10 +238,10 @@ function computeSavingsPressureScore(
     // Compare vs own 3-month historical average
     const prevKeys = getPreviousMonthKeys(monthKey, 3);
     const prevTxs = allTransactions.filter(t => prevKeys.some(m => t.date.startsWith(m)));
-    const prevTotal = prevTxs.reduce((s, t) => s + t.amount, 0);
+    const prevTotal = prevTxs.reduce((s, t) => s + getAmt(t), 0);
     const prevDisc = prevTxs
       .filter(t => classifyCategory(t.categoryId, categories) === 'discretionary')
-      .reduce((s, t) => s + t.amount, 0);
+      .reduce((s, t) => s + getAmt(t), 0);
     const avgPrevPct = prevTotal > 0 ? (prevDisc / prevTotal) * 100 : discPct;
     const delta = discPct - avgPrevPct;
 
@@ -256,7 +278,8 @@ export function generateSmartSpendingSuggestions(
   rawTransactions: Transaction[],
   categories: Category[],
   currency: CurrencyCode,
-  timeframe: 'week' | 'month' | 'year' = 'month'
+  timeframe: 'week' | 'month' | 'year' = 'month',
+  forexRates?: Record<CurrencyCode, number>
 ): string[] {
   const transactions = rawTransactions.filter(t => !isPendingScheduledTx(t));
   const suggestions: string[] = [];
@@ -278,7 +301,7 @@ export function generateSmartSpendingSuggestions(
     const mon = new Date(now);
     mon.setDate(now.getDate() - diffToMon);
     mon.setHours(0, 0, 0, 0);
-    const monISO = mon.toISOString().substring(0, 10);
+    const monISO = getLocalDateString(mon);
 
     periodTxs = transactions.filter(t => t.date >= monISO);
     daysElapsed = diffToMon + 1;
@@ -293,17 +316,20 @@ export function generateSmartSpendingSuggestions(
     periodLabel = 'this year';
   } else {
     // month
-    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthKey = getLocalMonthKey(now);
     periodTxs = transactions.filter(t => t.date.startsWith(monthKey));
     daysElapsed = now.getDate();
     periodLabel = 'this month';
   }
 
-  const periodTotal = periodTxs.reduce((acc, t) => acc + t.amount, 0);
+  const periodTotal = periodTxs.reduce((acc, t) => acc + getNormalizedAmount(t, currency, forexRates), 0);
 
   // Top category — with trend direction for month, or top category for week/year
   const catMap: Record<string, number> = {};
-  periodTxs.forEach(t => { catMap[t.categoryId] = (catMap[t.categoryId] || 0) + t.amount; });
+  periodTxs.forEach(t => {
+    const amt = getNormalizedAmount(t, currency, forexRates);
+    catMap[t.categoryId] = (catMap[t.categoryId] || 0) + amt;
+  });
 
   let topCatId = '';
   let topCatAmount = 0;
@@ -322,7 +348,7 @@ export function generateSmartSpendingSuggestions(
   // Day-of-week pattern (if month or year)
   if (timeframe !== 'week') {
     const DOW_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const dowPattern = computeDayOfWeekPattern(periodTxs);
+    const dowPattern = computeDayOfWeekPattern(periodTxs, currency, forexRates);
     if (dowPattern.hasMeaningfulPattern) {
       suggestions.push(
         `Your highest spend is on ${DOW_NAMES[dowPattern.maxDayIndex]}s — averaging ${dowPattern.multiplierVsWeekday}× your weekday spend.`
@@ -355,11 +381,12 @@ export function generateEndOfMonthAudit(
   categories: Category[],
   monthKey: string,
   currency: CurrencyCode,
-  subscriptions?: Subscription[]
+  subscriptions?: Subscription[],
+  forexRates?: Record<CurrencyCode, number>
 ): EndOfMonthAuditReport {
   const allTransactions = rawTransactions.filter(t => !isPendingScheduledTx(t));
   const monthTxs = allTransactions.filter(t => t.date.startsWith(monthKey));
-  const totalSpent = monthTxs.reduce((acc, t) => acc + t.amount, 0);
+  const totalSpent = monthTxs.reduce((acc, t) => acc + getNormalizedAmount(t, currency, forexRates), 0);
 
   // ── Baseline: require ≥3 distinct calendar months of data ─────────────────
   const distinctMonths = new Set(allTransactions.map(t => t.date.substring(0, 7)));
@@ -368,7 +395,10 @@ export function generateEndOfMonthAudit(
 
   // ── Peak spend day ────────────────────────────────────────────────────────
   const dayMap: Record<string, number> = {};
-  monthTxs.forEach(t => { dayMap[t.date] = (dayMap[t.date] || 0) + t.amount; });
+  monthTxs.forEach(t => {
+    const amt = getNormalizedAmount(t, currency, forexRates);
+    dayMap[t.date] = (dayMap[t.date] || 0) + amt;
+  });
 
   let highestDate = monthKey + '-01';
   let highestAmount = 0;
@@ -378,7 +408,10 @@ export function generateEndOfMonthAudit(
 
   // ── Category breakdown ────────────────────────────────────────────────────
   const catMap: Record<string, number> = {};
-  monthTxs.forEach(t => { catMap[t.categoryId] = (catMap[t.categoryId] || 0) + t.amount; });
+  monthTxs.forEach(t => {
+    const amt = getNormalizedAmount(t, currency, forexRates);
+    catMap[t.categoryId] = (catMap[t.categoryId] || 0) + amt;
+  });
 
   const topCategories = Object.entries(catMap)
     .map(([catId, amount]) => {
@@ -394,9 +427,9 @@ export function generateEndOfMonthAudit(
     .sort((a, b) => b.amount - a.amount);
 
   // ── Two-dimension scores (always computed, used when baseline available) ──
-  const volatilityScore = computeVolatilityScore(monthTxs);
+  const volatilityScore = computeVolatilityScore(monthTxs, currency, forexRates);
   const savingsPressureScore = computeSavingsPressureScore(
-    monthTxs, categories, allTransactions, hasBaseline, monthKey
+    monthTxs, categories, allTransactions, hasBaseline, monthKey, currency, forexRates
   );
 
   const budgetHealthScore: 'A+' | 'A' | 'B' | 'C' | 'D' | 'F' | 'O' = hasBaseline
@@ -427,10 +460,10 @@ export function generateEndOfMonthAudit(
       const prevPcts = prevKeys
         .map(m => {
           const mTxs = allTransactions.filter(t => t.date.startsWith(m));
-          const mTotal = mTxs.reduce((s, t) => s + t.amount, 0);
+          const mTotal = mTxs.reduce((s, t) => s + getNormalizedAmount(t, currency, forexRates), 0);
           const mCat = mTxs
             .filter(t => t.categoryId === cat.categoryId)
-            .reduce((s, t) => s + t.amount, 0);
+            .reduce((s, t) => s + getNormalizedAmount(t, currency, forexRates), 0);
           return mTotal > 0 ? (mCat / mTotal) * 100 : null;
         })
         .filter((p): p is number => p !== null);
@@ -450,7 +483,7 @@ export function generateEndOfMonthAudit(
   }
 
   // Day-of-week pattern
-  const dowPattern = computeDayOfWeekPattern(monthTxs);
+  const dowPattern = computeDayOfWeekPattern(monthTxs, currency, forexRates);
   if (dowPattern.hasMeaningfulPattern) {
     insights.push(
       `${DOW_NAMES[dowPattern.maxDayIndex]}s are your highest-spend day — averaging ${dowPattern.multiplierVsWeekday}× weekday spend.`
@@ -463,7 +496,7 @@ export function generateEndOfMonthAudit(
   // Large single transaction (>30% of monthly total)
   if (monthTxs.length > 3 && totalSpent > 0) {
     monthTxs.forEach(t => {
-      const share = t.amount / totalSpent;
+      const share = getNormalizedAmount(t, currency, forexRates) / totalSpent;
       if (share > 0.3) {
         anomalies.push(
           `Large transaction: "${t.note}" accounted for ${Math.round(share * 100)}% of total monthly spend.`
@@ -479,7 +512,8 @@ export function generateEndOfMonthAudit(
     const keyInfo: Record<string, { amount: number; catName: string }> = {};
 
     allTransactions.forEach(t => {
-      const rounded = Math.round(t.amount / 5) * 5;
+      const amt = getNormalizedAmount(t, currency, forexRates);
+      const rounded = Math.round(amt / 5) * 5;
       const key = `${rounded}-${t.categoryId}`;
       const monthK = t.date.substring(0, 7);
 
@@ -488,7 +522,7 @@ export function generateEndOfMonthAudit(
 
       if (!keyInfo[key]) {
         keyInfo[key] = {
-          amount: t.amount,
+          amount: amt,
           catName: categories.find(c => c.id === t.categoryId)?.name ?? 'Unknown',
         };
       }

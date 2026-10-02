@@ -3,7 +3,7 @@ import { FlattenedInt32Trie, FlattenedMetadata } from './flattenedTypedArrayTrie
 export type TrieNodeMetadata = FlattenedMetadata;
 
 // Global Zero-GC Flattened Int32Array Memory Trie Instance
-export const globalFinancialTrie = new FlattenedInt32Trie(75000);
+export const globalFinancialTrie = new FlattenedInt32Trie();
 
 // Seed Exhaustive Dictionary Entries (150+ Top Indian & Global Brands, Services, Slang)
 const EXHAUSTIVE_SLANG_ENTRIES: { phrase: string; meta: TrieNodeMetadata }[] = [

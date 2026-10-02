@@ -9,6 +9,7 @@ import { QuickLogBar } from './QuickLogBar';
 import { loadPeriodNotes, savePeriodNote, deletePeriodNote } from '../../services/db';
 import { searchTransactions } from '../../services/naturalSearchEngine';
 import { dispatchSpeculativeRace } from '../../workers/workerOrchestrator';
+import { getLocalDateString, getWeekDateBounds, parseLocalDate } from '../../utils/dateUtils';
 
 import {
   Search,
@@ -51,10 +52,12 @@ interface DrilledFilter {
 }
 
 function formatDayHeader(dateStr: string): string {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = getLocalDateString(yesterday);
 
-  const date = new Date(dateStr + 'T00:00:00');
+  const date = parseLocalDate(dateStr);
   const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
   const formatted = date.toLocaleDateString('en-US', options).toUpperCase();
 
@@ -67,17 +70,9 @@ function formatDayHeader(dateStr: string): string {
 }
 
 function getWeekInfo(dateStr: string) {
-  const d = new Date(dateStr + 'T00:00:00');
-  const day = d.getDay();
-  const diffToMon = d.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(d.setDate(diffToMon));
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-
-  const tempDate = new Date(d.getTime());
-  tempDate.setDate(tempDate.getDate() + 4 - (tempDate.getDay() || 7));
-  const yearStart = new Date(tempDate.getFullYear(), 0, 1);
-  const weekNo = Math.ceil(((tempDate.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  const { monStr, sunStr, weekNo } = getWeekDateBounds(dateStr);
+  const monday = parseLocalDate(monStr);
+  const sunday = parseLocalDate(sunStr);
 
   const formatShort = (dt: Date) => dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const year = monday.getFullYear();
@@ -89,6 +84,8 @@ function getWeekInfo(dateStr: string) {
     weekNo,
     year,
     dateRangeStr,
+    monStr,
+    sunStr,
     title: `Week ${weekNo}, ${year}`,
   };
 }
@@ -258,21 +255,10 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
   };
 
   const handleDrillDownWeek = (weekInfo: ReturnType<typeof getWeekInfo>) => {
-    const d = new Date(weekInfo.year, 0, 1);
-    const dayOffset = (weekInfo.weekNo - 1) * 7;
-    d.setDate(d.getDate() + dayOffset);
-    const day = d.getDay();
-    const diffToMon = d.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(d.setDate(diffToMon));
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-
-    const formatISO = (dt: Date) => dt.toISOString().split('T')[0];
-
     setDrilledFilter({
       type: 'week',
       label: weekInfo.title,
-      dateRange: [formatISO(monday), formatISO(sunday)],
+      dateRange: [weekInfo.monStr, weekInfo.sunStr],
     });
     handleSetPeriodMode('day');
   };
@@ -306,13 +292,13 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
 
   // Streamlined Multi-Log state
   const [isMultiLogActive, setIsMultiLogActive] = useState(false);
-  const [batchDate, setBatchDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [batchDate, setBatchDate] = useState<string>(getLocalDateString());
   const [showMultiLogDatePickerModal, setShowMultiLogDatePickerModal] = useState(false);
 
   const handleToggleMultiLog = () => {
     if (isMultiLogActive) {
       setIsMultiLogActive(false);
-      setBatchDate(new Date().toISOString().split('T')[0]);
+      setBatchDate(getLocalDateString());
     } else {
       setShowMultiLogDatePickerModal(true);
     }
@@ -578,7 +564,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
         const wk = parseInt(wkStr);
         const d = new Date(yr, 0, 1);
         d.setDate(d.getDate() + (wk - 1) * 7);
-        extractedDate = d.toISOString().split('T')[0];
+        extractedDate = getLocalDateString(d);
       }
 
       setTopmostVisibleDate(extractedDate);

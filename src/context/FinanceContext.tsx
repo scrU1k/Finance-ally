@@ -4,9 +4,10 @@ import { loadTransactions, saveTransaction, deleteTransaction, loadCategories, s
 import { getStoredForexRates, fetchLiveExchangeRates, switchAppBaseCurrency, convertCurrencyAmount } from '../services/currency';
 import { useAuth } from './AuthContext';
 import { isPendingScheduledTx, isFutureDateTime } from '../utils/scheduledUtils';
-import { requestNotificationPermission, triggerScheduledPaymentNotification, scheduleFutureNativeNotification } from '../services/notificationService';
+import { requestNotificationPermission, triggerScheduledPaymentNotification, scheduleFutureNativeNotification, cancelScheduledNotification } from '../services/notificationService';
 import { trainModel } from '../services/localInferenceEngine';
 import { checkAndPerformLocalAutoBackup } from '../services/localAutoBackupService';
+import { getLocalDateString, getWeekDateBounds, parseLocalDate } from '../utils/dateUtils';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -16,6 +17,8 @@ interface FinanceContextType {
   baseCurrency: CurrencyCode;
   forexRates: Record<CurrencyCode, number>;
   activeTripVault: Trip | null;
+  includeTripExpensesInTimeline: boolean;
+  setIncludeTripExpensesInTimeline: (include: boolean) => void;
   setPeriod: (p: PeriodType) => void;
   setActiveTripVault: (trip: Trip | null) => void;
   addTransaction: (tx: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>;
@@ -69,6 +72,24 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     } catch (e) {
       console.warn('Failed to persist active trip vault:', e);
+    }
+  };
+
+  const [includeTripExpensesInTimeline, setIncludeTripExpensesInTimelineState] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('fa_include_trip_expenses');
+      return stored !== null ? JSON.parse(stored) : true; // Default: true (included)
+    } catch {
+      return true;
+    }
+  });
+
+  const setIncludeTripExpensesInTimeline = (include: boolean) => {
+    setIncludeTripExpensesInTimelineState(include);
+    try {
+      localStorage.setItem('fa_include_trip_expenses', JSON.stringify(include));
+    } catch (e) {
+      console.warn('Failed to save fa_include_trip_expenses:', e);
     }
   };
 
@@ -234,6 +255,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       await saveTransaction(updatedTx);
       setTransactions(prev => prev.map(t => (t.id === updatedTx.id ? updatedTx : t)));
 
+      // Cancel previous notification if date/time or scheduled status changed
+      await cancelScheduledNotification(updatedTx.id);
+
       if (updatedTx.isScheduled) {
         scheduleFutureNativeNotification(updatedTx, baseCurrency);
       }
@@ -245,6 +269,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteTx = async (id: string) => {
     try {
+      await cancelScheduledNotification(id);
       await deleteTransaction(id);
       setTransactions(prev => prev.filter(t => t.id !== id));
     } catch (e) {
@@ -363,15 +388,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (activeTripVault) {
       return transactions.filter(t => t.tripId === activeTripVault.id);
     }
+    if (!includeTripExpensesInTimeline) {
+      return transactions.filter(t => !t.tripId);
+    }
     return transactions;
-  }, [transactions, activeTripVault]);
+  }, [transactions, activeTripVault, includeTripExpensesInTimeline]);
 
   const [topmostVisibleDate, setTopmostVisibleDate] = useState<string>('');
 
   // Compute dynamic viewed total and label for the bottom bar based on topmostVisibleDate & period
   const { viewedPeriodTotal, viewedPeriodLabel } = useMemo(() => {
-    const targetDateStr = topmostVisibleDate || new Date().toISOString().split('T')[0];
-    const targetDate = new Date(targetDateStr + 'T00:00:00');
+    const targetDateStr = topmostVisibleDate || getLocalDateString();
+    const targetDate = parseLocalDate(targetDateStr);
 
     if (period === 'day') {
       const dayTxs = filteredTransactions.filter(t => t.date === targetDateStr);
@@ -384,27 +412,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     if (period === 'week') {
-      const d = new Date(targetDateStr + 'T00:00:00');
-      const day = d.getDay();
-      const diffToMon = d.getDate() - day + (day === 0 ? -6 : 1);
-      const monday = new Date(d.setDate(diffToMon));
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-
-      const monStr = monday.toISOString().split('T')[0];
-      const sunStr = sunday.toISOString().split('T')[0];
-
-      const tempDate = new Date(targetDate.getTime());
-      tempDate.setDate(tempDate.getDate() + 4 - (tempDate.getDay() || 7));
-      const yearStart = new Date(tempDate.getFullYear(), 0, 1);
-      const weekNo = Math.ceil(((tempDate.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-
+      const { monStr, sunStr, weekNo } = getWeekDateBounds(targetDateStr);
+      const [monY] = monStr.split('-').map(Number);
       const weekTxs = filteredTransactions.filter(t => t.date >= monStr && t.date <= sunStr);
       const total = weekTxs.reduce((sum, t) => {
         if (isPendingScheduledTx(t)) return sum;
         return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
       }, 0);
-      return { viewedPeriodTotal: total, viewedPeriodLabel: `Week ${weekNo}, ${monday.getFullYear()}` };
+      return { viewedPeriodTotal: total, viewedPeriodLabel: `Week ${weekNo}, ${monY}` };
     }
 
     if (period === 'month') {
@@ -446,6 +461,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         baseCurrency,
         forexRates,
         activeTripVault,
+        includeTripExpensesInTimeline,
+        setIncludeTripExpensesInTimeline,
         setPeriod,
         setActiveTripVault,
         addTransaction,

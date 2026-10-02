@@ -1,5 +1,5 @@
 import { Transaction, Category, CurrencyCode } from '../types';
-import { formatCurrency } from './currency';
+import { formatCurrency, convertCurrencyAmount } from './currency';
 import { dispatchSpeculativeRace } from '../workers/workerOrchestrator';
 import { parseCFGQuerySlots } from './cfgParser';
 import { addUserTagRule, getUserRules, deleteUserTagRule, sanitizeKeyword } from './userRuleService';
@@ -59,35 +59,6 @@ function isSameDate(txDate: string, y: number, m: number, d: number): boolean {
   return parseInt(parts[0], 10) === y && parseInt(parts[1], 10) === m && parseInt(parts[2], 10) === d;
 }
 
-function sumTxs(txs: Transaction[]): number {
-  return txs.reduce((sum, t) => sum + t.amount, 0);
-}
-
-function avgTxs(txs: Transaction[]): number {
-  return txs.length === 0 ? 0 : sumTxs(txs) / txs.length;
-}
-
-function topCategories(
-  txs: Transaction[],
-  categories: Category[],
-  n = 3
-): Array<{ name: string; amount: number; count: number }> {
-  const map: Record<string, { amount: number; count: number }> = {};
-  txs.forEach(t => {
-    if (!map[t.categoryId]) map[t.categoryId] = { amount: 0, count: 0 };
-    map[t.categoryId].amount += t.amount;
-    map[t.categoryId].count += 1;
-  });
-  return Object.entries(map)
-    .map(([id, v]) => ({
-      name: categories.find(c => c.id === id)?.name ?? 'General',
-      amount: v.amount,
-      count: v.count
-    }))
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, n);
-}
-
 function uniqueActiveDays(txs: Transaction[]): number {
   return new Set(txs.map(t => t.date.split('T')[0])).size;
 }
@@ -102,10 +73,45 @@ export async function parseAndExecuteLocalQuery(
   query: string,
   transactions: Transaction[],
   categories: Category[],
-  baseCurrency: CurrencyCode
+  baseCurrency: CurrencyCode,
+  forexRates?: Record<CurrencyCode, number>
 ): Promise<LocalQueryResult> {
 
+  const getTxAmt = (t: Transaction): number => {
+    return convertCurrencyAmount(t.amount, t.currency || baseCurrency, baseCurrency, forexRates);
+  };
+
   const fmt = (amt: number) => formatCurrency(amt, baseCurrency);
+
+  const sumTxs = (txs: Transaction[]): number => {
+    return txs.reduce((sum, t) => sum + getTxAmt(t), 0);
+  };
+
+  const avgTxs = (txs: Transaction[]): number => {
+    return txs.length === 0 ? 0 : sumTxs(txs) / txs.length;
+  };
+
+  const topCategories = (
+    txs: Transaction[],
+    cats: Category[],
+    n = 3
+  ): Array<{ name: string; amount: number; count: number }> => {
+    const map: Record<string, { amount: number; count: number }> = {};
+    txs.forEach(t => {
+      if (!map[t.categoryId]) map[t.categoryId] = { amount: 0, count: 0 };
+      map[t.categoryId].amount += getTxAmt(t);
+      map[t.categoryId].count += 1;
+    });
+    return Object.entries(map)
+      .map(([id, v]) => ({
+        name: cats.find(c => c.id === id)?.name ?? 'General',
+        amount: v.amount,
+        count: v.count
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, n);
+  };
+
   const cleanQ = query.toLowerCase().replace(/[?.,!/\\`~()]/g, ' ').trim();
   const q = cleanQ;
 
@@ -597,7 +603,7 @@ export async function parseAndExecuteLocalQuery(
       const total = sumTxs(dateTxs);
       const items = dateTxs.map(t => {
         const cat = categories.find(c => c.id === t.categoryId);
-        return `${t.note || cat?.name || 'Expense'} (${fmt(t.amount)})`;
+        return `${t.note || cat?.name || 'Expense'} (${fmt(getTxAmt(t))})`;
       }).join(', ');
       return {
         matched: true,
@@ -755,11 +761,11 @@ export async function parseAndExecuteLocalQuery(
   if (isHighestTxQuery) {
     const { txs, label } = detectPeriod();
     if (txs.length === 0) return { matched: true, answer: `No transactions found for ${label}.` };
-    const top = txs.reduce((a, b) => a.amount > b.amount ? a : b);
+    const top = txs.reduce((a, b) => getTxAmt(a) > getTxAmt(b) ? a : b);
     const cat = categories.find(c => c.id === top.categoryId);
     return {
       matched: true,
-      answer: `Your largest single expense (${label}) was ${fmt(top.amount)} for "${top.note || cat?.name || 'Expense'}".`,
+      answer: `Your largest single expense (${label}) was ${fmt(getTxAmt(top))} for "${top.note || cat?.name || 'Expense'}".`,
       detail: `Category: ${cat?.name ?? 'General'} | Date: ${top.date}${top.time ? ' at ' + top.time : ''}.`
     };
   }
@@ -790,7 +796,7 @@ export async function parseAndExecuteLocalQuery(
 
     if (q.includes('category')) {
       const catMap: Record<string, number> = {};
-      txs.forEach(t => { catMap[t.categoryId] = (catMap[t.categoryId] || 0) + t.amount; });
+      txs.forEach(t => { catMap[t.categoryId] = (catMap[t.categoryId] || 0) + getTxAmt(t); });
       const [lowestId, lowestAmt] = Object.entries(catMap).reduce((a, b) => a[1] < b[1] ? a : b);
       const cat = categories.find(c => c.id === lowestId);
       return {
@@ -800,11 +806,11 @@ export async function parseAndExecuteLocalQuery(
       };
     }
 
-    const smallest = txs.reduce((a, b) => a.amount < b.amount ? a : b);
+    const smallest = txs.reduce((a, b) => getTxAmt(a) < getTxAmt(b) ? a : b);
     const cat = categories.find(c => c.id === smallest.categoryId);
     return {
       matched: true,
-      answer: `Your smallest transaction (${label}) was ${fmt(smallest.amount)} for "${smallest.note || cat?.name || 'Expense'}".`,
+      answer: `Your smallest transaction (${label}) was ${fmt(getTxAmt(smallest))} for "${smallest.note || cat?.name || 'Expense'}".`,
       detail: `Date: ${smallest.date} | Category: ${cat?.name ?? 'General'}.`
     };
   }
@@ -816,8 +822,9 @@ export async function parseAndExecuteLocalQuery(
     let weekendCount = 0; let weekdayCount = 0;
     txs.forEach(t => {
       const day = new Date(t.date).getDay();
-      if (day === 0 || day === 6) { weekendSpend += t.amount; weekendCount++; }
-      else { weekdaySpend += t.amount; weekdayCount++; }
+      const amt = getTxAmt(t);
+      if (day === 0 || day === 6) { weekendSpend += amt; weekendCount++; }
+      else { weekdaySpend += amt; weekdayCount++; }
     });
     const higher = weekendSpend > weekdaySpend ? 'weekends' : 'weekdays';
     return {
@@ -831,7 +838,7 @@ export async function parseAndExecuteLocalQuery(
   if (q.includes('which day') || q.includes('what day') || (q.includes('day') && (q.includes('most') || q.includes('highest')))) {
     const { txs, label } = detectPeriod();
     const dayTotals: number[] = Array(7).fill(0);
-    txs.forEach(t => { dayTotals[new Date(t.date).getDay()] += t.amount; });
+    txs.forEach(t => { dayTotals[new Date(t.date).getDay()] += getTxAmt(t); });
     const maxDay = dayTotals.indexOf(Math.max(...dayTotals));
     return {
       matched: true,
@@ -888,7 +895,7 @@ export async function parseAndExecuteLocalQuery(
     txs.forEach(t => {
       const m = (t.paymentMethod || 'other').toLowerCase();
       if (!methodMap[m]) methodMap[m] = { total: 0, count: 0 };
-      methodMap[m].total += t.amount;
+      methodMap[m].total += getTxAmt(t);
       methodMap[m].count += 1;
     });
 
@@ -934,7 +941,7 @@ export async function parseAndExecuteLocalQuery(
       .slice(0, n);
     const items = recent.map(t => {
       const cat = categories.find(c => c.id === t.categoryId);
-      return `${t.note || cat?.name || 'Expense'} — ${fmt(t.amount)} on ${t.date}`;
+      return `${t.note || cat?.name || 'Expense'} — ${fmt(getTxAmt(t))} on ${t.date}`;
     }).join('\n');
     return {
       matched: true,
@@ -949,13 +956,13 @@ export async function parseAndExecuteLocalQuery(
     const amount = parseFloat(thresholdMatch[1].replace(/,/g, ''));
     const isAbove = /above|over|more than|greater than/.test(q);
     const { txs, label } = detectPeriod();
-    const filtered = txs.filter(t => isAbove ? t.amount > amount : t.amount < amount);
+    const filtered = txs.filter(t => isAbove ? getTxAmt(t) > amount : getTxAmt(t) < amount);
     if (filtered.length > 0) {
       const total = sumTxs(filtered);
       const topItems = filtered
-        .sort((a, b) => b.amount - a.amount)
+        .sort((a, b) => getTxAmt(b) - getTxAmt(a))
         .slice(0, 3)
-        .map(t => `${t.note || 'Expense'} (${fmt(t.amount)})`)
+        .map(t => `${t.note || 'Expense'} (${fmt(getTxAmt(t))})`)
         .join(', ');
       return {
         matched: true,
@@ -1015,7 +1022,7 @@ export async function parseAndExecuteLocalQuery(
           return {
             matched: true,
             answer: matches.length === 1
-              ? `You paid ${fmt(matches[0].amount)} for "${displayLabel}" on ${datesList[0]}.`
+              ? `You paid ${fmt(getTxAmt(matches[0]))} for "${displayLabel}" on ${datesList[0]}.`
               : `You paid for "${displayLabel}" ${matches.length} times (${label}), totaling ${fmt(total)}.`,
             detail: matches.length > 1
               ? `Dates: ${datesList.slice(0, 3).join(', ')}${matches.length > 3 ? ` and ${matches.length - 3} more` : ''}.`

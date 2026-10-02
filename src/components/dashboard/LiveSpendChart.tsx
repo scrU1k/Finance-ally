@@ -17,6 +17,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { convertCurrencyAmount, formatCurrency } from '../../services/currency';
 import { PieChart, TrendingUp, Calendar, BarChart3, LineChart } from 'lucide-react';
 import { Transaction } from '../../types';
+import { getLocalDateString, parseLocalDate } from '../../utils/dateUtils';
 
 ChartJS.register(
   ArcElement,
@@ -57,12 +58,12 @@ export const LiveSpendChart: React.FC<LiveSpendChartProps> = ({ transactions: pr
 
   // Compute anchor date ISO string from topmostVisibleDate or today
   const anchorISO = useMemo(() => {
-    return topmostVisibleDate || new Date().toISOString().split('T')[0];
+    return topmostVisibleDate || getLocalDateString();
   }, [topmostVisibleDate]);
 
   // Helper to filter transactions & compute label for Card 1 (Category Breakdown)
   const filterTxsForCard1 = useCallback((mode: 'day' | 'month' | 'year' | 'all') => {
-    const anchorDate = new Date(anchorISO + 'T00:00:00');
+    const anchorDate = parseLocalDate(anchorISO);
     
     if (mode === 'day') {
       const dayTxs = sourceTxs.filter(t => t.date === anchorISO);

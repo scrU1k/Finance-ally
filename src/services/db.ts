@@ -509,56 +509,60 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
     });
 
     // Sync localStorage strictly AFTER atomic database transaction succeeds
-    if (data.transactions && Array.isArray(data.transactions)) {
-      localStorage.setItem('fa_transactions', JSON.stringify(data.transactions));
-    }
-    if (data.categories && Array.isArray(data.categories)) {
-      localStorage.setItem('fa_categories', JSON.stringify(data.categories));
-    }
-    if (data.trips && Array.isArray(data.trips)) {
-      localStorage.setItem('fa_trips', JSON.stringify(data.trips));
-    }
-    if (data.periodNotes && Array.isArray(data.periodNotes)) {
-      localStorage.setItem('fa_period_notes', JSON.stringify(data.periodNotes));
-    }
-    if (data.profile && typeof data.profile === 'object' && data.profile.username) {
-      const restoredProfile = { ...data.profile, isUnlocked: false };
-      localStorage.setItem('fa_user_profile', JSON.stringify(restoredProfile));
-    }
-    if (data.exportPin && typeof data.exportPin === 'string') {
-      localStorage.setItem('fa_export_pin', data.exportPin);
-    }
-    if (data.userTagRules && Array.isArray(data.userTagRules)) {
-      localStorage.setItem('fa_user_tag_rules', JSON.stringify(data.userTagRules));
-      try {
-        loadUserRulesIntoTrie();
-        syncRulesToWorker(data.userTagRules);
-      } catch (e) {
-        console.warn('Rules trie sync failed on import:', e);
+    try {
+      if (data.transactions && Array.isArray(data.transactions)) {
+        localStorage.setItem('fa_transactions', JSON.stringify(data.transactions));
       }
-    }
-    if (data.customKnowledgeRules && Array.isArray(data.customKnowledgeRules)) {
-      localStorage.setItem('fa_custom_knowledge_rules', JSON.stringify(data.customKnowledgeRules));
-    }
-
-    // Reconcile Password Vault Envelope & Items
-    if (data.passwordVaultEnvelope && typeof data.passwordVaultEnvelope === 'object') {
-      localStorage.setItem('fa_password_vault_envelope', JSON.stringify(data.passwordVaultEnvelope));
-      if (data.passwordVaultEnvelope.items && Array.isArray(data.passwordVaultEnvelope.items)) {
-        localStorage.setItem('fa_password_vault_items', JSON.stringify(data.passwordVaultEnvelope.items));
+      if (data.categories && Array.isArray(data.categories)) {
+        localStorage.setItem('fa_categories', JSON.stringify(data.categories));
       }
-    } else if (data.passwordVaultItems && Array.isArray(data.passwordVaultItems)) {
-      localStorage.setItem('fa_password_vault_items', JSON.stringify(data.passwordVaultItems));
-      const fallbackEnvelope = {
-        version: '2.2',
-        checksum: 'uncalculated',
-        items: data.passwordVaultItems
-      };
-      localStorage.setItem('fa_password_vault_envelope', JSON.stringify(fallbackEnvelope));
-    }
+      if (data.trips && Array.isArray(data.trips)) {
+        localStorage.setItem('fa_trips', JSON.stringify(data.trips));
+      }
+      if (data.periodNotes && Array.isArray(data.periodNotes)) {
+        localStorage.setItem('fa_period_notes', JSON.stringify(data.periodNotes));
+      }
+      if (data.profile && typeof data.profile === 'object' && data.profile.username) {
+        const restoredProfile = { ...data.profile, isUnlocked: false };
+        localStorage.setItem('fa_user_profile', JSON.stringify(restoredProfile));
+      }
+      if (data.exportPin && typeof data.exportPin === 'string') {
+        localStorage.setItem('fa_export_pin', data.exportPin);
+      }
+      if (data.userTagRules && Array.isArray(data.userTagRules)) {
+        localStorage.setItem('fa_user_tag_rules', JSON.stringify(data.userTagRules));
+        try {
+          loadUserRulesIntoTrie();
+          syncRulesToWorker(data.userTagRules);
+        } catch (e) {
+          console.warn('Rules trie sync failed on import:', e);
+        }
+      }
+      if (data.customKnowledgeRules && Array.isArray(data.customKnowledgeRules)) {
+        localStorage.setItem('fa_custom_knowledge_rules', JSON.stringify(data.customKnowledgeRules));
+      }
 
-    if (data.passwordVaultVerifier && typeof data.passwordVaultVerifier === 'string') {
-      localStorage.setItem('fa_pwd_vault_verifier', data.passwordVaultVerifier);
+      // Reconcile Password Vault Envelope & Items
+      if (data.passwordVaultEnvelope && typeof data.passwordVaultEnvelope === 'object') {
+        localStorage.setItem('fa_password_vault_envelope', JSON.stringify(data.passwordVaultEnvelope));
+        if (data.passwordVaultEnvelope.items && Array.isArray(data.passwordVaultEnvelope.items)) {
+          localStorage.setItem('fa_password_vault_items', JSON.stringify(data.passwordVaultEnvelope.items));
+        }
+      } else if (data.passwordVaultItems && Array.isArray(data.passwordVaultItems)) {
+        localStorage.setItem('fa_password_vault_items', JSON.stringify(data.passwordVaultItems));
+        const fallbackEnvelope = {
+          version: '2.2',
+          checksum: 'uncalculated',
+          items: data.passwordVaultItems
+        };
+        localStorage.setItem('fa_password_vault_envelope', JSON.stringify(fallbackEnvelope));
+      }
+
+      if (data.passwordVaultVerifier && typeof data.passwordVaultVerifier === 'string') {
+        localStorage.setItem('fa_pwd_vault_verifier', data.passwordVaultVerifier);
+      }
+    } catch (storageErr) {
+      console.warn('Database restored to IndexedDB, but localStorage mirror update hit a quota/storage error:', storageErr);
     }
 
     return true;

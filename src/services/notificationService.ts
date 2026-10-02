@@ -72,7 +72,7 @@ export async function scheduleFutureNativeNotification(tx: Transaction, baseCurr
 
   const formattedAmt = formatCurrency(tx.amount, tx.currency || baseCurrency);
   const title = '⏰ Scheduled Payment Due';
-  const body = `"${tx.note || 'Scheduled Expense'}" of ${formattedAmt} is now due and has been logged.`;
+  const body = `"${tx.note || 'Scheduled Expense'}" of ${formattedAmt} is due today.`;
   const id = hashString(tx.id);
 
   try {
@@ -80,6 +80,19 @@ export async function scheduleFutureNativeNotification(tx: Transaction, baseCurr
     console.log(`[Native] Scheduled alarm notification for ${tx.date} at ${tTimeStr}, id=${id}`);
   } catch (e) {
     console.warn('[Native] scheduleNotification failed:', e);
+  }
+}
+
+/**
+ * Cancels a pre-scheduled native Android system notification for a scheduled expense.
+ */
+export async function cancelScheduledNotification(txId: string) {
+  const id = hashString(txId);
+  try {
+    await ScheduledNotification.cancelNotification({ id });
+    console.log(`[Native] Cancelled scheduled alarm notification for tx: ${txId} (id=${id})`);
+  } catch (e) {
+    console.warn('[Native] cancelNotification failed:', e);
   }
 }
 

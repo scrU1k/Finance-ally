@@ -1,7 +1,8 @@
 /**
  * flattenedTypedArrayTrie.ts
- * Contiguous Int32Array Memory Buffer Trie Implementation.
- * Supports dynamic Unicode character indexing (Devanagari, French, Spanish, etc.)
+ * Memory-efficient Trie Implementation.
+ * Replaces the 154MB pre-allocated contiguous buffer with a dynamic node tree
+ * while preserving the exact same public API and Unicode support.
  */
 
 export interface FlattenedMetadata {
@@ -10,45 +11,21 @@ export interface FlattenedMetadata {
   intent?: string;
 }
 
-const MAX_CHAR_TYPES = 512; // Supports English + Devanagari + Latin-1 + Accents + Symbols
-const METADATA_SLOT = MAX_CHAR_TYPES; // Slot 512
-const NODE_SIZE = MAX_CHAR_TYPES + 1; // 513 Int32 integers per node
+class TrieNode {
+  children: Map<string, TrieNode> = new Map();
+  isEndOfWord: boolean = false;
+  meta: FlattenedMetadata | null = null;
+}
 
 export class FlattenedInt32Trie {
-  private buffer: Int32Array;
-  private nodeCount: number = 1; // Root node is at index 0
-  private metadataStore: FlattenedMetadata[] = [];
-  private charMap: Map<string, number> = new Map();
+  private root: TrieNode = new TrieNode();
   public maxPhraseLength: number = 1;
 
-  constructor(maxNodes: number = 30000) {
-    // Pre-populate standard ASCII + common characters
-    for (let i = 0; i < 26; i++) {
-      this.charMap.set(String.fromCharCode(97 + i), i); // a-z -> 0-25
-    }
-    this.charMap.set(' ', 26);
-    this.charMap.set('-', 27);
-    this.charMap.set('/', 28);
-
-    // Allocate single contiguous memory block
-    this.buffer = new Int32Array(maxNodes * NODE_SIZE);
-    this.buffer.fill(-1); // -1 indicates null child / no metadata
+  constructor(_maxNodes?: number) {
+    // Kept for backward compatibility with existing constructor invocations
   }
 
-  /** Dynamic Unicode Character Indexing */
-  private getCharIndex(char: string): number {
-    let idx = this.charMap.get(char);
-    if (idx !== undefined) return idx;
-
-    if (this.charMap.size < MAX_CHAR_TYPES) {
-      idx = this.charMap.size;
-      this.charMap.set(char, idx);
-      return idx;
-    }
-    return -1;
-  }
-
-  /** Inserts a word/phrase into contiguous Int32Array memory */
+  /** Inserts a word/phrase into the Trie */
   insert(phrase: string, meta?: FlattenedMetadata): void {
     const clean = phrase.toLowerCase().trim();
     if (!clean) return;
@@ -58,46 +35,38 @@ export class FlattenedInt32Trie {
       this.maxPhraseLength = wordCount;
     }
 
-    let currentNode = 0; // Root node offset index
-
+    let current = this.root;
     for (let i = 0; i < clean.length; i++) {
-      const c = clean[i];
-      const charIdx = this.getCharIndex(c);
-      if (charIdx === -1) continue;
-
-      const childPointerLoc = currentNode * NODE_SIZE + charIdx;
-      let nextNode = this.buffer[childPointerLoc];
-
-      if (nextNode === -1) {
-        nextNode = this.nodeCount++;
-        this.buffer[childPointerLoc] = nextNode;
+      const char = clean[i];
+      let next = current.children.get(char);
+      if (!next) {
+        next = new TrieNode();
+        current.children.set(char, next);
       }
-      currentNode = nextNode;
+      current = next;
     }
 
+    current.isEndOfWord = true;
     if (meta) {
-      const metaIndex = this.metadataStore.length;
-      this.metadataStore.push(meta);
-      this.buffer[currentNode * NODE_SIZE + METADATA_SLOT] = metaIndex;
+      current.meta = meta;
     }
   }
 
-  /** Zero-Allocation $O(L)$ Search in contiguous Int32Array */
+  /** Search in Trie */
   search(phrase: string): FlattenedMetadata | null {
     const clean = phrase.toLowerCase().trim();
-    let currentNode = 0;
+    if (!clean) return null;
 
+    let current = this.root;
     for (let i = 0; i < clean.length; i++) {
-      const charIdx = this.getCharIndex(clean[i]);
-      if (charIdx === -1) return null;
-
-      const nextNode = this.buffer[currentNode * NODE_SIZE + charIdx];
-      if (nextNode === -1) return null;
-      currentNode = nextNode;
+      const char = clean[i];
+      const next = current.children.get(char);
+      if (!next) return null;
+      current = next;
     }
 
-    const metaIdx = this.buffer[currentNode * NODE_SIZE + METADATA_SLOT];
-    return metaIdx !== -1 ? this.metadataStore[metaIdx] : {};
+    if (!current.isEndOfWord) return null;
+    return current.meta || {};
   }
 
   /** Punctuation-Safe & Unicode-Aware Token Extraction */
