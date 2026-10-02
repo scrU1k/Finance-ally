@@ -843,23 +843,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       Cancel
                     </button>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full min-w-0">
                     <input
                       type="text"
                       value={usernameInput}
                       onChange={e => setUsernameInput(e.target.value)}
                       placeholder="Enter new username"
                       maxLength={30}
-                      className="flex-1 px-3 py-2 bg-canvas border border-hairline rounded-xl text-xs font-mono text-ink focus:outline-none focus:border-brand-blue"
+                      className="flex-1 min-w-0 w-full px-3 py-2 bg-canvas border border-hairline rounded-xl text-xs font-mono text-ink focus:outline-none focus:border-brand-blue"
                       autoFocus
                     />
                     <button
                       type="submit"
                       disabled={!usernameInput.trim()}
-                      className="px-4 py-2 bg-brand-blue hover:bg-brand-blue/90 disabled:opacity-50 text-white rounded-xl text-xs font-mono font-bold cursor-pointer transition-all flex items-center gap-1 shrink-0"
+                      title="Save username"
+                      aria-label="Save username"
+                      className="w-9 h-9 bg-brand-blue hover:bg-brand-blue/90 disabled:opacity-40 text-white rounded-xl flex items-center justify-center shrink-0 transition-all cursor-pointer shadow-sm active:scale-95"
                     >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Save</span>
+                      <Check className="w-4 h-4 stroke-[2.5]" />
                     </button>
                   </div>
                   {usernameMsg && (
@@ -1163,23 +1164,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       Cancel
                     </button>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full min-w-0">
                     <input
                       type="text"
                       value={usernameInput}
                       onChange={e => setUsernameInput(e.target.value)}
                       placeholder="Enter new username"
                       maxLength={30}
-                      className="flex-1 px-3 py-2 bg-canvas border border-hairline rounded-xl text-xs font-mono text-ink focus:outline-none focus:border-brand-blue"
+                      className="flex-1 min-w-0 w-full px-3 py-2 bg-canvas border border-hairline rounded-xl text-xs font-mono text-ink focus:outline-none focus:border-brand-blue"
                       autoFocus
                     />
                     <button
                       type="submit"
                       disabled={!usernameInput.trim()}
-                      className="px-4 py-2 bg-brand-blue hover:bg-brand-blue/90 disabled:opacity-50 text-white rounded-xl text-xs font-mono font-bold cursor-pointer transition-all flex items-center gap-1 shrink-0"
+                      title="Save username"
+                      aria-label="Save username"
+                      className="w-9 h-9 bg-brand-blue hover:bg-brand-blue/90 disabled:opacity-40 text-white rounded-xl flex items-center justify-center shrink-0 transition-all cursor-pointer shadow-sm active:scale-95"
                     >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Save</span>
+                      <Check className="w-4 h-4 stroke-[2.5]" />
                     </button>
                   </div>
                   {usernameMsg && (
@@ -1918,10 +1920,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
                 <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-brand-blue"></span>
-                  Local AES-256 Vault
+                  Argon2id & AES-256 Vault
                 </div>
                 <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
-                  Password manager items and backups are encrypted on-device with AES-256-GCM and PBKDF2.
+                  Password vault credentials and backups are encrypted with AES-256-GCM and memory-hard Argon2id key derivation, with zero-knowledge Global Recovery Key protection.
                 </p>
               </div>
 
@@ -1931,7 +1933,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   On-Device Intelligence
                 </div>
                 <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
-                  Vector search, ML models, and natural language categorization run in local Web Worker threads.
+                  109 pre-compiled financial rules and on-device vector embeddings run locally in Web Worker threads.
                 </p>
               </div>
 
@@ -1956,7 +1958,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   <strong className="text-ink">No Financial Advice:</strong> Finance-Ally is a personal budgeting tool and does not provide financial, tax, or investment advice.
                 </p>
                 <p>
-                  <strong className="text-ink">User Backup Responsibility:</strong> Because all data is stored offline on your device, regular exports/backups are your responsibility.
+                  <strong className="text-ink">User Backup Responsibility:</strong> Because all data is stored offline on your device, regular exports and backups are your responsibility.
                 </p>
                 <p>
                   <strong className="text-ink">"AS IS" Warranty:</strong> The software is provided without warranty. The developers are not liable for data loss or financial decisions.
@@ -1982,7 +1984,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 Finance-Ally • 100% Offline & Sandboxed Personal Finance Vault
               </p>
               <p className="text-[10px] font-mono text-muted-custom/75 tracking-wider font-semibold">
-                CC BY-NC 4.0
+                CC BY-NC-SA 4.0
               </p>
             </div>
           </div>
