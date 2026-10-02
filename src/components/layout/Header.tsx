@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Settings, Lock, Plane, Tag, Lightbulb } from 'lucide-react';
+import { Settings, Lock, Plane, Tag, Lightbulb } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { TOP_CURRENCIES } from '../../services/currency';
@@ -35,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories
           </button>
 
           {/* Active Trip Vault Badge (Plane icon only) */}
-          {activeTripVault ? (
+          {activeTripVault && (
             <button
               onClick={() => setActiveTripVault(null)}
               className="p-1.5 bg-brand-coral/15 hover:bg-brand-coral/25 border border-brand-coral/40 rounded-full text-brand-coral transition-all cursor-pointer shadow-sm shrink-0 flex items-center justify-center"
@@ -43,11 +43,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories
             >
               <Plane className="w-4 h-4 text-brand-coral" />
             </button>
-          ) : (
-            <div className="hidden md:flex items-center gap-1.5 bg-surface-card border border-hairline px-2.5 py-0.5 rounded-full text-[11px] font-mono text-muted-custom">
-              <Shield className="w-3 h-3 text-brand-mint shrink-0" />
-              <span>Offline Encryption Active</span>
-            </div>
           )}
         </div>
 

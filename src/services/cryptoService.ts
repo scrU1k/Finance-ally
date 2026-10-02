@@ -8,7 +8,7 @@
  */
 
 import { deriveKeyArgon2id } from './kdfService';
-import { generateRecoveryKey, setGlobalRecoveryKeyVerifier } from './recoveryService';
+import { verifyGlobalRecoveryKey } from './recoveryService';
 
 const SALT_LENGTH = 16; // bytes
 const IV_LENGTH = 12;   // bytes (96-bit IV for GCM)
@@ -119,24 +119,37 @@ export async function setupExportPin(pin: string, username: string, providedReco
     salt: bufToBase64(salt.buffer as ArrayBuffer)
   };
 
-  // 4. Encrypt Private Key with Recovery Key via PBKDF2 (AES-256-GCM)
-  const recoveryKey = providedRecoveryKey || generateRecoveryKey(username);
-  await setGlobalRecoveryKeyVerifier(recoveryKey);
-  const rSalt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
-  const rIv = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
-  const rAesKey = await deriveKeyPbkdf2(recoveryKey, rSalt);
-  
-  const rEncryptedPrivateKeyBuf = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: rIv },
-    rAesKey,
-    privateKeyPkcs8
-  );
+  // 4. Encrypt Private Key with Recovery Key if provided, or preserve existing recovery escrow
+  let encryptedPrivateKeyRecovery: EncryptedPrivateKey | undefined = undefined;
 
-  const encryptedPrivateKeyRecovery: EncryptedPrivateKey = {
-    ciphertext: bufToBase64(rEncryptedPrivateKeyBuf),
-    iv: bufToBase64(rIv.buffer as ArrayBuffer),
-    salt: bufToBase64(rSalt.buffer as ArrayBuffer)
-  };
+  if (providedRecoveryKey) {
+    const rSalt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
+    const rIv = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
+    const rAesKey = await deriveKeyPbkdf2(providedRecoveryKey, rSalt);
+    
+    const rEncryptedPrivateKeyBuf = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: rIv },
+      rAesKey,
+      privateKeyPkcs8
+    );
+
+    encryptedPrivateKeyRecovery = {
+      ciphertext: bufToBase64(rEncryptedPrivateKeyBuf),
+      iv: bufToBase64(rIv.buffer as ArrayBuffer),
+      salt: bufToBase64(rSalt.buffer as ArrayBuffer)
+    };
+  } else {
+    // Preserve existing recovery escrow if present from previous setup
+    try {
+      const raw = localStorage.getItem(PIN_KEY);
+      if (raw) {
+        const existing: StoredHybridKeys = JSON.parse(raw);
+        if (existing.encryptedPrivateKeyRecovery) {
+          encryptedPrivateKeyRecovery = existing.encryptedPrivateKeyRecovery;
+        }
+      }
+    } catch {}
+  }
 
   // 5. Save to localStorage with v: 4 (Argon2id)
   const stored: StoredHybridKeys = {
@@ -144,10 +157,10 @@ export async function setupExportPin(pin: string, username: string, providedReco
     kdf: 'argon2id',
     publicKeyJwk,
     encryptedPrivateKey,
-    encryptedPrivateKeyRecovery
+    ...(encryptedPrivateKeyRecovery ? { encryptedPrivateKeyRecovery } : {})
   };
   localStorage.setItem(PIN_KEY, JSON.stringify(stored));
-  return recoveryKey;
+  return providedRecoveryKey || '';
 }
 
 export async function changeExportPin(oldPin: string, newPin: string): Promise<boolean> {
@@ -190,43 +203,51 @@ export async function changeExportPin(oldPin: string, newPin: string): Promise<b
   return true;
 }
 
-export async function recoverExportPin(recoveryKey: string, newPin: string): Promise<boolean> {
+export async function recoverExportPin(recoveryKey: string, newPin: string, username: string = 'USER'): Promise<boolean> {
+  const isKeyValid = await verifyGlobalRecoveryKey(recoveryKey.trim());
+  if (!isKeyValid) {
+    return false;
+  }
+
   const raw = localStorage.getItem(PIN_KEY);
-  if (!raw) throw new Error('No existing PIN configuration found.');
+  if (!raw) {
+    await setupExportPin(newPin, username, recoveryKey);
+    return true;
+  }
   const stored: StoredHybridKeys = JSON.parse(raw);
   
-  if (!stored.encryptedPrivateKeyRecovery) {
-    throw new Error('No recovery key configuration exists for this vault.');
+  if (stored.encryptedPrivateKeyRecovery) {
+    try {
+      const rSalt = base64ToBuf(stored.encryptedPrivateKeyRecovery.salt);
+      const rIv = base64ToBuf(stored.encryptedPrivateKeyRecovery.iv);
+      const rData = base64ToBuf(stored.encryptedPrivateKeyRecovery.ciphertext);
+      const rAesKey = await deriveKeyPbkdf2(recoveryKey.trim(), rSalt);
+
+      const privateKeyPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: rIv }, rAesKey, rData);
+
+      // Re-encrypt with new PIN
+      const newSalt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
+      const newIv = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
+      const newAesKey = await deriveKeyArgon2id(newPin, newSalt);
+      const newEncryptedPrivateKeyBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: newIv }, newAesKey, privateKeyPkcs8);
+
+      stored.encryptedPrivateKey = {
+        ciphertext: bufToBase64(newEncryptedPrivateKeyBuf),
+        iv: bufToBase64(newIv.buffer as ArrayBuffer),
+        salt: bufToBase64(newSalt.buffer as ArrayBuffer)
+      };
+      
+      stored.v = 4;
+      stored.kdf = 'argon2id';
+      localStorage.setItem(PIN_KEY, JSON.stringify(stored));
+      return true;
+    } catch {
+      // If decryption with this key didn't match the specific escrow, proceed to reset with verified master key
+    }
   }
 
-  // Verify and decrypt with Recovery Key
-  const rSalt = base64ToBuf(stored.encryptedPrivateKeyRecovery.salt);
-  const rIv = base64ToBuf(stored.encryptedPrivateKeyRecovery.iv);
-  const rData = base64ToBuf(stored.encryptedPrivateKeyRecovery.ciphertext);
-  const rAesKey = await deriveKeyPbkdf2(recoveryKey, rSalt);
-
-  let privateKeyPkcs8: ArrayBuffer;
-  try {
-    privateKeyPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: rIv }, rAesKey, rData);
-  } catch {
-    return false; // Wrong recovery key
-  }
-
-  // Re-encrypt with new PIN
-  const newSalt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
-  const newIv = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
-  const newAesKey = await deriveKeyArgon2id(newPin, newSalt);
-  const newEncryptedPrivateKeyBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: newIv }, newAesKey, privateKeyPkcs8);
-
-  stored.encryptedPrivateKey = {
-    ciphertext: bufToBase64(newEncryptedPrivateKeyBuf),
-    iv: bufToBase64(newIv.buffer as ArrayBuffer),
-    salt: bufToBase64(newSalt.buffer as ArrayBuffer)
-  };
-  
-  stored.v = 4;
-  stored.kdf = 'argon2id';
-  localStorage.setItem(PIN_KEY, JSON.stringify(stored));
+  // Recovery Key is globally valid -> allow resetting export PIN and keys
+  await setupExportPin(newPin, username, recoveryKey);
   return true;
 }
 
@@ -372,18 +393,35 @@ export async function encryptHybridJSON(plaintext: string): Promise<string> {
 
 /** Decrypts Hybrid JSON: handles modern v4 (Argon2id) and legacy v3 (PBKDF2 Hybrid). */
 export async function decryptJSON(encryptedString: string, pin: string): Promise<string> {
-  const parsed = JSON.parse(encryptedString);
-  if (!parsed._fa_encrypted_v2 && !parsed._fa_encrypted_v3) {
+  let parsed: any;
+  try {
+    parsed = JSON.parse(encryptedString);
+  } catch {
+    throw new Error('Corrupt backup file: Malformed or invalid JSON syntax.');
+  }
+
+  if (!parsed || (!parsed._fa_encrypted_v2 && !parsed._fa_encrypted_v3)) {
     return encryptedString;
   }
 
   const bundle = parsed as HybridCryptoBundle;
   const isArgon2id = bundle._fa_encrypted_v3 || bundle.v === 4 || bundle.kdf === 'argon2id';
 
+  if (!bundle.encryptedPrivateKey || !bundle.encryptedDek || !bundle.encryptedPayload) {
+    throw new Error('Corrupt backup file: Missing essential cryptographic headers or payload.');
+  }
+
   // 1. Decrypt Private Key using PIN (Argon2id for v4, PBKDF2 for v3)
-  const privSalt = base64ToBuf(bundle.encryptedPrivateKey.salt);
-  const privIv = base64ToBuf(bundle.encryptedPrivateKey.iv);
-  const privData = base64ToBuf(bundle.encryptedPrivateKey.ciphertext);
+  let privSalt: Uint8Array<ArrayBuffer>;
+  let privIv: Uint8Array<ArrayBuffer>;
+  let privData: Uint8Array<ArrayBuffer>;
+  try {
+    privSalt = base64ToBuf(bundle.encryptedPrivateKey.salt);
+    privIv = base64ToBuf(bundle.encryptedPrivateKey.iv);
+    privData = base64ToBuf(bundle.encryptedPrivateKey.ciphertext);
+  } catch {
+    throw new Error('Corrupt backup file: Malformed private key encoding.');
+  }
   
   const pinKey = isArgon2id
     ? await deriveKeyArgon2id(pin, privSalt)
@@ -397,37 +435,69 @@ export async function decryptJSON(encryptedString: string, pin: string): Promise
   }
 
   // 2. Import Private Key
-  const privateKey = await crypto.subtle.importKey(
-    'pkcs8',
-    privateKeyPkcs8,
-    { name: 'RSA-OAEP', hash: 'SHA-256' },
-    false,
-    ['decrypt']
-  );
+  let privateKey: CryptoKey;
+  try {
+    privateKey = await crypto.subtle.importKey(
+      'pkcs8',
+      privateKeyPkcs8,
+      { name: 'RSA-OAEP', hash: 'SHA-256' },
+      false,
+      ['decrypt']
+    );
+  } catch {
+    throw new Error('Corrupt backup file: Invalid private key structure.');
+  }
 
   // 3. Decrypt DEK using Private Key
-  const encryptedDek = base64ToBuf(bundle.encryptedDek);
+  let encryptedDek: Uint8Array<ArrayBuffer>;
+  try {
+    encryptedDek = base64ToBuf(bundle.encryptedDek);
+  } catch {
+    throw new Error('Corrupt backup file: Malformed DEK encoding.');
+  }
+
   let dekRaw: ArrayBuffer;
   try {
     dekRaw = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, encryptedDek);
   } catch {
-    throw new Error('Corrupt backup file (Failed to decrypt DEK)');
+    throw new Error('Corrupt backup file: Failed to decrypt DEK.');
   }
 
   // 4. Import DEK and Decrypt Payload
-  const dek = await crypto.subtle.importKey(
-    'raw',
-    dekRaw,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['decrypt']
-  );
+  let dek: CryptoKey;
+  try {
+    dek = await crypto.subtle.importKey(
+      'raw',
+      dekRaw,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+    );
+  } catch {
+    throw new Error('Corrupt backup file: Malformed DEK key.');
+  }
 
-  const encryptedPayload = base64ToBuf(bundle.encryptedPayload);
-  const payloadIv = base64ToBuf(bundle.payloadIv);
-  const payloadBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: payloadIv }, dek, encryptedPayload);
+  let encryptedPayload: Uint8Array<ArrayBuffer>;
+  let payloadIv: Uint8Array<ArrayBuffer>;
+  try {
+    encryptedPayload = base64ToBuf(bundle.encryptedPayload);
+    payloadIv = base64ToBuf(bundle.payloadIv);
+  } catch {
+    throw new Error('Corrupt backup file: Malformed payload encoding.');
+  }
 
-  return new TextDecoder().decode(payloadBuf);
+  let payloadBuf: ArrayBuffer;
+  try {
+    payloadBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: payloadIv }, dek, encryptedPayload);
+  } catch {
+    throw new Error('Backup file is corrupted or has been tampered with (AES-GCM integrity check failed).');
+  }
+
+  try {
+    return new TextDecoder().decode(payloadBuf);
+  } catch {
+    throw new Error('Corrupt backup file: Failed to decode UTF-8 payload.');
+  }
 }
 
 export function isEncryptedBackup(jsonString: string): boolean {

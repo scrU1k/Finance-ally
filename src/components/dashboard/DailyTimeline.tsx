@@ -51,6 +51,38 @@ interface DrilledFilter {
   dateRange?: [string, string];
 }
 
+/**
+ * Parses 24h or 12h time strings into minutes from midnight (0..1439).
+ * e.g. "09:05" -> 545, "12:30" -> 750, "12.30pm" -> 750, "2pm" -> 840, "2:00 PM" -> 840.
+ */
+function parseTimeToMinutes(timeStr?: string): number {
+  if (!timeStr) return -1;
+  const raw = timeStr.trim().toLowerCase();
+
+  // 12-hour format with AM/PM (e.g., 9:05am, 12.30pm, 2pm, 02:00 pm)
+  const ampmMatch = raw.match(/^(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)$/);
+  if (ampmMatch) {
+    let hours = parseInt(ampmMatch[1], 10);
+    const mins = ampmMatch[2] ? parseInt(ampmMatch[2], 10) : 0;
+    const isPm = ampmMatch[3] === 'pm';
+    if (hours === 12) hours = isPm ? 12 : 0;
+    else if (isPm) hours += 12;
+    return hours * 60 + mins;
+  }
+
+  // 24-hour format (e.g., 09:05, 12:30, 14:00)
+  const parts = raw.split(/[:.]/);
+  if (parts.length >= 2) {
+    const hours = parseInt(parts[0], 10);
+    const mins = parseInt(parts[1], 10);
+    if (!isNaN(hours) && !isNaN(mins)) {
+      return hours * 60 + mins;
+    }
+  }
+
+  return -1;
+}
+
 function formatDayHeader(dateStr: string): string {
   const todayStr = getLocalDateString();
   const yesterday = new Date();
@@ -368,7 +400,17 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
     const sortedDates = Array.from(map.keys()).sort((a, b) => (b > a ? 1 : -1));
 
     return sortedDates.map(date => {
-      const dayTxs = map.get(date)!;
+      const dayTxs = [...map.get(date)!].sort((a, b) => {
+        const timeA = parseTimeToMinutes(a.time);
+        const timeB = parseTimeToMinutes(b.time);
+        if (timeA !== -1 && timeB !== -1 && timeA !== timeB) {
+          return timeA - timeB; // Chronological ascending: morning to evening (e.g. 9:05am < 12:30pm < 2:00pm)
+        }
+        if (timeA !== -1 && timeB === -1) return -1;
+        if (timeA === -1 && timeB !== -1) return 1;
+        return a.createdAt - b.createdAt;
+      });
+
       const dayTotalInBaseCurrency = dayTxs.reduce((sum, t) => {
         return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
       }, 0);

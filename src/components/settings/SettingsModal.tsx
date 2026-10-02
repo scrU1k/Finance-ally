@@ -160,6 +160,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   // Change Password State
   const [isChangingPass, setIsChangingPass] = useState(false);
+  const [currentPass, setCurrentPass] = useState('');
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [showNewPass, setShowNewPass] = useState(false);
@@ -410,6 +412,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setPassMsg('');
     setPassError('');
 
+    if (!currentPass) {
+      setPassError('Current password is required.');
+      return;
+    }
+
+    const isCurrentValid = await verifyUserPassword(currentPass);
+    if (!isCurrentValid) {
+      setPassError('Incorrect Current Password. If forgotten, use "Forgot Password?" below.');
+      return;
+    }
+
     if (!newPass || newPass.length < 4) {
       setPassError('Password must be at least 4 characters long.');
       return;
@@ -422,6 +435,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const ok = await changePassword(newPass);
     if (ok) {
       setPassMsg('Password updated successfully!');
+      setCurrentPass('');
       setNewPass('');
       setConfirmPass('');
       setIsChangingPass(false);
@@ -564,12 +578,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setPendingImportContent(content);
         setShowVerifyPinModal(true);
       } else {
-        const ok = await importFullDataBackup(content);
-        if (ok) {
-          setImportStatus('Backup restored! Restarting app...');
-          setTimeout(() => window.location.reload(), 1200);
-        } else {
-          setImportStatus('Error: Invalid JSON backup file.');
+        try {
+          const ok = await importFullDataBackup(content);
+          if (ok) {
+            setImportStatus('Backup restored! Restarting app...');
+            setTimeout(() => window.location.reload(), 1200);
+          } else {
+            setImportStatus('Error: Backup file structure is corrupted or invalid.');
+            resetSystemPickerBypass();
+          }
+        } catch {
+          setImportStatus('Security Alert: Backup file is corrupted or has been altered. Restore rejected.');
           resetSystemPickerBypass();
         }
       }
@@ -591,11 +610,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setImportStatus('Encrypted backup decrypted and restored! Restarting app...');
         setTimeout(() => window.location.reload(), 1200);
       } else {
-        setVerifyPinError('Data decrypted but appears invalid. Wrong PIN?');
+        setVerifyPinError('Data decrypted but schema validation failed. File may be corrupted or from an incompatible version.');
       }
-    } catch {
+    } catch (err: any) {
       setVerifyPinLoading(false);
-      setVerifyPinError('Incorrect PIN or corrupted file. Please try again.');
+      const msg = err?.message || '';
+      if (msg.includes('tampered') || msg.includes('integrity check failed') || msg.includes('Corrupt')) {
+        setVerifyPinError('Security Alert: This backup file is corrupted or has been tampered with. Decryption rejected.');
+      } else if (msg.includes('Incorrect PIN')) {
+        setVerifyPinError('Incorrect Backup PIN. Please verify and try again.');
+      } else {
+        setVerifyPinError(msg || 'Incorrect PIN or corrupted file. Please try again.');
+      }
     }
   };
 
@@ -605,13 +631,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     try {
       if (showSetPinModal === 'set' || showSetPinModal === 'reset') {
         const username = user?.username || 'USER';
-        const recoveryKey = showSetPinModal === 'set' 
-          ? await setupExportPin(pin1, username)
-          : await resetExportPin(pin1, username);
+        if (showSetPinModal === 'set') {
+          await setupExportPin(pin1, username);
+        } else {
+          await resetExportPin(pin1, username);
+        }
         setPinEnabled(true);
         setPinMsg(showSetPinModal === 'set' ? 'Backup encryption PIN set successfully!' : 'Backup PIN reset successfully. Old backups are orphaned.');
         setShowSetPinModal(null);
-        setGeneratedRecoveryKey(recoveryKey);
       } else if (showSetPinModal === 'change') {
         const ok = await changeExportPin(pin1, pin2!);
         if (ok) {
@@ -1307,7 +1334,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   <form onSubmit={handleChangePassword} className="space-y-3 bg-surface-card p-3 rounded-xl border border-hairline">
                     <div className="text-xs font-mono font-bold text-ink flex items-center justify-between">
                       <span>Change Password</span>
-                      <button type="button" onClick={() => setIsChangingPass(false)} className="text-muted-custom text-xs cursor-pointer">Cancel</button>
+                      <button type="button" onClick={() => {
+                        setIsChangingPass(false);
+                        setCurrentPass('');
+                        setNewPass('');
+                        setConfirmPass('');
+                        setPassError('');
+                        setPassMsg('');
+                      }} className="text-muted-custom text-xs cursor-pointer">Cancel</button>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-mono text-muted-custom uppercase">Current Password</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsChangingPass(false);
+                            setIsRecoveringAppPassword(true);
+                          }}
+                          className="text-[10px] font-mono text-brand-blue hover:underline cursor-pointer"
+                        >
+                          Forgot Password?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showCurrentPass ? 'text' : 'password'}
+                          value={currentPass}
+                          onChange={e => setCurrentPass(e.target.value)}
+                          placeholder="Current Password"
+                          required
+                          className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-9 py-1.5 text-xs font-mono text-ink"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentPass(!showCurrentPass)}
+                          className="absolute right-2.5 top-2 text-muted-custom hover:text-ink cursor-pointer"
+                        >
+                          {showCurrentPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1789,36 +1856,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
 
               {/* Snapshot Retention Limit */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">
-                    Snapshot Retention Limit
+              <div className="flex items-center justify-between pt-1">
+                <div>
+                  <label className="text-[11px] font-mono text-ink font-bold block">
+                    Backup file limit
                   </label>
                   <span className="text-[9.5px] font-mono text-muted-custom">
-                    Auto-purges older files from storage
+                    Auto-purges older snapshots from phone storage
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {[5, 10].map(limit => (
-                    <button
-                      key={limit}
-                      type="button"
-                      onClick={async () => {
-                        const updated = saveLocalAutoBackupConfig({ retentionLimit: limit });
-                        setLocalAutoConfig(updated);
-                        const refreshed = await syncSnapshotsFromFilesystem();
-                        setLocalSnapshotsState(refreshed);
-                        setLocalBackupMsg(`Retention limit set to ${limit} snapshots. Storage cleaned.`);
-                      }}
-                      className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold transition-all text-center cursor-pointer ${
-                        (localAutoConfig.retentionLimit || 10) === limit
-                          ? 'border-brand-mint text-brand-mint bg-surface-card shadow-sm'
-                          : 'bg-surface-card border-hairline text-muted-custom hover:text-ink'
-                      }`}
-                    >
-                      Keep Latest {limit}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-1 bg-surface-soft p-1 rounded-xl border border-hairline shrink-0">
+                  {[5, 10].map(limit => {
+                    const isSelected = (localAutoConfig.retentionLimit || 10) === limit;
+                    return (
+                      <button
+                        key={limit}
+                        type="button"
+                        onClick={async () => {
+                          const updated = saveLocalAutoBackupConfig({ retentionLimit: limit });
+                          setLocalAutoConfig(updated);
+                          const refreshed = await syncSnapshotsFromFilesystem();
+                          setLocalSnapshotsState(refreshed);
+                          setLocalBackupMsg(`Backup file limit set to ${limit}. Storage cleaned.`);
+                        }}
+                        className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-brand-mint/20 border border-brand-mint text-brand-mint shadow-sm'
+                            : 'text-muted-custom hover:text-ink border border-transparent'
+                        }`}
+                      >
+                        &lt;{limit}&gt;
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
