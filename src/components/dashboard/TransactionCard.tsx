@@ -177,7 +177,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={commonStyle}
-        className={`dotgui-card p-2.5 flex flex-col justify-between min-h-[75px] group transition-all cursor-pointer active:scale-[0.98] select-none ${
+        className={`dotgui-card p-2.5 flex flex-col justify-between min-h-[75px] group transition-all cursor-pointer active:scale-[0.98] select-none font-sans ${
           isSelected ? 'scale-[1.02]' : ''
         } ${isScheduled ? 'border-brand-yellow/50 bg-brand-yellow/5' : ''}`}
       >
@@ -192,7 +192,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
             </div>
 
             <span
-              className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate max-w-[100px]"
+              className="text-[9px] font-sans px-1.5 py-0.2 rounded-full font-medium truncate max-w-[100px]"
               style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
             >
               {(category.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : category.name}
@@ -200,20 +200,20 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
           </div>
 
           {isScheduled && (
-            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full font-bold bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow shrink-0 flex items-center gap-1">
+            <span className="text-[9px] font-sans px-1.5 py-0.5 rounded-full font-bold bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow shrink-0 flex items-center gap-1">
               <Clock className="w-2.5 h-2.5 text-brand-yellow" />
             </span>
           )}
         </div>
 
         {/* Note title */}
-        <h4 className="text-xs font-semibold text-ink truncate font-sans-custom my-1">
+        <h4 className="text-xs font-semibold text-ink truncate font-sans my-1">
           {transaction.note || category.name}
         </h4>
 
         {/* Bottom row: Trip & Amount */}
         <div className="flex items-center justify-between text-right border-t border-hairline/40 pt-1 mt-auto">
-          <span className="text-[9px] font-mono text-muted-custom truncate max-w-[60px]">
+          <span className="text-[9px] font-sans text-muted-custom truncate max-w-[60px]">
             {isScheduled ? 'Scheduled' : (trip ? trip.name : '')}
           </span>
           <div className={`text-xs font-display font-bold tracking-tight ${isScheduled ? 'text-brand-yellow opacity-90' : 'text-ink'}`}>
@@ -235,7 +235,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={commonStyle}
-        className={`dotgui-card py-2 px-3 flex items-center justify-between gap-2.5 group transition-all cursor-pointer active:scale-[0.99] select-none ${
+        className={`dotgui-card py-2 px-3 flex items-center justify-between gap-2.5 group transition-all cursor-pointer active:scale-[0.99] select-none font-sans ${
           isSelected ? 'scale-[1.005]' : ''
         } ${isScheduled ? 'border-brand-yellow/50 bg-brand-yellow/5' : ''}`}
       >
@@ -247,12 +247,12 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
             <IconComponent className="w-3 h-3" />
           </div>
 
-          <h4 className="text-xs font-semibold text-ink truncate font-sans-custom min-w-0 flex-1">
+          <h4 className="text-xs font-semibold text-ink truncate font-sans min-w-0 flex-1">
             {transaction.note || category.name}
           </h4>
 
           {isScheduled && (
-            <span className="text-[9px] font-mono bg-brand-yellow/15 text-brand-yellow border border-brand-yellow/30 px-1.5 py-0.5 rounded-full flex items-center gap-1 font-bold shrink-0">
+            <span className="text-[9px] font-sans bg-brand-yellow/15 text-brand-yellow border border-brand-yellow/30 px-1.5 py-0.5 rounded-full flex items-center gap-1 font-bold shrink-0">
               <Clock className="w-2.5 h-2.5 text-brand-yellow" />
               <span>Scheduled ({getScheduledCountdownText(transaction.date, transaction.time)})</span>
             </span>
@@ -260,7 +260,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 
           {/* Trip Tag in List View */}
           {!isScheduled && trip && (
-            <span className="text-[9px] font-mono bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 truncate whitespace-nowrap shrink-0 max-w-[90px]">
+            <span className="text-[9px] font-sans bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 truncate whitespace-nowrap shrink-0 max-w-[90px]">
               <Plane className="w-2.5 h-2.5 shrink-0" />
               <span className="truncate">{trip.name}</span>
             </span>
@@ -268,7 +268,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 
           {/* Category Tag in List View */}
           <span
-            className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate shrink-0 hidden sm:inline-block max-w-[85px]"
+            className="text-[9px] font-sans px-1.5 py-0.2 rounded-full font-medium truncate shrink-0 hidden sm:inline-block max-w-[85px]"
             style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
           >
             {category.name}
@@ -276,7 +276,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
-          <span className="text-[10px] font-mono text-muted-custom hidden xs:inline-block">
+          <span className="text-[10px] font-sans text-muted-custom hidden xs:inline-block">
             {transaction.time}
           </span>
           <div className={`text-xs font-display font-bold tracking-tight ${isScheduled ? 'text-brand-yellow opacity-90' : 'text-ink'}`}>
@@ -297,7 +297,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={commonStyle}
-      className={`dotgui-card p-2.5 sm:p-3 flex items-start justify-between gap-2.5 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] select-none ${
+      className={`dotgui-card p-2.5 sm:p-3 flex items-start justify-between gap-2.5 group hover:shadow-md transition-all cursor-pointer active:scale-[0.99] select-none font-sans ${
         isSelected ? 'scale-[1.005]' : ''
       } ${isScheduled ? 'border-brand-yellow/50 bg-brand-yellow/5' : ''}`}
     >
@@ -314,13 +314,13 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
         
         {/* LINE 1: Name (left) & Category Tag / Scheduled Badge (right) */}
         <div className="flex items-center justify-between gap-2 min-w-0">
-          <h4 className="text-xs sm:text-sm font-semibold text-ink truncate font-sans-custom min-w-0 flex-1 flex items-center gap-1.5">
+          <h4 className="text-xs sm:text-sm font-semibold text-ink truncate font-sans min-w-0 flex-1 flex items-center gap-1.5">
             <span className="truncate">{transaction.note || category.name}</span>
           </h4>
 
           <div className="flex items-center gap-1 shrink-0">
             {isScheduled && (
-              <span className="text-[9px] font-mono bg-brand-yellow/15 text-brand-yellow border border-brand-yellow/30 px-1.5 py-0.5 rounded-full flex items-center gap-1 font-bold shrink-0">
+              <span className="text-[9px] font-sans bg-brand-yellow/15 text-brand-yellow border border-brand-yellow/30 px-1.5 py-0.5 rounded-full flex items-center gap-1 font-bold shrink-0">
                 <Clock className="w-2.5 h-2.5 text-brand-yellow" />
                 <span>Scheduled</span>
               </span>
@@ -328,7 +328,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 
             {/* Category Tag Pill */}
             <span
-              className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium truncate whitespace-nowrap shrink-0 max-w-[100px]"
+              className="text-[9px] font-sans px-1.5 py-0.2 rounded-full font-medium truncate whitespace-nowrap shrink-0 max-w-[100px]"
               style={{ backgroundColor: `${category.color}15`, color: category.color, border: `1px solid ${category.color}30` }}
             >
               {(category.id === 'cat-others' && transaction.customCategoryName) ? transaction.customCategoryName : category.name}
@@ -339,20 +339,20 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
         {/* LINE 2: Scheduled Countdown / Trip Tag (left) & Amount (right) */}
         <div className="flex items-center justify-between gap-2 min-w-0">
           {isScheduled ? (
-            <div className="flex items-center gap-1 text-[10px] font-mono text-brand-yellow font-semibold truncate">
+            <div className="flex items-center gap-1 text-[10px] font-sans text-brand-yellow font-semibold truncate">
               <span>{getScheduledCountdownText(transaction.date, transaction.time)}</span>
               <span>•</span>
               <span>{transaction.date} {transaction.time || '00:00'}</span>
             </div>
           ) : trip ? (
             /* LINE 2 (With Trip): Trip Tag on Left */
-            <span className="text-[9px] font-mono bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 truncate whitespace-nowrap shrink-0 max-w-[120px]">
+            <span className="text-[9px] font-sans bg-brand-coral/10 text-brand-coral border border-brand-coral/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 truncate whitespace-nowrap shrink-0 max-w-[120px]">
               <Plane className="w-2.5 h-2.5 shrink-0" />
               <span className="truncate">{trip.name}</span>
             </span>
           ) : (
             /* LINE 2 (No Trip): Time & Payment Mode on Left */
-            <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-custom truncate">
+            <div className="flex items-center gap-1.5 text-[10px] font-sans text-muted-custom truncate">
               <span>{transaction.time || '12:00'}</span>
               {transaction.paymentMethod && (
                 <>
@@ -372,7 +372,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
               -{formatCurrency(transaction.amount, transaction.currency)}
             </div>
             {transaction.originalAmount && (
-              <div className="text-[9px] font-mono text-muted-custom">
+              <div className="text-[9px] font-sans text-muted-custom">
                 Orig: {formatCurrency(transaction.originalAmount, transaction.originalCurrency || transaction.currency)}
               </div>
             )}

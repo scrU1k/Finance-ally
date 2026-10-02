@@ -532,13 +532,13 @@ export const EndOfMonthAudit: React.FC = () => {
         )}
 
         {/* Insights & Anomalies */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-hairline">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-hairline font-sans">
           <div className="space-y-2">
-            <h4 className="text-xs font-mono font-semibold text-ink uppercase flex items-center gap-1.5">
+            <h4 className="text-xs font-sans font-semibold text-ink uppercase flex items-center gap-1.5">
               <CheckCircle className="w-4 h-4 text-brand-mint" />
               <span>Key Audit Findings</span>
             </h4>
-            <ul className="space-y-1.5 text-xs font-mono text-body-custom list-disc list-inside">
+            <ul className="space-y-1.5 text-xs font-sans text-body-custom list-disc list-inside">
               {auditReport.keyInsights.map((ins, i) => (
                 <li key={i}>{ins}</li>
               ))}
@@ -547,11 +547,11 @@ export const EndOfMonthAudit: React.FC = () => {
 
           {auditReport.anomalies.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-xs font-mono font-semibold text-brand-coral uppercase flex items-center gap-1.5">
+              <h4 className="text-xs font-sans font-semibold text-brand-coral uppercase flex items-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 text-brand-coral" />
                 <span>Detected Anomalies</span>
               </h4>
-              <ul className="space-y-1.5 text-xs font-mono text-brand-coral/90 list-disc list-inside">
+              <ul className="space-y-1.5 text-xs font-sans text-brand-coral/90 list-disc list-inside">
                 {auditReport.anomalies.map((anom, i) => (
                   <li key={i}>{anom}</li>
                 ))}
@@ -568,10 +568,10 @@ export const EndOfMonthAudit: React.FC = () => {
       {(() => {
         const existingNote = periodNotes.find(n => n.periodKey === selectedMonth);
         return (
-          <div className="dotgui-card p-5 bg-surface-card space-y-3">
+          <div className="dotgui-card p-5 bg-surface-card space-y-3 font-sans">
             {/* Heading + Actions Row */}
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+              <h3 className="text-xs font-sans font-bold text-ink uppercase flex items-center gap-1.5">
                 <FileText className="w-4 h-4 text-brand-purple" />
                 <span>{currentMonthLabel} {year} Note:</span>
               </h3>
@@ -590,7 +590,7 @@ export const EndOfMonthAudit: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSaveNote}
-                    className="px-3 py-1 rounded-full bg-brand-purple text-white text-[10px] font-mono font-bold shadow-sm hover:bg-brand-purple/90 cursor-pointer"
+                    className="px-3 py-1 rounded-full bg-brand-purple text-white text-[10px] font-sans font-bold shadow-sm hover:bg-brand-purple/90 cursor-pointer"
                   >
                     Save
                   </button>
@@ -615,10 +615,10 @@ export const EndOfMonthAudit: React.FC = () => {
                 placeholder="Add a personal note..."
                 rows={5}
                 autoFocus
-                className="w-full bg-surface-soft border border-hairline rounded-xl p-3 text-xs font-mono text-ink focus:outline-none focus:border-brand-purple leading-relaxed"
+                className="w-full bg-surface-soft border border-hairline rounded-xl p-3 text-xs font-sans text-ink focus:outline-none focus:border-brand-purple leading-relaxed"
               />
             ) : (
-              <p className="text-xs font-mono leading-relaxed whitespace-pre-wrap">
+              <p className="text-xs font-sans leading-relaxed whitespace-pre-wrap">
                 {noteEditContent
                   ? <span className="text-ink">{noteEditContent}</span>
                   : <span className="text-muted-custom italic">Add a personal note...</span>

@@ -186,7 +186,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
             value={inputPrompt}
             onChange={e => setInputPrompt(e.target.value)}
             placeholder="Quick Log: 300Rs spent on Burger..."
-            className="w-full bg-surface-soft border border-hairline rounded-2xl pl-4 pr-4 py-3.5 text-sm sm:text-base font-sans-custom text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[54px]"
+            className="w-full bg-surface-soft border border-hairline rounded-2xl pl-4 pr-4 py-3.5 text-sm sm:text-base font-sans text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[54px]"
           />
         </div>
 
@@ -202,7 +202,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
 
       {/* Success Notification */}
       {isSuccess && (
-        <div className="flex items-center gap-2 text-xs font-mono text-brand-mint font-bold bg-surface-soft p-3 rounded-xl border border-brand-mint/30 animate-in fade-in duration-150">
+        <div className="flex items-center gap-2 text-xs font-sans text-brand-mint font-bold bg-surface-soft p-3 rounded-xl border border-brand-mint/30 animate-in fade-in duration-150">
           <Check className="w-4 h-4" />
           <span>Expense Recorded for {parsedExpense?.date || batchDate}!</span>
         </div>
@@ -210,7 +210,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
 
       {/* Interactive Parsed Preview Card */}
       {parsedExpense && !isSuccess && (
-        <div className="bg-surface-soft border border-hairline p-4 rounded-xl space-y-3 animate-in fade-in zoom-in-95 duration-150 relative">
+        <div className="bg-surface-soft border border-hairline p-4 rounded-xl space-y-3 animate-in fade-in zoom-in-95 duration-150 relative font-sans">
           
           <button
             onClick={() => {
@@ -227,20 +227,20 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
           {/* Parsed Breakdown Metadata */}
           <div className="flex items-center justify-between border-b border-hairline pb-2.5 pr-6">
             <div className="space-y-0.5">
-              <span className="text-[10px] font-mono text-muted-custom uppercase font-bold">Auto-Identified Expense</span>
-              <div className="text-sm font-bold text-ink font-sans-custom">
+              <span className="text-[10px] font-sans text-muted-custom uppercase font-bold">Auto-Identified Expense</span>
+              <div className="text-sm font-bold text-ink font-sans">
                 {parsedExpense.description}
               </div>
             </div>
             <div className="text-right">
-              <span className="text-[10px] font-mono text-muted-custom uppercase font-bold">Parsed Amount</span>
+              <span className="text-[10px] font-sans text-muted-custom uppercase font-bold">Parsed Amount</span>
               <div className="text-lg font-display font-bold text-ink">
                 {formatCurrency(parsedExpense.amount, parsedExpense.currency)}
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-muted-custom">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-sans text-muted-custom">
             {/* Clickable Auto-detected Category Tag selector */}
             <button
               type="button"
@@ -288,7 +288,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
 
           {/* Select Payment Method & Instant Log Chips */}
           <div className="space-y-1.5 pt-2 border-t border-hairline/60">
-            <label className="text-[10px] font-mono text-muted-custom uppercase font-bold flex items-center gap-1">
+            <label className="text-[10px] font-sans text-muted-custom uppercase font-bold flex items-center gap-1">
               <CreditCard className="w-3 h-3" /> Select Payment Method & Log:
             </label>
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -297,7 +297,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
                   key={method}
                   type="button"
                   onClick={() => checkBudgetAndLog(method)}
-                  className="px-3 py-1.5 rounded-full text-xs font-mono border border-hairline bg-surface-card text-ink font-semibold hover:border-brand-blue hover:text-brand-blue transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-full text-xs font-sans border border-hairline bg-surface-card text-ink font-semibold hover:border-brand-blue hover:text-brand-blue transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1"
                 >
                   <Check className="w-3 h-3 text-brand-blue" />
                   <span>{method}</span>
@@ -306,7 +306,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
             </div>
 
             {isFutureDateTime(parsedExpense.date, parsedExpense.time) && (
-              <div className="flex items-center gap-1.5 text-xs font-mono text-brand-yellow font-bold pt-1">
+              <div className="flex items-center gap-1.5 text-xs font-sans text-brand-yellow font-bold pt-1">
                 <Clock className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
                 <span>Schedule</span>
               </div>
@@ -323,14 +323,14 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
           onClick={() => setBudgetWarning(null)}
         >
           <div
-            className="max-w-sm w-full bg-surface-card/95 backdrop-blur-2xl border border-brand-coral/40 rounded-2xl p-6 shadow-2xl space-y-4 cursor-default relative ring-1 ring-brand-coral/20 animate-in zoom-in-95 duration-150"
+            className="max-w-sm w-full bg-surface-card/95 backdrop-blur-2xl border border-brand-coral/40 rounded-2xl p-6 shadow-2xl space-y-4 cursor-default relative ring-1 ring-brand-coral/20 animate-in zoom-in-95 duration-150 font-sans"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 text-brand-coral border-b border-hairline pb-2.5">
-              <span className="text-sm font-mono font-bold uppercase">⚠️ Proactive Budget Warning</span>
+              <span className="text-sm font-sans font-bold uppercase">⚠️ Proactive Budget Warning</span>
             </div>
 
-            <div className="space-y-2 text-xs font-mono text-ink">
+            <div className="space-y-2 text-xs font-sans text-ink">
               <p className="leading-relaxed">
                 Logging this expense of <strong className="text-brand-coral">{formatCurrency(budgetWarning.newAmount, baseCurrency)}</strong> will push your <strong className="text-ink font-bold">"{budgetWarning.categoryName}"</strong> category budget over its monthly limit!
               </p>
@@ -355,14 +355,14 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
               <button
                 type="button"
                 onClick={() => setBudgetWarning(null)}
-                className="flex-1 py-2 rounded-xl border border-hairline text-muted-custom text-xs font-mono font-bold hover:border-ink cursor-pointer"
+                className="flex-1 py-2 rounded-xl border border-hairline text-muted-custom text-xs font-sans font-bold hover:border-ink cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => handleConfirmLog(budgetWarning.pendingMethod)}
-                className="flex-1 py-2 rounded-xl bg-brand-coral text-white font-mono text-xs font-bold hover:bg-brand-coral/90 transition-all cursor-pointer shadow-md"
+                className="flex-1 py-2 rounded-xl bg-brand-coral text-white font-sans text-xs font-bold hover:bg-brand-coral/90 transition-all cursor-pointer shadow-md"
               >
                 Log Anyway
               </button>

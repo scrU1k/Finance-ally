@@ -73,27 +73,51 @@
     --brand-lavender: #d4c2f8;
   }
 
-  /* Nordic Slate Theme (Soft, Low-Contrast, Eye-Comfort Minimalist) */
+  /* Nordic Slate / Serene Sage Theme (Soft, Matte, Low-Contrast, Eye-Comfort Minimalist) */
   .theme-nordic-slate,
   .theme-cyberpunk {
-    --canvas: rgba(26, 31, 38, 0.96);
-    --surface-card: rgba(33, 40, 49, 0.78);
-    --surface-soft: rgba(40, 48, 59, 0.65);
-    --surface-dark: #13171d;
-    --ink: #e2e8f0;
-    --body: #94a3b8;
-    --muted: #64748b;
-    --hairline: rgba(51, 65, 85, 0.7);
-    --hairline-soft: rgba(51, 65, 85, 0.35);
+    /* Day / Warm Linen & Sage Palette (Screenshots 1 & 2) */
+    --canvas: rgba(246, 244, 236, 0.98);
+    --surface-card: rgba(237, 233, 222, 0.92);
+    --surface-soft: rgba(228, 224, 211, 0.85);
+    --surface-dark: #1a3324;
+    --ink: #1a3324;
+    --body: #40594a;
+    --muted: #6b8274;
+    --hairline: rgba(206, 200, 184, 0.85);
+    --hairline-soft: rgba(206, 200, 184, 0.45);
 
-    /* Softer, non-neon, eye-friendly pastel tones */
-    --brand-blue: #60a5fa;
-    --brand-mint: #6ee7b7;
-    --term-green: #6ee7b7;
-    --brand-yellow: #fcd34d;
-    --brand-coral: #f87171;
-    --brand-purple: #a78bfa;
-    --brand-lavender: #c4b5fd;
+    --brand-blue: #2d6a4f;
+    --brand-mint: #40916c;
+    --term-green: #2d6a4f;
+    --brand-yellow: #c59b27;
+    --brand-coral: #c95a3f;
+    --brand-purple: #7a6e78;
+    --brand-lavender: #8e82a6;
+  }
+
+  /* Night / Deep Forest Pine Palette (Screenshot 3) */
+  .dark.theme-nordic-slate,
+  .dark.theme-cyberpunk,
+  .dark .theme-nordic-slate,
+  .dark .theme-cyberpunk {
+    --canvas: rgba(17, 29, 22, 0.98);
+    --surface-card: rgba(26, 43, 33, 0.90);
+    --surface-soft: rgba(33, 53, 42, 0.78);
+    --surface-dark: #0d1711;
+    --ink: #e8f4ed;
+    --body: #8fa89b;
+    --muted: #5e7a6c;
+    --hairline: rgba(45, 75, 60, 0.55);
+    --hairline-soft: rgba(45, 75, 60, 0.30);
+
+    --brand-blue: #52b788;
+    --brand-mint: #74c69d;
+    --term-green: #52b788;
+    --brand-yellow: #d4a373;
+    --brand-coral: #dd7373;
+    --brand-purple: #9a8c98;
+    --brand-lavender: #b8c0ff;
   }
 
   /* Emerald Mint Theme Override */

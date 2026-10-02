@@ -736,7 +736,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     { id: 'system', label: 'System Default', bg: 'linear-gradient(135deg, #0e0e0c 50%, #fafaf7 50%)' },
     { id: 'dotgui-dark', label: 'Obsidian Dark', bg: '#0e0e0c' },
     { id: 'dotgui-light', label: 'Warm Light', bg: '#fafaf7' },
-    { id: 'nordic-slate', label: 'Nordic Slate', bg: '#1a1f26' },
+    { id: 'nordic-slate', label: 'Serene Sage', bg: 'linear-gradient(135deg, #111d16 50%, #f6f4ec 50%)' },
     { id: 'emerald', label: 'Emerald Mint', bg: '#04140d' },
     { id: 'sunset', label: 'Sunset Copper', bg: '#120b09' },
   ];

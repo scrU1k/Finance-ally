@@ -38,7 +38,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (resolvedTheme === 'dotgui-dark') {
         root.classList.add('dark');
       } else if (resolvedTheme === 'nordic-slate' || resolvedTheme === 'cyberpunk') {
-        root.classList.add('dark', 'theme-nordic-slate');
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (isDark) {
+          root.classList.add('dark', 'theme-nordic-slate');
+        } else {
+          root.classList.add('theme-nordic-slate');
+        }
       } else if (resolvedTheme === 'emerald') {
         root.classList.add('dark', 'theme-emerald');
       } else if (resolvedTheme === 'sunset') {
@@ -48,9 +53,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     applyTheme(theme);
 
-    if (theme === 'system') {
+    if (theme === 'system' || theme === 'nordic-slate' || theme === 'cyberpunk') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const listener = () => applyTheme('system');
+      const listener = () => applyTheme(theme);
       mediaQuery.addEventListener('change', listener);
       return () => mediaQuery.removeEventListener('change', listener);
     }
@@ -59,13 +64,22 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     localStorage.setItem('fa_font', fontFamily);
     const body = document.body;
-    body.classList.remove('font-sans-custom', 'font-mono-custom', 'font-display-custom');
+    const root = document.documentElement;
 
-    if (fontFamily === 'mono') body.style.fontFamily = 'var(--font-mono)';
-    else if (fontFamily === 'inter') body.style.fontFamily = "'Inter', sans-serif";
-    else if (fontFamily === 'outfit') body.style.fontFamily = "'Outfit', sans-serif";
-    else if (fontFamily === 'space') body.style.fontFamily = "'Space Grotesk', sans-serif";
-    else body.style.fontFamily = 'var(--font-sans)';
+    const fontValueMap: Record<FontFamily, string> = {
+      geist: "'Geist', 'Inter', -apple-system, sans-serif",
+      inter: "'Inter', -apple-system, sans-serif",
+      mono: "var(--font-mono)",
+      outfit: "'Outfit', -apple-system, sans-serif",
+      space: "'Space Grotesk', -apple-system, sans-serif",
+    };
+
+    const activeFont = fontValueMap[fontFamily] || fontValueMap.geist;
+
+    // Dynamically update root CSS variables so all elements with font-sans or inheriting body style reflect the selected font immediately
+    root.style.setProperty('--font-sans', activeFont);
+    root.style.setProperty('--font-active', activeFont);
+    body.style.fontFamily = activeFont;
   }, [fontFamily]);
 
   const setTheme = (t: ThemeMode) => setThemeState(t);

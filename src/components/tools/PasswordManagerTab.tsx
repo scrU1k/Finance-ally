@@ -1215,7 +1215,7 @@ export const PasswordManagerTab: React.FC = () => {
             <div
               key={item.id}
               onClick={() => handleCardClick(item)}
-              className="dotgui-card p-3.5 cursor-pointer hover:border-[#005687]/60 hover:shadow-md transition-all group flex items-center justify-between gap-3 rounded-xl border border-hairline bg-surface-card"
+              className="dotgui-card p-3.5 cursor-pointer hover:border-[#005687]/60 hover:shadow-md transition-all group flex items-center justify-between gap-3 rounded-xl border border-hairline bg-surface-card font-sans"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-mono font-bold text-sm shrink-0 transition-colors ${
@@ -1224,16 +1224,16 @@ export const PasswordManagerTab: React.FC = () => {
                   {item.serviceName ? item.serviceName.charAt(0).toUpperCase() : <Lock className="w-4 h-4" />}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xs font-mono font-bold text-ink truncate group-hover:text-[#005687] transition-colors">
+                  <h3 className="text-xs font-sans font-bold text-ink truncate group-hover:text-[#005687] transition-colors">
                     {item.serviceName || `Encrypted Card #${index + 1}`}
                   </h3>
-                  <p className="text-[10px] font-mono text-muted-custom truncate">
+                  <p className="text-[10px] font-sans text-muted-custom truncate">
                     Metadata Encrypted
                   </p>
                 </div>
               </div>
 
-              <span className="text-[10px] font-mono font-bold px-2 py-1 rounded-full bg-[#005687]/10 text-[#005687] dark:text-[#0088cc] border border-[#005687]/20 flex items-center gap-1 group-hover:bg-[#005687] group-hover:text-white transition-colors shrink-0">
+              <span className="text-[10px] font-sans font-bold px-2 py-1 rounded-full bg-[#005687]/10 text-[#005687] dark:text-[#0088cc] border border-[#005687]/20 flex items-center gap-1 group-hover:bg-[#005687] group-hover:text-white transition-colors shrink-0">
                 <Lock className="w-3 h-3" /> Unlock
               </span>
             </div>
@@ -1252,7 +1252,7 @@ export const PasswordManagerTab: React.FC = () => {
               <div
                 key={card.id}
                 onClick={() => rawItem && handleCardClick(rawItem)}
-                className={`dotgui-card p-3 cursor-pointer hover:border-[#005687]/60 hover:shadow-md transition-all group relative overflow-hidden flex items-center justify-between gap-3 rounded-xl ${
+                className={`dotgui-card p-3 cursor-pointer hover:border-[#005687]/60 hover:shadow-md transition-all group relative overflow-hidden flex items-center justify-between gap-3 rounded-xl font-sans ${
                   isSelected ? 'ring-2 ring-[#005687] border-[#005687] bg-surface-soft' : ''
                 }`}
               >
@@ -1274,7 +1274,7 @@ export const PasswordManagerTab: React.FC = () => {
 
                 {/* Middle: Service Name + Username */}
                 <div className="flex-1 min-w-0 space-y-0.5">
-                  <h3 className="text-sm font-mono font-bold text-ink truncate group-hover:text-[#005687] dark:group-hover:text-[#0088cc] transition-colors">
+                  <h3 className="text-sm font-sans font-bold text-ink truncate group-hover:text-[#005687] dark:group-hover:text-[#0088cc] transition-colors">
                     {card.serviceName}
                   </h3>
                   <p className="text-xs font-mono text-muted-custom truncate">
@@ -1284,7 +1284,7 @@ export const PasswordManagerTab: React.FC = () => {
 
                 {/* Right: Unlocked Status */}
                 <div className="shrink-0">
-                  <span className="text-[10px] font-mono font-bold px-2 py-1 rounded-full bg-brand-mint/15 text-brand-mint border border-brand-mint/30 flex items-center gap-1">
+                  <span className="text-[10px] font-sans font-bold px-2 py-1 rounded-full bg-brand-mint/15 text-brand-mint border border-brand-mint/30 flex items-center gap-1">
                     <Unlock className="w-3 h-3 text-brand-mint" /> Unlocked
                   </span>
                 </div>
@@ -1381,7 +1381,7 @@ export const PasswordManagerTab: React.FC = () => {
                     onDragOver={e => handleDragOver(e, idx)}
                     onDrop={e => handleDrop(e, idx)}
                     onDragEnd={handleDragEnd}
-                    className={`flex items-center justify-between gap-2.5 p-3 bg-surface-soft border rounded-xl transition-all select-none ${
+                    className={`flex items-center justify-between gap-2.5 p-3 bg-surface-soft border rounded-xl transition-all select-none font-sans ${
                       isDraggingThis
                         ? 'opacity-40 ring-2 ring-[#005687] border-[#005687] bg-surface-card'
                         : isDragOver
@@ -1395,7 +1395,7 @@ export const PasswordManagerTab: React.FC = () => {
                         <GripVertical className="w-4 h-4" />
                       </div>
 
-                      <span className="text-[10px] font-mono font-bold text-muted-custom bg-surface-card border border-hairline px-1.5 py-0.5 rounded-md shrink-0">
+                      <span className="text-[10px] font-sans font-bold text-muted-custom bg-surface-card border border-hairline px-1.5 py-0.5 rounded-md shrink-0">
                         #{idx + 1}
                       </span>
 
@@ -1404,7 +1404,7 @@ export const PasswordManagerTab: React.FC = () => {
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <h4 className="text-xs font-mono font-bold text-ink truncate">{item.serviceName}</h4>
+                        <h4 className="text-xs font-sans font-bold text-ink truncate">{item.serviceName}</h4>
                         {item.username && <p className="text-[10px] font-mono text-muted-custom truncate">{item.username}</p>}
                       </div>
                     </div>
@@ -1636,8 +1636,8 @@ export const PasswordManagerTab: React.FC = () => {
                   {targetDecryptedCard.serviceName.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xs font-mono font-bold text-ink uppercase truncate">{targetDecryptedCard.serviceName}</h3>
-                  <span className="text-[10px] font-mono text-brand-mint flex items-center gap-1">
+                  <h3 className="text-xs font-sans font-bold text-ink uppercase truncate">{targetDecryptedCard.serviceName}</h3>
+                  <span className="text-[10px] font-sans text-brand-mint flex items-center gap-1">
                     <ShieldCheck className="w-3 h-3 shrink-0" /> Decrypted Payload
                   </span>
                 </div>
@@ -1653,12 +1653,12 @@ export const PasswordManagerTab: React.FC = () => {
               {/* Username Field */}
               {targetDecryptedCard.username && (
                 <div className="space-y-1">
-                  <label className="text-[10px] font-mono font-bold text-muted-custom uppercase block">Username / Email</label>
+                  <label className="text-[10px] font-sans font-bold text-muted-custom uppercase block">Username / Email</label>
                   <div className="flex items-center justify-between gap-2 p-2.5 bg-surface-soft border border-hairline rounded-xl overflow-hidden">
                     <span className="text-xs font-mono font-semibold text-ink select-all truncate">{targetDecryptedCard.username}</span>
                     <button
                       onClick={() => copyToClipboard(targetDecryptedCard.username!, 'username')}
-                      className="px-2.5 py-1 text-[10px] font-mono font-bold rounded-lg bg-surface-card border border-hairline text-ink hover:border-[#005687] transition-all flex items-center gap-1 shrink-0"
+                      className="px-2.5 py-1 text-[10px] font-sans font-bold rounded-lg bg-surface-card border border-hairline text-ink hover:border-[#005687] transition-all flex items-center gap-1 shrink-0"
                     >
                       {copiedField === 'username' ? <Check className="w-3 h-3 text-brand-mint" /> : <Copy className="w-3 h-3 text-muted-custom" />}
                       {copiedField === 'username' ? 'Copied' : 'Copy'}
@@ -1669,7 +1669,7 @@ export const PasswordManagerTab: React.FC = () => {
 
               {/* Password Field */}
               <div className="space-y-1">
-                <label className="text-[10px] font-mono font-bold text-muted-custom uppercase block">Password</label>
+                <label className="text-[10px] font-sans font-bold text-muted-custom uppercase block">Password</label>
                 <div className="flex items-center justify-between gap-2 p-2.5 bg-surface-soft border border-hairline rounded-xl overflow-hidden">
                   <span className="text-xs font-mono font-bold tracking-wider text-ink select-all truncate">
                     {isPassVisible ? targetDecryptedCard.password : '••••••••••••'}
@@ -1686,7 +1686,7 @@ export const PasswordManagerTab: React.FC = () => {
 
                     <button
                       onClick={() => copyToClipboard(targetDecryptedCard.password || '', 'password')}
-                      className="px-2.5 py-1 text-[10px] font-mono font-bold rounded-lg bg-[#005687] text-white hover:bg-[#004269] transition-all flex items-center gap-1 shadow-sm shrink-0"
+                      className="px-2.5 py-1 text-[10px] font-sans font-bold rounded-lg bg-[#005687] text-white hover:bg-[#004269] transition-all flex items-center gap-1 shadow-sm shrink-0"
                     >
                       {copiedField === 'password' ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3 text-white" />}
                       {copiedField === 'password' ? 'Copied' : 'Copy'}
@@ -1698,10 +1698,10 @@ export const PasswordManagerTab: React.FC = () => {
             </div>
 
             {/* Actions Bar */}
-            <div className="pt-3 border-t border-hairline flex items-center justify-between gap-2">
+            <div className="pt-3 border-t border-hairline flex items-center justify-between gap-2 font-sans">
               <button
                 onClick={handleDeleteCard}
-                className="px-3 py-1.5 text-xs font-mono text-red-500 hover:bg-red-500/10 rounded-xl transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+                className="px-3 py-1.5 text-xs font-sans text-red-500 hover:bg-red-500/10 rounded-xl transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" /> Delete
               </button>
@@ -1709,13 +1709,13 @@ export const PasswordManagerTab: React.FC = () => {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={openEditModal}
-                  className="px-3.5 py-1.5 text-xs font-mono font-bold rounded-xl bg-surface-soft border border-hairline text-ink hover:border-[#005687] transition-all flex items-center gap-1 cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-sans font-bold rounded-xl bg-surface-soft border border-hairline text-ink hover:border-[#005687] transition-all flex items-center gap-1 cursor-pointer"
                 >
                   <Edit2 className="w-3.5 h-3.5" /> Edit
                 </button>
                 <button
                   onClick={closeDetailModal}
-                  className="px-4 py-1.5 text-xs font-mono font-bold rounded-xl bg-[#005687] text-white hover:bg-[#004269] cursor-pointer"
+                  className="px-4 py-1.5 text-xs font-sans font-bold rounded-xl bg-[#005687] text-white hover:bg-[#004269] cursor-pointer"
                 >
                   Done
                 </button>
@@ -1930,19 +1930,6 @@ export const PasswordManagerTab: React.FC = () => {
 
             {/* Modal Body */}
             <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
-              
-              {/* Security Architecture Badge */}
-              <div className="p-3 bg-[#005687]/10 border border-[#005687]/30 rounded-xl space-y-1.5">
-                <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-[#005687] dark:text-[#0088cc]">
-                  <ShieldCheck className="w-4 h-4 shrink-0" />
-                  <span>Double-Layer Security Guarantee</span>
-                </div>
-                <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
-                  <strong>Layer 1 (Outer):</strong> Sealed with AES-256-GCM derived from your <em>Main App Password</em> (PBKDF2 200,000 iterations).<br />
-                  <strong>Layer 2 (Inner):</strong> Each credential inside remains individually encrypted with your <em>Vault Master PIN</em>.
-                </p>
-              </div>
-
               {backupSubTab === 'export' ? (
                 /* EXPORT FLOW */
                 <div className="space-y-4">

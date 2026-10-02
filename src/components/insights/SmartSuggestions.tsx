@@ -57,15 +57,15 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
     const localQueryResult = await parseAndExecuteLocalQuery(input, filteredTransactions, categories, baseCurrency, forexRates);
     if (localQueryResult.matched) {
       setAnswerResult(
-        <div className="p-4 bg-brand-purple/10 border border-brand-purple/20 rounded-xl space-y-2">
-          <div className="flex items-center gap-2 text-brand-purple font-mono text-xs uppercase font-bold tracking-wider">
+        <div className="p-4 bg-brand-purple/10 border border-brand-purple/20 rounded-xl space-y-2 font-sans">
+          <div className="flex items-center gap-2 text-brand-purple font-sans text-xs uppercase font-bold tracking-wider">
             <Sparkles className="w-4 h-4" /> Personal Finance Assistant
           </div>
-          <div className="text-sm font-mono font-medium text-ink whitespace-pre-line leading-relaxed">
+          <div className="text-sm font-sans font-medium text-ink whitespace-pre-line leading-relaxed">
             {localQueryResult.answer}
           </div>
           {localQueryResult.detail && (
-            <p className="text-xs text-muted-custom font-mono pt-1 border-t border-hairline/30">{localQueryResult.detail}</p>
+            <p className="text-xs text-muted-custom font-sans pt-1 border-t border-hairline/30">{localQueryResult.detail}</p>
           )}
         </div>
       );
@@ -157,7 +157,7 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
               nextParts.push(
                 <span
                   key={`${cat.id}-${idx}`}
-                  className="font-bold px-1.5 py-0.5 rounded-md text-xs font-mono border border-hairline inline-flex items-center gap-1 mx-1"
+                  className="font-bold px-1.5 py-0.5 rounded-md text-xs font-sans border border-hairline inline-flex items-center gap-1 mx-1"
                   style={{ backgroundColor: `${cat.color}15`, color: cat.color, borderColor: `${cat.color}40` }}
                 >
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
@@ -454,15 +454,15 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
 
         <div className="space-y-3">
           {suggestions.map((suggestion, idx) => (
-            <div key={idx} className="dotgui-card p-5 bg-surface-card flex items-start gap-4">
+            <div key={idx} className="dotgui-card p-5 bg-surface-card flex items-start gap-4 font-sans">
               <div className="w-10 h-10 rounded-xl bg-brand-yellow/10 border border-brand-yellow/30 flex items-center justify-center text-brand-yellow shrink-0">
                 <Sparkles className="w-5 h-5" />
               </div>
               <div className="space-y-1">
-                <div className="text-[10px] font-mono text-brand-yellow font-bold uppercase tracking-wider">
+                <div className="text-[10px] font-sans text-brand-yellow font-bold uppercase tracking-wider">
                   Insight #{idx + 1}
                 </div>
-                <p className="text-sm font-sans-custom text-ink leading-relaxed">
+                <p className="text-sm font-sans text-ink leading-relaxed">
                   {renderStyledSuggestion(suggestion)}
                 </p>
               </div>

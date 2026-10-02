@@ -1413,24 +1413,24 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                   placeholder="Add monthly or annual review notes, goals, or financial observations..."
                   rows={6}
                   autoFocus
-                  className="w-full bg-surface-soft border border-hairline rounded-xl p-3 text-xs font-mono text-ink focus:outline-none focus:border-brand-purple leading-relaxed"
+                  className="w-full bg-surface-soft border border-hairline rounded-xl p-3 text-xs font-sans text-ink focus:outline-none focus:border-brand-purple leading-relaxed"
                 />
               </div>
             ) : (
               <div className="bg-surface-soft p-4 rounded-xl border border-hairline min-h-[100px]">
-                <p className="text-xs font-mono text-ink whitespace-pre-wrap leading-relaxed">
+                <p className="text-xs font-sans text-ink whitespace-pre-wrap leading-relaxed">
                   {noteEditContent || 'No note recorded yet.'}
                 </p>
               </div>
             )}
 
             {/* Footer Actions */}
-            <div className="flex items-center justify-between pt-2 border-t border-hairline">
+            <div className="flex items-center justify-between pt-2 border-t border-hairline font-sans">
               {periodNotes.some(n => n.periodKey === activeNoteModal.periodKey) ? (
                 <button
                   type="button"
                   onClick={handleDeleteActiveNote}
-                  className="px-3.5 py-1.5 rounded-xl border border-hairline text-brand-coral text-xs font-mono font-bold hover:border-brand-coral cursor-pointer flex items-center gap-1"
+                  className="px-3.5 py-1.5 rounded-xl border border-hairline text-brand-coral text-xs font-sans font-bold hover:border-brand-coral cursor-pointer flex items-center gap-1"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Delete</span>
@@ -1442,7 +1442,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                   <button
                     type="button"
                     onClick={handleSaveActiveNote}
-                    className="px-4 py-1.5 rounded-xl bg-brand-purple text-white text-xs font-mono font-bold shadow-md hover:bg-brand-purple/90 cursor-pointer"
+                    className="px-4 py-1.5 rounded-xl bg-brand-purple text-white text-xs font-sans font-bold shadow-md hover:bg-brand-purple/90 cursor-pointer"
                   >
                     Save Note
                   </button>
@@ -1450,7 +1450,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                   <button
                     type="button"
                     onClick={() => setIsEditingNote(true)}
-                    className="px-4 py-1.5 rounded-xl border border-hairline bg-surface-soft hover:bg-surface-card text-ink text-xs font-mono font-bold cursor-pointer flex items-center gap-1"
+                    className="px-4 py-1.5 rounded-xl border border-hairline bg-surface-soft hover:bg-surface-card text-ink text-xs font-sans font-bold cursor-pointer flex items-center gap-1"
                   >
                     <Edit2 className="w-3.5 h-3.5 text-brand-blue" />
                     <span>Edit Note</span>
