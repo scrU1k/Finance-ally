@@ -1,6 +1,7 @@
 import { UserProfile, CurrencyCode } from '../types';
 import { openDatabase } from './db';
 import { hashPasswordArgon2id } from './kdfService';
+import { verifyGlobalRecoveryKey } from './recoveryService';
 
 const USER_KEY = 'fa_user_profile';
 
@@ -105,6 +106,14 @@ export async function changeUserPassword(newPassword: string): Promise<boolean> 
   profile.kdf = 'argon2id';
   saveUserProfile(profile);
   return true;
+}
+
+export async function recoverAppPassword(recoveryKey: string, newPassword: string): Promise<boolean> {
+  const isKeyValid = await verifyGlobalRecoveryKey(recoveryKey);
+  if (!isKeyValid) {
+    return false;
+  }
+  return changeUserPassword(newPassword);
 }
 
 export function saveUserProfile(profile: UserProfile): void {

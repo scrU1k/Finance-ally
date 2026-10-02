@@ -25,7 +25,24 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
-import { hasMasterPin, setMasterPin, verifyMasterPin, getStoredPasswordItems, decryptCardPayload, encryptCardPayload, savePasswordEnvelope, isVaultBackup } from '../../services/passwordVaultService';
+import {
+  hasMasterPin,
+  setMasterPin,
+  verifyMasterPin,
+  getStoredPasswordItems,
+  decryptCardPayload,
+  encryptCardPayload,
+  savePasswordEnvelope,
+  isVaultBackup,
+  recoverVaultMasterPin,
+  saveMasterPinRecoveryEscrow
+} from '../../services/passwordVaultService';
+import {
+  initializeGlobalRecoveryKey,
+  hasGlobalRecoveryKey,
+  revealRecoveryKeyWithPassword,
+  verifyGlobalRecoveryKey
+} from '../../services/recoveryService';
 import {
   X,
   Settings as SettingsIcon,
@@ -48,7 +65,8 @@ import {
   Shield,
   User,
   Edit2,
-  Check
+  Check,
+  Key
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -192,6 +210,121 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   };
 
+  // App Password Emergency Recovery State
+  const [isRecoveringAppPassword, setIsRecoveringAppPassword] = useState(false);
+  const [appPasswordRecoveryKey, setAppPasswordRecoveryKey] = useState('');
+  const [appPasswordRecoveryNewPass, setAppPasswordRecoveryNewPass] = useState('');
+  const [appPasswordRecoveryConfirmPass, setAppPasswordRecoveryConfirmPass] = useState('');
+  const [appPasswordRecoveryError, setAppPasswordRecoveryError] = useState('');
+  const [appPasswordRecoverySuccess, setAppPasswordRecoverySuccess] = useState('');
+
+  const handleRecoverAppPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAppPasswordRecoveryError('');
+    setAppPasswordRecoverySuccess('');
+
+    if (!appPasswordRecoveryKey.trim()) {
+      setAppPasswordRecoveryError('Recovery Key is required.');
+      return;
+    }
+    if (!appPasswordRecoveryNewPass || appPasswordRecoveryNewPass.length < 4) {
+      setAppPasswordRecoveryError('New password must be at least 4 characters.');
+      return;
+    }
+    if (appPasswordRecoveryNewPass !== appPasswordRecoveryConfirmPass) {
+      setAppPasswordRecoveryError('Passwords do not match.');
+      return;
+    }
+
+    const isKeyValid = await verifyGlobalRecoveryKey(appPasswordRecoveryKey.trim());
+    if (!isKeyValid) {
+      setAppPasswordRecoveryError('Invalid Recovery Key. Please check and try again.');
+      return;
+    }
+
+    const ok = await changePassword(appPasswordRecoveryNewPass);
+    if (ok) {
+      setAppPasswordRecoverySuccess('Password reset successfully!');
+      setIsRecoveringAppPassword(false);
+      setAppPasswordRecoveryKey('');
+      setAppPasswordRecoveryNewPass('');
+      setAppPasswordRecoveryConfirmPass('');
+    } else {
+      setAppPasswordRecoveryError('Failed to update password.');
+    }
+  };
+
+  // Password Vault Emergency Recovery State
+  const [isRecoveringPwdVault, setIsRecoveringPwdVault] = useState(false);
+  const [pwdVaultRecoveryKey, setPwdVaultRecoveryKey] = useState('');
+  const [pwdVaultRecoveryNewPin, setPwdVaultRecoveryNewPin] = useState('');
+  const [pwdVaultRecoveryConfirmPin, setPwdVaultRecoveryConfirmPin] = useState('');
+  const [pwdVaultRecoveryError, setPwdVaultRecoveryError] = useState('');
+  const [pwdVaultRecoverySuccess, setPwdVaultRecoverySuccess] = useState('');
+
+  const handleRecoverPwdVaultPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdVaultRecoveryError('');
+    setPwdVaultRecoverySuccess('');
+
+    if (!pwdVaultRecoveryKey.trim()) {
+      setPwdVaultRecoveryError('Recovery Key is required.');
+      return;
+    }
+    if (!pwdVaultRecoveryNewPin || pwdVaultRecoveryNewPin.length < 4) {
+      setPwdVaultRecoveryError('New PIN must be at least 4 digits.');
+      return;
+    }
+    if (pwdVaultRecoveryNewPin !== pwdVaultRecoveryConfirmPin) {
+      setPwdVaultRecoveryError('PINs do not match.');
+      return;
+    }
+
+    try {
+      const ok = await recoverVaultMasterPin(pwdVaultRecoveryKey.trim(), pwdVaultRecoveryNewPin);
+      if (ok) {
+        setPwdVaultRecoverySuccess('Master PIN recovered and updated successfully!');
+        setIsRecoveringPwdVault(false);
+        setPwdVaultRecoveryKey('');
+        setPwdVaultRecoveryNewPin('');
+        setPwdVaultRecoveryConfirmPin('');
+      } else {
+        setPwdVaultRecoveryError('Invalid Recovery Key. Please try again.');
+      }
+    } catch {
+      setPwdVaultRecoveryError('Recovery failed. Please check your key.');
+    }
+  };
+
+  // View & Regenerate Recovery Key State
+  const [isViewingRecoveryKey, setIsViewingRecoveryKey] = useState(false);
+  const [viewRecoveryPasswordInput, setViewRecoveryPasswordInput] = useState('');
+  const [revealedRecoveryKey, setRevealedRecoveryKey] = useState<string | null>(null);
+  const [viewRecoveryError, setViewRecoveryError] = useState('');
+
+  const handleRevealRecoveryKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setViewRecoveryError('');
+    if (!viewRecoveryPasswordInput) {
+      setViewRecoveryError('Password is required.');
+      return;
+    }
+    const key = await revealRecoveryKeyWithPassword(viewRecoveryPasswordInput);
+    if (key) {
+      setRevealedRecoveryKey(key);
+      setViewRecoveryPasswordInput('');
+    } else {
+      setViewRecoveryError('Incorrect password. Could not reveal Recovery Key.');
+    }
+  };
+
+  const handleRegenerateRecoveryKey = async () => {
+    const username = user?.username || 'USER';
+    const newKey = await initializeGlobalRecoveryKey(username);
+    setGeneratedRecoveryKey(newKey);
+    setRevealedRecoveryKey(newKey);
+  };
+
   // Backup State
   const [importStatus, setImportStatus] = useState('');
   const [exportModalData, setExportModalData] = useState<string | null>(null);
@@ -276,12 +409,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   const handleExport = async (e?: React.MouseEvent) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
-    let backupStr = await exportFullDataBackup();
-    if (pinEnabled && hasExportPin()) {
-      backupStr = await encryptJSON(backupStr, ''); // Uses Hybrid Crypto automatically
+    try {
+      setImportStatus('Generating backup...');
+      let backupStr = await exportFullDataBackup();
+      if (pinEnabled && hasExportPin()) {
+        backupStr = await encryptJSON(backupStr, ''); // Uses Hybrid Crypto automatically
+      }
+      setPendingImportContent(null);
+      setExportModalData(backupStr);
+      setImportStatus('');
+    } catch (err: any) {
+      console.error('Export backup failed:', err);
+      setImportStatus(`Export failed: ${err?.message || 'Error generating backup.'}`);
     }
-    setPendingImportContent(null);
-    setExportModalData(backupStr);
   };
 
   const handleExportCSV = () => {
@@ -1012,16 +1152,86 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </button>
               </div>
 
-              {/* Change Password Form */}
+              {/* Change / Recover Password Form */}
               <div className="pt-3 border-t border-hairline/60">
-                {!isChangingPass ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsChangingPass(true)}
-                    className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
-                  >
-                    Change Password
-                  </button>
+                {!isChangingPass && !isRecoveringAppPassword ? (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsChangingPass(true)}
+                      className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
+                    >
+                      Change Password
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsRecoveringAppPassword(true);
+                        setAppPasswordRecoveryError('');
+                        setAppPasswordRecoverySuccess('');
+                      }}
+                      className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-brand-blue hover:border-brand-blue transition-all cursor-pointer"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                ) : isRecoveringAppPassword ? (
+                  <form onSubmit={handleRecoverAppPassword} className="space-y-3 bg-surface-card p-3 rounded-xl border border-hairline">
+                    <div className="text-xs font-mono font-bold text-ink flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-brand-yellow">
+                        <Key className="w-3.5 h-3.5" />
+                        <span>Recover App Password</span>
+                      </span>
+                      <button type="button" onClick={() => setIsRecoveringAppPassword(false)} className="text-muted-custom text-xs cursor-pointer">Cancel</button>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-mono text-muted-custom uppercase block">Global Recovery Key</label>
+                      <input
+                        type="text"
+                        value={appPasswordRecoveryKey}
+                        onChange={e => setAppPasswordRecoveryKey(e.target.value)}
+                        placeholder="USR-xxxx-xxxx-xxxx"
+                        required
+                        className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink tracking-wider"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-mono text-muted-custom uppercase block">New Password</label>
+                        <input
+                          type="password"
+                          value={appPasswordRecoveryNewPass}
+                          onChange={e => setAppPasswordRecoveryNewPass(e.target.value)}
+                          placeholder="Min 4 characters"
+                          required
+                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-mono text-muted-custom uppercase block">Confirm New Password</label>
+                        <input
+                          type="password"
+                          value={appPasswordRecoveryConfirmPass}
+                          onChange={e => setAppPasswordRecoveryConfirmPass(e.target.value)}
+                          placeholder="Repeat password"
+                          required
+                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                        />
+                      </div>
+                    </div>
+
+                    {appPasswordRecoveryError && <p className="text-[10px] font-mono text-brand-coral">{appPasswordRecoveryError}</p>}
+                    {appPasswordRecoverySuccess && <p className="text-[10px] font-mono text-brand-mint font-bold">{appPasswordRecoverySuccess}</p>}
+
+                    <button
+                      type="submit"
+                      className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft text-xs font-mono font-bold py-2 rounded-xl shadow-sm transition-all cursor-pointer"
+                    >
+                      Reset Password
+                    </button>
+                  </form>
                 ) : (
                   <form onSubmit={handleChangePassword} className="space-y-3 bg-surface-card p-3 rounded-xl border border-hairline">
                     <div className="text-xs font-mono font-bold text-ink flex items-center justify-between">
@@ -1076,12 +1286,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     {passError && <p className="text-[10px] font-mono text-brand-coral">{passError}</p>}
                     {passMsg && <p className="text-[10px] font-mono text-brand-mint font-bold">{passMsg}</p>}
 
-                    <button
-                      type="submit"
-                      className="w-full border border-brand-blue text-brand-blue hover:bg-surface-soft text-xs font-mono font-bold py-2 rounded-xl shadow-sm transition-all cursor-pointer"
-                    >
-                      Update Password
-                    </button>
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsChangingPass(false);
+                          setIsRecoveringAppPassword(true);
+                        }}
+                        className="text-[11px] font-mono text-brand-blue hover:underline cursor-pointer"
+                      >
+                        Forgot Password?
+                      </button>
+                      <button
+                        type="submit"
+                        className="border border-brand-blue text-brand-blue hover:bg-surface-soft text-xs font-mono font-bold py-2 px-4 rounded-xl shadow-sm transition-all cursor-pointer"
+                      >
+                        Update Password
+                      </button>
+                    </div>
                   </form>
                 )}
               </div>
@@ -1108,21 +1330,93 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
 
               <div className="pt-3 border-t border-hairline/60">
-                {!isEditingPwdVaultPin ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPwdVaultOldPin('');
-                      setPwdVaultNewPin('');
-                      setPwdVaultConfirmPin('');
-                      setPwdVaultPinError('');
-                      setPwdVaultPinSuccess('');
-                      setIsEditingPwdVaultPin(true);
-                    }}
-                    className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
-                  >
-                    {hasMasterPin() ? 'Change Master PIN' : 'Create Master PIN'}
-                  </button>
+                {!isEditingPwdVaultPin && !isRecoveringPwdVault ? (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPwdVaultOldPin('');
+                        setPwdVaultNewPin('');
+                        setPwdVaultConfirmPin('');
+                        setPwdVaultPinError('');
+                        setPwdVaultPinSuccess('');
+                        setIsEditingPwdVaultPin(true);
+                      }}
+                      className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
+                    >
+                      {hasMasterPin() ? 'Change Master PIN' : 'Create Master PIN'}
+                    </button>
+                    {hasMasterPin() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRecoveringPwdVault(true);
+                          setPwdVaultRecoveryError('');
+                          setPwdVaultRecoverySuccess('');
+                        }}
+                        className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-brand-purple hover:border-brand-purple transition-all cursor-pointer"
+                      >
+                        Forgot PIN?
+                      </button>
+                    )}
+                  </div>
+                ) : isRecoveringPwdVault ? (
+                  <form onSubmit={handleRecoverPwdVaultPin} className="space-y-3 bg-surface-card p-3 rounded-xl border border-hairline">
+                    <div className="text-xs font-mono font-bold text-ink flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-brand-purple">
+                        <Key className="w-3.5 h-3.5" />
+                        <span>Recover Vault Master PIN</span>
+                      </span>
+                      <button type="button" onClick={() => setIsRecoveringPwdVault(false)} className="text-muted-custom text-xs cursor-pointer">Cancel</button>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-mono text-muted-custom uppercase block">Global Recovery Key</label>
+                      <input
+                        type="text"
+                        value={pwdVaultRecoveryKey}
+                        onChange={e => setPwdVaultRecoveryKey(e.target.value)}
+                        placeholder="USR-xxxx-xxxx-xxxx"
+                        required
+                        className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink tracking-wider"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-mono text-muted-custom uppercase block">New Master PIN</label>
+                        <input
+                          type="password"
+                          value={pwdVaultRecoveryNewPin}
+                          onChange={e => setPwdVaultRecoveryNewPin(e.target.value)}
+                          placeholder="Min 4 digits"
+                          required
+                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-mono text-muted-custom uppercase block">Confirm New Master PIN</label>
+                        <input
+                          type="password"
+                          value={pwdVaultRecoveryConfirmPin}
+                          onChange={e => setPwdVaultRecoveryConfirmPin(e.target.value)}
+                          placeholder="Repeat PIN"
+                          required
+                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                        />
+                      </div>
+                    </div>
+
+                    {pwdVaultRecoveryError && <p className="text-[10px] font-mono text-brand-coral">{pwdVaultRecoveryError}</p>}
+                    {pwdVaultRecoverySuccess && <p className="text-[10px] font-mono text-brand-mint font-bold">{pwdVaultRecoverySuccess}</p>}
+
+                    <button
+                      type="submit"
+                      className="w-full border border-brand-purple text-brand-purple hover:bg-surface-soft text-xs font-mono font-bold py-2 rounded-xl shadow-sm transition-all cursor-pointer"
+                    >
+                      Reset Master PIN
+                    </button>
+                  </form>
                 ) : (
                   <form onSubmit={handleSavePwdVaultPin} className="space-y-3 bg-surface-card p-3 rounded-xl border border-hairline">
                     <div className="text-xs font-mono font-bold text-ink flex items-center justify-between">
@@ -1175,12 +1469,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     {pwdVaultPinError && <p className="text-[10px] font-mono text-brand-coral">{pwdVaultPinError}</p>}
                     {pwdVaultPinSuccess && <p className="text-[10px] font-mono text-brand-mint font-bold">{pwdVaultPinSuccess}</p>}
 
-                    <button
-                      type="submit"
-                      className="w-full border border-brand-purple text-brand-purple hover:bg-surface-soft text-xs font-mono font-bold py-2 rounded-xl shadow-sm transition-all cursor-pointer"
-                    >
-                      {hasMasterPin() ? 'Update Master PIN' : 'Set Master PIN'}
-                    </button>
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      {hasMasterPin() && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingPwdVaultPin(false);
+                            setIsRecoveringPwdVault(true);
+                          }}
+                          className="text-[11px] font-mono text-brand-purple hover:underline cursor-pointer"
+                        >
+                          Forgot PIN?
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        className="border border-brand-purple text-brand-purple hover:bg-surface-soft text-xs font-mono font-bold py-2 px-4 rounded-xl shadow-sm transition-all cursor-pointer ml-auto"
+                      >
+                        {hasMasterPin() ? 'Update Master PIN' : 'Set Master PIN'}
+                      </button>
+                    </div>
                   </form>
                 )}
               </div>
@@ -1232,6 +1540,119 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </div>
               )}
               {pinMsg && <p className="text-[10px] font-mono text-brand-mint font-bold">{pinMsg}</p>}
+            </div>
+
+            {/* Card 4: Master Security Recovery Key */}
+            <div className="space-y-4 bg-surface-soft p-5 rounded-2xl border border-hairline shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-brand-yellow" />
+                    <span>Master Security Recovery Key</span>
+                  </h3>
+                  <p className="text-[11px] font-mono text-muted-custom mt-1">
+                    Single universal emergency recovery key for App Lock, Password Vault, and Backup PIN.
+                  </p>
+                </div>
+                <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-brand-yellow/15 text-brand-yellow border border-brand-yellow/30 shrink-0">
+                  {hasGlobalRecoveryKey() ? 'Active' : 'Uninitialized'}
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-hairline/60 space-y-3">
+                {!isViewingRecoveryKey ? (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsViewingRecoveryKey(true);
+                        setViewRecoveryPasswordInput('');
+                        setRevealedRecoveryKey(null);
+                        setViewRecoveryError('');
+                      }}
+                      className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
+                    >
+                      View Recovery Key
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRegenerateRecoveryKey}
+                      className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-brand-yellow text-brand-yellow hover:bg-brand-yellow/10 transition-all cursor-pointer"
+                    >
+                      Regenerate Key
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 bg-surface-card p-3 rounded-xl border border-hairline">
+                    <div className="text-xs font-mono font-bold text-ink flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-brand-yellow">
+                        <Key className="w-3.5 h-3.5" />
+                        <span>Master Recovery Key Security</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsViewingRecoveryKey(false);
+                          setRevealedRecoveryKey(null);
+                          setViewRecoveryPasswordInput('');
+                        }}
+                        className="text-muted-custom text-xs cursor-pointer"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    {!revealedRecoveryKey ? (
+                      <form onSubmit={handleRevealRecoveryKey} className="space-y-2">
+                        <p className="text-[11px] font-mono text-muted-custom">
+                          Enter your App Password to reveal your Master Recovery Key:
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            value={viewRecoveryPasswordInput}
+                            onChange={e => setViewRecoveryPasswordInput(e.target.value)}
+                            placeholder="Enter App Password"
+                            required
+                            className="flex-1 bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                          />
+                          <button
+                            type="submit"
+                            className="px-4 py-1.5 bg-brand-blue text-white rounded-xl text-xs font-mono font-bold cursor-pointer hover:bg-blue-600 transition-all"
+                          >
+                            Reveal Key
+                          </button>
+                        </div>
+                        {viewRecoveryError && <p className="text-[10px] font-mono text-brand-coral">{viewRecoveryError}</p>}
+                      </form>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-mono text-brand-mint font-bold">
+                          Master Recovery Key:
+                        </p>
+                        <div className="p-3 bg-surface-soft rounded-xl border border-hairline flex items-center justify-between">
+                          <span className="text-sm font-mono font-bold text-ink tracking-widest selection:bg-brand-yellow selection:text-black">
+                            {revealedRecoveryKey}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(revealedRecoveryKey);
+                            }}
+                            className="px-3 py-1 bg-surface-card hover:bg-surface-card/80 border border-hairline rounded-lg text-xs font-mono cursor-pointer flex items-center gap-1 text-ink"
+                          >
+                            <Check className="w-3.5 h-3.5 text-brand-mint" />
+                            <span>Copy</span>
+                          </button>
+                        </div>
+                        <p className="text-[10px] font-mono text-muted-custom">
+                          Store this in a secure password manager or offline safe. It can recover your App Lock, Password Vault, and Encrypted Backups.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>

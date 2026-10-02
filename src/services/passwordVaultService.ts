@@ -1,11 +1,13 @@
 import { PasswordVaultItem, DecryptedPasswordCard, PasswordVaultEnvelope } from '../types';
 import { deriveKeyArgon2id } from './kdfService';
+import { encryptPayloadWithRecovery, decryptPayloadWithRecovery, verifyGlobalRecoveryKey } from './recoveryService';
 
 const ITEMS_KEY = 'fa_password_vault_items';
 const ENVELOPE_KEY = 'fa_password_vault_envelope';
 const VERIFIER_KEY = 'fa_pwd_vault_verifier';
 const FAILED_ATTEMPTS_KEY = 'fa_pwd_vault_failed_attempts';
 const LOCKOUT_UNTIL_KEY = 'fa_pwd_vault_lockout_until';
+const VAULT_RECOVERY_ESCROW_KEY = 'fa_pwd_vault_recovery_escrow';
 const MAGIC_STRING = 'FA_VAULT_OK';
 
 function bufferToHex(buf: ArrayBuffer): string {
@@ -212,14 +214,75 @@ export function resetFailedPinAttempts(): void {
   localStorage.removeItem(LOCKOUT_UNTIL_KEY);
 }
 
-export async function setMasterPin(pin: string): Promise<boolean> {
+export function hasMasterPinRecoveryEscrow(): boolean {
+  return !!localStorage.getItem(VAULT_RECOVERY_ESCROW_KEY);
+}
+
+export async function saveMasterPinRecoveryEscrow(pin: string, recoveryKey: string): Promise<boolean> {
+  try {
+    const escrow = await encryptPayloadWithRecovery(pin, recoveryKey);
+    localStorage.setItem(VAULT_RECOVERY_ESCROW_KEY, JSON.stringify(escrow));
+    return true;
+  } catch (err) {
+    console.error('Failed to save master pin recovery escrow:', err);
+    return false;
+  }
+}
+
+export async function setMasterPin(pin: string, recoveryKey?: string): Promise<boolean> {
   try {
     const verifier = await encryptPassword(MAGIC_STRING, pin, 'argon2id');
     localStorage.setItem(VERIFIER_KEY, JSON.stringify(verifier));
+    if (recoveryKey) {
+      await saveMasterPinRecoveryEscrow(pin, recoveryKey);
+    }
     resetFailedPinAttempts();
     return true;
   } catch (e) {
     console.error('Failed to set master pin:', e);
+    return false;
+  }
+}
+
+export async function recoverVaultMasterPin(recoveryKey: string, newPin: string): Promise<boolean> {
+  const isKeyValid = await verifyGlobalRecoveryKey(recoveryKey);
+  if (!isKeyValid) {
+    return false;
+  }
+
+  const rawEscrow = localStorage.getItem(VAULT_RECOVERY_ESCROW_KEY);
+  if (!rawEscrow) {
+    // If no escrow exists (e.g. legacy/fresh), set new master pin and initialize escrow
+    await setMasterPin(newPin, recoveryKey);
+    resetFailedPinAttempts();
+    return true;
+  }
+
+  try {
+    const escrow = JSON.parse(rawEscrow);
+    const oldPin = await decryptPayloadWithRecovery(escrow, recoveryKey);
+
+    // Re-encrypt all stored password cards from oldPin to newPin
+    const items = getStoredPasswordItems();
+    const reEncryptedItems: PasswordVaultItem[] = [];
+    for (const item of items) {
+      try {
+        const card = await decryptCardPayload(item, oldPin);
+        const reEnc = await encryptCardPayload(card, newPin);
+        reEncryptedItems.push(reEnc);
+      } catch (err) {
+        console.warn('Card re-encryption failed during recovery:', item.id, err);
+        reEncryptedItems.push(item);
+      }
+    }
+    await savePasswordEnvelope(reEncryptedItems);
+
+    // Update verifier and update escrow with the new PIN
+    await setMasterPin(newPin, recoveryKey);
+    resetFailedPinAttempts();
+    return true;
+  } catch (err) {
+    console.error('Failed to recover vault master pin:', err);
     return false;
   }
 }

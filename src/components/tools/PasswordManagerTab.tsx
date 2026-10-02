@@ -46,7 +46,8 @@ import {
   getLockoutStatus,
   exportVaultBackup,
   importVaultBackup,
-  isVaultBackup
+  isVaultBackup,
+  recoverVaultMasterPin
 } from '../../services/passwordVaultService';
 import { verifyUserPassword } from '../../services/auth';
 import { suppressLockForSystemPicker, resetSystemPickerBypass } from '../../context/AuthContext';
@@ -120,6 +121,14 @@ export const PasswordManagerTab: React.FC = () => {
   const [formMasterPin, setFormMasterPin] = useState('');
   const [formConfirmPin, setFormConfirmPin] = useState('');
   const [formError, setFormError] = useState('');
+
+  // Vault Master PIN Emergency Recovery State
+  const [isVaultRecovering, setIsVaultRecovering] = useState(false);
+  const [vaultRecoveryKey, setVaultRecoveryKey] = useState('');
+  const [vaultNewPin, setVaultNewPin] = useState('');
+  const [vaultConfirmPin, setVaultConfirmPin] = useState('');
+  const [vaultRecoveryError, setVaultRecoveryError] = useState('');
+  const [vaultRecoveryLoading, setVaultRecoveryLoading] = useState(false);
 
   // Vault Backup & Restore State (Double-Layer Encrypted)
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
@@ -695,6 +704,62 @@ export const PasswordManagerTab: React.FC = () => {
       } catch {
         setPinError('Failed to decrypt card payload.');
       }
+    }
+  };
+
+  // Submit Emergency Recovery for Vault Master PIN
+  const handleVaultRecoverySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVaultRecoveryError('');
+
+    if (!vaultRecoveryKey.trim()) {
+      setVaultRecoveryError('Recovery Key is required');
+      return;
+    }
+
+    if (!vaultNewPin || vaultNewPin.length < 4) {
+      setVaultRecoveryError('New PIN must be at least 4 digits');
+      return;
+    }
+
+    if (vaultNewPin !== vaultConfirmPin) {
+      setVaultRecoveryError('New PINs do not match');
+      return;
+    }
+
+    setVaultRecoveryLoading(true);
+    try {
+      const ok = await recoverVaultMasterPin(vaultRecoveryKey.trim(), vaultNewPin);
+      if (!ok) {
+        setVaultRecoveryError('Invalid Recovery Key or recovery failed');
+        setVaultRecoveryLoading(false);
+        return;
+      }
+
+      setHasPin(true);
+      setVaultMasterPin(vaultNewPin);
+
+      // Decrypt all card payloads for whole-vault session
+      const allItems = getStoredPasswordItems();
+      const map: Record<string, DecryptedPasswordCard> = {};
+      for (const item of allItems) {
+        try {
+          map[item.id] = await decryptCardPayload(item, vaultNewPin);
+        } catch (err) {
+          console.warn('Failed to decrypt card with new PIN:', item.id, err);
+        }
+      }
+      setDecryptedCardsMap(map);
+      setIsVaultUnlocked(true);
+      setIsPinModalOpen(false);
+      setIsVaultRecovering(false);
+      setVaultRecoveryKey('');
+      setVaultNewPin('');
+      setVaultConfirmPin('');
+    } catch (err: any) {
+      setVaultRecoveryError(err?.message || 'Recovery failed. Please check your key.');
+    } finally {
+      setVaultRecoveryLoading(false);
     }
   };
 
@@ -1414,57 +1479,147 @@ export const PasswordManagerTab: React.FC = () => {
               </button>
             </div>
 
-            <p className="text-xs font-mono text-muted-custom">
-              {pinModalMode === 'unlock_vault'
-                ? 'Enter Master PIN to reveal and unlock all password cards in session:'
-                : targetItem
-                ? 'Enter Master PIN to decrypt card credentials:'
-                : 'Enter Master PIN:'}
-            </p>
+            {isVaultRecovering ? (
+              <form onSubmit={handleVaultRecoverySubmit} className="space-y-3">
+                <div className="text-center space-y-1 pb-1">
+                  <p className="text-xs font-mono font-bold text-ink">Emergency Master PIN Recovery</p>
+                  <p className="text-[10px] font-mono text-muted-custom">Enter your Global Recovery Key to set a new Master PIN.</p>
+                </div>
 
-            <form onSubmit={handleVerifyPinSubmit} className="space-y-4">
-              <div>
-                <input
-                  type="password"
-                  value={pinInput}
-                  onChange={e => {
-                    setPinInput(e.target.value);
-                    setPinError('');
-                  }}
-                  disabled={lockoutCountdown > 0}
-                  placeholder={lockoutCountdown > 0 ? `Locked (${lockoutCountdown}s)` : 'Master PIN (min 4 digits)'}
-                  autoFocus
-                  className="w-full text-center tracking-widest text-lg font-mono px-4 py-2 bg-surface-soft border border-hairline rounded-xl text-ink focus:outline-none focus:border-[#005687] disabled:opacity-50"
-                />
+                <div>
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold block mb-1">
+                    Global Recovery Key
+                  </label>
+                  <input
+                    type="text"
+                    value={vaultRecoveryKey}
+                    onChange={e => { setVaultRecoveryKey(e.target.value); setVaultRecoveryError(''); }}
+                    placeholder="USR-xxxx-xxxx-xxxx"
+                    autoFocus
+                    required
+                    className="w-full text-xs font-mono px-3 py-2 bg-surface-soft border border-hairline rounded-xl text-ink tracking-wider focus:outline-none focus:border-[#005687]"
+                  />
+                </div>
 
-                {lockoutCountdown > 0 ? (
-                  <p className="text-[11px] font-mono text-red-500 mt-1.5 flex items-center justify-center gap-1 font-bold">
-                    <Clock className="w-3.5 h-3.5 animate-spin" /> Too many failed attempts. Try again in {lockoutCountdown}s.
+                <div>
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold block mb-1">
+                    New Master PIN (min 4 digits)
+                  </label>
+                  <input
+                    type="password"
+                    value={vaultNewPin}
+                    onChange={e => { setVaultNewPin(e.target.value); setVaultRecoveryError(''); }}
+                    placeholder="••••"
+                    required
+                    className="w-full text-xs font-mono px-3 py-2 bg-surface-soft border border-hairline rounded-xl text-ink tracking-widest focus:outline-none focus:border-[#005687]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold block mb-1">
+                    Confirm New Master PIN
+                  </label>
+                  <input
+                    type="password"
+                    value={vaultConfirmPin}
+                    onChange={e => { setVaultConfirmPin(e.target.value); setVaultRecoveryError(''); }}
+                    placeholder="••••"
+                    required
+                    className="w-full text-xs font-mono px-3 py-2 bg-surface-soft border border-hairline rounded-xl text-ink tracking-widest focus:outline-none focus:border-[#005687]"
+                  />
+                </div>
+
+                {vaultRecoveryError && (
+                  <p className="text-[10px] font-mono text-red-500 font-bold text-center">
+                    {vaultRecoveryError}
                   </p>
-                ) : pinError ? (
-                  <p className="text-[11px] font-mono text-red-500 mt-1.5 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" /> {pinError}
-                  </p>
-                ) : null}
-              </div>
+                )}
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsPinModalOpen(false)}
-                  className="px-4 py-2 text-xs font-mono text-muted-custom hover:text-ink cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={lockoutCountdown > 0}
-                  className="px-5 py-2 text-xs font-mono font-bold rounded-xl bg-[#005687] text-white hover:bg-[#004269] shadow-md cursor-pointer disabled:opacity-50"
-                >
-                  {pinModalMode === 'unlock_vault' ? 'Unlock Vault' : 'Unlock Card'}
-                </button>
-              </div>
-            </form>
+                <div className="flex items-center justify-between gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIsVaultRecovering(false); setVaultRecoveryError(''); }}
+                    className="px-3 py-2 text-xs font-mono text-muted-custom hover:text-ink cursor-pointer"
+                  >
+                    Back to PIN
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={vaultRecoveryLoading}
+                    className="px-4 py-2 text-xs font-mono font-bold rounded-xl bg-[#005687] text-white hover:bg-[#004269] shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    {vaultRecoveryLoading ? 'Recovering...' : 'Reset PIN & Unlock'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <p className="text-xs font-mono text-muted-custom">
+                  {pinModalMode === 'unlock_vault'
+                    ? 'Enter Master PIN to reveal and unlock all password cards in session:'
+                    : targetItem
+                    ? 'Enter Master PIN to decrypt card credentials:'
+                    : 'Enter Master PIN:'}
+                </p>
+
+                <form onSubmit={handleVerifyPinSubmit} className="space-y-4">
+                  <div>
+                    <input
+                      type="password"
+                      value={pinInput}
+                      onChange={e => {
+                        setPinInput(e.target.value);
+                        setPinError('');
+                      }}
+                      disabled={lockoutCountdown > 0}
+                      placeholder={lockoutCountdown > 0 ? `Locked (${lockoutCountdown}s)` : 'Master PIN (min 4 digits)'}
+                      autoFocus
+                      className="w-full text-center tracking-widest text-lg font-mono px-4 py-2 bg-surface-soft border border-hairline rounded-xl text-ink focus:outline-none focus:border-[#005687] disabled:opacity-50"
+                    />
+
+                    {lockoutCountdown > 0 ? (
+                      <p className="text-[11px] font-mono text-red-500 mt-1.5 flex items-center justify-center gap-1 font-bold">
+                        <Clock className="w-3.5 h-3.5 animate-spin" /> Too many failed attempts. Try again in {lockoutCountdown}s.
+                      </p>
+                    ) : pinError ? (
+                      <p className="text-[11px] font-mono text-red-500 mt-1.5 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" /> {pinError}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsVaultRecovering(true);
+                        setVaultRecoveryError('');
+                      }}
+                      className="text-[11px] font-mono text-[#005687] dark:text-[#0088cc] hover:underline cursor-pointer"
+                    >
+                      Forgot Master PIN?
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsPinModalOpen(false)}
+                        className="px-3 py-2 text-xs font-mono text-muted-custom hover:text-ink cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={lockoutCountdown > 0}
+                        className="px-4 py-2 text-xs font-mono font-bold rounded-xl bg-[#005687] text-white hover:bg-[#004269] shadow-md cursor-pointer disabled:opacity-50"
+                      >
+                        {pinModalMode === 'unlock_vault' ? 'Unlock Vault' : 'Unlock Card'}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}

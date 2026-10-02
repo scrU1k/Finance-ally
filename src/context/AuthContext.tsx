@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, CurrencyCode } from '../types';
-import { getStoredUserProfile, createInitialUser, verifyUserPassword, saveUserProfile, changeUserPassword } from '../services/auth';
+import { getStoredUserProfile, createInitialUser, verifyUserPassword, saveUserProfile, changeUserPassword, recoverAppPassword } from '../services/auth';
+import { initializeGlobalRecoveryKey, hasGlobalRecoveryKey } from '../services/recoveryService';
 import { setAccountCreatedAt } from '../services/localAutoBackupService';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
@@ -49,6 +50,7 @@ interface AuthContextType {
   updateUsername: (username: string) => void;
   toggleRequirePassword: (enabled: boolean) => void;
   changePassword: (newPassword: string) => Promise<boolean>;
+  recoverPassword: (recoveryKey: string, newPassword: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -181,6 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const onboard = async (username: string, password: string, baseCurrency: CurrencyCode) => {
     const newUser = await createInitialUser(username, password, baseCurrency);
+    await initializeGlobalRecoveryKey(username, password);
     setAccountCreatedAt(Date.now());
     setUser(newUser);
     setNeedsOnboarding(false);
@@ -222,8 +225,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return ok;
   };
 
+  const recoverPassword = async (recoveryKey: string, newPassword: string): Promise<boolean> => {
+    const ok = await recoverAppPassword(recoveryKey, newPassword);
+    if (ok) {
+      clearLockout();
+      setLockoutState({ attempts: 0, lockedUntil: 0 });
+      const existing = getStoredUserProfile();
+      if (existing) setUser(existing);
+      setIsUnlocked(true);
+    }
+    return ok;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isUnlocked, needsOnboarding, lockoutUntil: lockoutState.lockedUntil, failedAttempts: lockoutState.attempts, login, logout, onboard, updateUserCurrency, updateUsername, toggleRequirePassword, changePassword }}>
+    <AuthContext.Provider value={{ user, isUnlocked, needsOnboarding, lockoutUntil: lockoutState.lockedUntil, failedAttempts: lockoutState.attempts, login, logout, onboard, updateUserCurrency, updateUsername, toggleRequirePassword, changePassword, recoverPassword }}>
       {children}
     </AuthContext.Provider>
   );

@@ -8,17 +8,30 @@
  */
 
 import { deriveKeyArgon2id } from './kdfService';
+import { generateRecoveryKey, setGlobalRecoveryKeyVerifier } from './recoveryService';
 
 const SALT_LENGTH = 16; // bytes
 const IV_LENGTH = 12;   // bytes (96-bit IV for GCM)
 const PIN_KEY = 'fa_export_pin';
 
 function bufToBase64(buf: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  const chunkSize = 0x8000; // 32KB safe chunk to prevent Maximum call stack size exceeded
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }
 
 function base64ToBuf(b64: string): Uint8Array<ArrayBuffer> {
-  return Uint8Array.from(atob(b64), c => c.charCodeAt(0)) as Uint8Array<ArrayBuffer>;
+  const binStr = atob(b64);
+  const len = binStr.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binStr.charCodeAt(i);
+  }
+  return bytes as Uint8Array<ArrayBuffer>;
 }
 
 // ─── LEGACY PBKDF2 KEY DERIVATION (FOR V3 RESTORE ONLY) ─────────────────────────
@@ -70,14 +83,9 @@ export interface StoredHybridKeys {
 
 // ─── KEY MANAGEMENT ────────────────────────────────────────────────────────────
 
-export async function generateRecoveryKey(username: string): Promise<string> {
-  const prefix = (username.substring(0, 3) || 'USR').toUpperCase();
-  const rand = crypto.getRandomValues(new Uint8Array(6));
-  const chars = Array.from(rand).map(b => b.toString(16).padStart(2, '0')).join('');
-  return `${prefix}-${chars.substring(0,4)}-${chars.substring(4,8)}-${chars.substring(8,12)}`;
-}
+export { generateRecoveryKey } from './recoveryService';
 
-export async function setupExportPin(pin: string, username: string): Promise<string> {
+export async function setupExportPin(pin: string, username: string, providedRecoveryKey?: string): Promise<string> {
   // 1. Generate RSA-OAEP Key Pair (2048-bit)
   const keyPair = await crypto.subtle.generateKey(
     {
@@ -112,7 +120,8 @@ export async function setupExportPin(pin: string, username: string): Promise<str
   };
 
   // 4. Encrypt Private Key with Recovery Key via PBKDF2 (AES-256-GCM)
-  const recoveryKey = await generateRecoveryKey(username);
+  const recoveryKey = providedRecoveryKey || generateRecoveryKey(username);
+  await setGlobalRecoveryKeyVerifier(recoveryKey);
   const rSalt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
   const rIv = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
   const rAesKey = await deriveKeyPbkdf2(recoveryKey, rSalt);
@@ -221,8 +230,8 @@ export async function recoverExportPin(recoveryKey: string, newPin: string): Pro
   return true;
 }
 
-export async function resetExportPin(pin: string, username: string): Promise<string> {
-  return setupExportPin(pin, username);
+export async function resetExportPin(pin: string, username: string, providedRecoveryKey?: string): Promise<string> {
+  return setupExportPin(pin, username, providedRecoveryKey);
 }
 
 export async function verifyExportPin(pin: string): Promise<boolean> {
