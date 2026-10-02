@@ -67,7 +67,8 @@ import {
   Edit2,
   Check,
   Key,
-  AlertTriangle
+  AlertTriangle,
+  FileText
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -94,6 +95,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   // Active Sub-Page Navigation State
   const [activeSubPage, setActiveSubPage] = useState<SettingsSubPage>('main');
+  const [privacyTab, setPrivacyTab] = useState<'privacy' | 'terms'>('privacy');
 
   // Username Edit State
   const [isEditingUsername, setIsEditingUsername] = useState(false);
@@ -113,6 +115,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   useEffect(() => {
     if (isOpen) {
       setActiveSubPage('main');
+      setPrivacyTab('privacy');
     }
   }, [isOpen]);
 
@@ -1893,78 +1896,173 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
         {/* ─── 5. PRIVACY POLICY & TERMS SUB-PAGE ────────────────────────────────── */}
         {activeSubPage === 'privacy' && (
-          <div className="space-y-6 animate-in fade-in duration-150 max-w-full">
-            {/* Header / Summary Card */}
-            <div className="p-4 rounded-2xl bg-brand-teal/10 border border-brand-teal/30 space-y-2">
-              <div className="flex items-center gap-2 text-brand-teal font-display font-bold text-sm sm:text-base">
-                <ShieldCheck className="w-5 h-5 shrink-0" />
-                <span>Zero-Knowledge & Offline Architecture</span>
-              </div>
-              <p className="text-xs font-mono text-muted-custom leading-relaxed">
-                Finance-Ally is designed so your data never leaves your device. Everything is processed, encrypted, and stored locally.
-              </p>
+          <div className="space-y-5 animate-in fade-in duration-150 max-w-full">
+            {/* Top Navigation Segmented Tabs */}
+            <div className="flex bg-surface-soft p-1 rounded-xl border border-hairline gap-1">
+              <button
+                type="button"
+                onClick={() => setPrivacyTab('privacy')}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  privacyTab === 'privacy'
+                    ? 'bg-surface-card text-brand-teal shadow-sm border border-hairline'
+                    : 'text-muted-custom hover:text-ink'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Privacy Policy</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrivacyTab('terms')}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  privacyTab === 'terms'
+                    ? 'bg-surface-card text-brand-blue shadow-sm border border-hairline'
+                    : 'text-muted-custom hover:text-ink'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Terms of Service</span>
+              </button>
             </div>
 
-            {/* Quick Policy Highlights */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
-                <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-brand-teal"></span>
-                  Zero Data Collection
+            {/* TAB 1: PRIVACY POLICY */}
+            {privacyTab === 'privacy' && (
+              <div className="space-y-4 animate-in fade-in duration-150">
+                {/* Header / Summary Card */}
+                <div className="p-4 rounded-2xl bg-brand-teal/10 border border-brand-teal/30 space-y-2">
+                  <div className="flex items-center gap-2 text-brand-teal font-display font-bold text-sm sm:text-base">
+                    <ShieldCheck className="w-5 h-5 shrink-0" />
+                    <span>Zero-Knowledge & Offline Architecture</span>
+                  </div>
+                  <p className="text-xs font-mono text-muted-custom leading-relaxed">
+                    Finance-Ally is designed so your data never leaves your device. Everything is processed, encrypted, and stored locally.
+                  </p>
                 </div>
-                <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
-                  No ownership, operation, or maintenance of remote databases or telemetry servers. No analytics or tracking.
-                </p>
-              </div>
 
-              <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
-                <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-brand-blue"></span>
-                  Argon2id & AES-256 Vault
+                {/* Quick Policy Highlights */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                    <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-brand-teal"></span>
+                      Zero Data Collection
+                    </div>
+                    <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                      No ownership, operation, or maintenance of remote databases or telemetry servers. No analytics or tracking.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                    <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-brand-blue"></span>
+                      Argon2id & AES-256 Vault
+                    </div>
+                    <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                      Password vault credentials and backups are encrypted with AES-256-GCM and memory-hard Argon2id key derivation, with zero-knowledge Global Recovery Key protection.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                    <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-brand-purple"></span>
+                      On-Device Intelligence
+                    </div>
+                    <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                      109 pre-compiled financial rules and on-device vector embeddings run locally in Web Worker threads.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                    <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-brand-yellow"></span>
+                      Forex & Network Transparency
+                    </div>
+                    <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                      Public currency rates and initial embedding models are the only outbound requests. No personal or financial records are ever transmitted.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
-                  Password vault credentials and backups are encrypted with AES-256-GCM and memory-hard Argon2id key derivation, with zero-knowledge Global Recovery Key protection.
-                </p>
-              </div>
 
-              <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
-                <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-brand-purple"></span>
-                  On-Device Intelligence
+                {/* Local Storage & Snapshots Card */}
+                <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                  <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-brand-mint"></span>
+                    Local-Only Storage & Snapshots
+                  </div>
+                  <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                    Transactions, categories, and budgets reside strictly within local browser/device sandboxes. Automated snapshots are saved locally and are encrypted with AES-256-GCM when a Backup PIN is configured.
+                  </p>
                 </div>
-                <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
-                  109 pre-compiled financial rules and on-device vector embeddings run locally in Web Worker threads.
-                </p>
               </div>
+            )}
 
-              <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
-                <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-brand-yellow"></span>
-                  Forex Rate Sync
+            {/* TAB 2: TERMS OF SERVICE */}
+            {privacyTab === 'terms' && (
+              <div className="space-y-4 animate-in fade-in duration-150">
+                {/* Header / Summary Card */}
+                <div className="p-4 rounded-2xl bg-brand-blue/10 border border-brand-blue/30 space-y-2">
+                  <div className="flex items-center gap-2 text-brand-blue font-display font-bold text-sm sm:text-base">
+                    <FileText className="w-5 h-5 shrink-0" />
+                    <span>Terms of Service & Usage Conditions</span>
+                  </div>
+                  <p className="text-xs font-mono text-muted-custom leading-relaxed">
+                    Please review the terms, limitations, and user responsibilities governing personal use of Finance-Ally.
+                  </p>
                 </div>
-                <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
-                  Public currency rates are synced on app open or manual request. No user data is sent.
-                </p>
-              </div>
-            </div>
 
-            {/* Terms Summary Section */}
-            <div className="p-4 rounded-2xl bg-surface-soft border border-hairline space-y-3">
-              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-muted-custom">
-                Terms of Service Overview
-              </h3>
-              <div className="space-y-2.5 text-xs font-mono text-muted-custom leading-relaxed">
-                <p>
-                  <strong className="text-ink">No Financial Advice:</strong> Finance-Ally is a personal budgeting tool and does not provide financial, tax, or investment advice.
-                </p>
-                <p>
-                  <strong className="text-ink">User Backup Responsibility:</strong> Because all data is stored offline on your device, regular exports and backups are your responsibility.
-                </p>
-                <p>
-                  <strong className="text-ink">"AS IS" Warranty:</strong> The software is provided without warranty. The developers are not liable for data loss or financial decisions.
-                </p>
+                {/* Terms Highlights */}
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                    <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-brand-blue"></span>
+                      Personal Budgeting Utility
+                    </div>
+                    <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                      Finance-Ally is provided as a personal expense tracker and encrypted credential vault utility for personal, informational, and organizational purposes.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                    <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      No Financial, Investment, or Tax Advice
+                    </div>
+                    <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                      Finance-Ally and its automated analytics do not constitute financial, investment, accounting, or tax advice. The software is not a certified advisor, broker, or financial institution.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                    <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-brand-purple"></span>
+                      User Responsibility for Backups & Keys
+                    </div>
+                    <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                      Because data is strictly offline, users are solely responsible for creating regular backups and safeguarding master credentials and the 16-character Global Recovery Key. No cloud recovery backdoors exist.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                    <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-brand-coral"></span>
+                      "AS IS" Disclaimer & Limitation of Liability
+                    </div>
+                    <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                      The software is provided "AS IS" without warranty of any kind. Authors and contributors shall not be liable for any data loss, device issues, or financial decisions resulting from use of the application.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-surface-soft border border-hairline space-y-1.5">
+                    <div className="text-xs font-display font-bold text-ink flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-brand-teal"></span>
+                      License: CC BY-NC-SA 4.0
+                    </div>
+                    <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                      Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International. Free for personal inspection and non-commercial derivation with attribution.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* External Link Action */}
             <div className="pt-1 flex flex-col sm:flex-row gap-2">
