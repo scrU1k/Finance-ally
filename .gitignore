@@ -31,3 +31,7 @@ dist-ssr
 *.jks
 keystore.properties
 google-services.json
+
+# Private technical documentation
+[Tt]echnical_[Rr]eadme.md
+[Tt]echnical_[Rr]eadme*
