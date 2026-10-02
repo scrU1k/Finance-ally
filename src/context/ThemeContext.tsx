@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type ThemeMode = 'dotgui-dark' | 'dotgui-light' | 'nordic-slate' | 'emerald' | 'sunset' | 'system' | 'cyberpunk';
+export type ThemeMode = 'dotgui-dark' | 'dotgui-light' | 'nordic-slate' | 'nordic-slate-light' | 'nordic-slate-dark' | 'emerald' | 'sunset' | 'system' | 'cyberpunk';
 export type FontFamily = 'geist' | 'inter' | 'mono' | 'outfit' | 'space';
 
 interface ThemeContextType {
@@ -28,26 +28,38 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const root = document.documentElement;
 
     const applyTheme = (currentTheme: ThemeMode) => {
-      let resolvedTheme = currentTheme;
-      if (currentTheme === 'system') {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        resolvedTheme = isDark ? 'dotgui-dark' : 'dotgui-light';
-      }
+      let resolvedDark = false;
+      const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
       root.classList.remove('dark', 'theme-nordic-slate', 'theme-cyberpunk', 'theme-emerald', 'theme-sunset');
-      if (resolvedTheme === 'dotgui-dark') {
+
+      if (currentTheme === 'dotgui-dark') {
+        resolvedDark = true;
+      } else if (currentTheme === 'dotgui-light') {
+        resolvedDark = false;
+      } else if (currentTheme === 'system') {
+        resolvedDark = isSystemDark;
+      } else if (currentTheme === 'nordic-slate-dark') {
+        root.classList.add('theme-nordic-slate');
+        resolvedDark = true;
+      } else if (currentTheme === 'nordic-slate-light') {
+        root.classList.add('theme-nordic-slate');
+        resolvedDark = false;
+      } else if (currentTheme === 'nordic-slate' || currentTheme === 'cyberpunk') {
+        root.classList.add('theme-nordic-slate');
+        resolvedDark = isSystemDark;
+      } else if (currentTheme === 'emerald') {
+        root.classList.add('theme-emerald');
+        resolvedDark = true;
+      } else if (currentTheme === 'sunset') {
+        root.classList.add('theme-sunset');
+        resolvedDark = true;
+      }
+
+      if (resolvedDark) {
         root.classList.add('dark');
-      } else if (resolvedTheme === 'nordic-slate' || resolvedTheme === 'cyberpunk') {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (isDark) {
-          root.classList.add('dark', 'theme-nordic-slate');
-        } else {
-          root.classList.add('theme-nordic-slate');
-        }
-      } else if (resolvedTheme === 'emerald') {
-        root.classList.add('dark', 'theme-emerald');
-      } else if (resolvedTheme === 'sunset') {
-        root.classList.add('dark', 'theme-sunset');
+      } else {
+        root.classList.remove('dark');
       }
     };
 

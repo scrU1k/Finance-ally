@@ -69,7 +69,10 @@ import {
   Check,
   Key,
   AlertTriangle,
-  FileText
+  FileText,
+  Sun,
+  Moon,
+  Sparkles
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -732,14 +735,58 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setShowSetPinModal('disable');
   };
 
-  const themes: { id: ThemeMode; label: string; bg: string }[] = [
-    { id: 'system', label: 'System Default', bg: 'linear-gradient(135deg, #0e0e0c 50%, #fafaf7 50%)' },
-    { id: 'dotgui-dark', label: 'Obsidian Dark', bg: '#0e0e0c' },
-    { id: 'dotgui-light', label: 'Warm Light', bg: '#fafaf7' },
-    { id: 'nordic-slate', label: 'Serene Sage', bg: 'linear-gradient(135deg, #111d16 50%, #f6f4ec 50%)' },
-    { id: 'emerald', label: 'Emerald Mint', bg: '#04140d' },
-    { id: 'sunset', label: 'Sunset Copper', bg: '#120b09' },
-  ];
+  // Unified Multi-State Theme Logic & Sub-modes
+  const isDefaultActive = theme === 'dotgui-dark' || theme === 'dotgui-light' || theme === 'system';
+  const isSereneActive = theme === 'nordic-slate' || theme === 'nordic-slate-light' || theme === 'nordic-slate-dark' || theme === 'cyberpunk';
+
+  const defaultSubMode: 'light' | 'dark' | 'adaptive' =
+    theme === 'dotgui-light' ? 'light' : theme === 'dotgui-dark' ? 'dark' : 'adaptive';
+
+  const sereneSubMode: 'light' | 'dark' | 'adaptive' =
+    theme === 'nordic-slate-light' ? 'light' : theme === 'nordic-slate-dark' ? 'dark' : 'adaptive';
+
+  const [lastDefaultMode, setLastDefaultMode] = useState<ThemeMode>('dotgui-dark');
+  const [lastSereneMode, setLastSereneMode] = useState<ThemeMode>('nordic-slate-dark');
+
+  useEffect(() => {
+    if (theme === 'dotgui-light' || theme === 'dotgui-dark' || theme === 'system') {
+      setLastDefaultMode(theme);
+    } else if (theme === 'nordic-slate-light' || theme === 'nordic-slate-dark' || theme === 'nordic-slate' || theme === 'cyberpunk') {
+      setLastSereneMode(theme === 'cyberpunk' ? 'nordic-slate-dark' : theme);
+    }
+  }, [theme]);
+
+  const toggleDefaultTheme = () => {
+    if (!isDefaultActive) {
+      setTheme(lastDefaultMode);
+      return;
+    }
+    if (defaultSubMode === 'light') setTheme('dotgui-dark');
+    else if (defaultSubMode === 'dark') setTheme('system');
+    else setTheme('dotgui-light');
+  };
+
+  const toggleSereneTheme = () => {
+    if (!isSereneActive) {
+      setTheme(lastSereneMode);
+      return;
+    }
+    if (sereneSubMode === 'light') setTheme('nordic-slate-dark');
+    else if (sereneSubMode === 'dark') setTheme('nordic-slate');
+    else setTheme('nordic-slate-light');
+  };
+
+  const defaultModeInfo = {
+    label: defaultSubMode === 'light' ? 'Warm Light' : defaultSubMode === 'dark' ? 'Obsidian Dark' : 'Adaptive (Auto)',
+    bg: defaultSubMode === 'light' ? '#fafaf7' : defaultSubMode === 'dark' ? '#0e0e0c' : 'linear-gradient(135deg, #0e0e0c 50%, #fafaf7 50%)',
+    icon: defaultSubMode === 'light' ? '☀️' : defaultSubMode === 'dark' ? '🌙' : '⚡',
+  };
+
+  const sereneModeInfo = {
+    label: sereneSubMode === 'light' ? 'Light (Matte)' : sereneSubMode === 'dark' ? 'Dark (Matte)' : 'Adaptive (Auto)',
+    bg: sereneSubMode === 'light' ? '#f2f0ec' : sereneSubMode === 'dark' ? '#1a1918' : 'linear-gradient(135deg, #1a1918 50%, #f2f0ec 50%)',
+    icon: sereneSubMode === 'light' ? '☀️' : sereneSubMode === 'dark' ? '🌙' : '⚡',
+  };
 
   const fonts: { id: FontFamily; label: string; style: React.CSSProperties }[] = [
     { id: 'geist', label: 'Geist Sans (Clean)', style: { fontFamily: 'Geist, sans-serif' } },
@@ -1079,21 +1126,180 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 <span>Theme & Typography</span>
               </h3>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {themes.map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => setTheme(t.id)}
-                    className={`p-2.5 rounded-xl border text-xs font-mono flex items-center gap-2 transition-all cursor-pointer ${
-                      theme === t.id
-                        ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
-                        : 'border-hairline bg-surface-card text-body-custom hover:border-ink'
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {/* 1. DEFAULT (DOTGUI) MULTI-STATE CARD */}
+                <div
+                  className={`relative flex items-stretch rounded-xl border text-xs font-mono transition-all select-none group ${
+                    isDefaultActive
+                      ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
+                      : 'border-hairline bg-surface-card text-body-custom hover:border-ink/60'
+                  }`}
+                >
+                  {/* Protruding stacked cards on right edge to visually indicate toggleable multi-state deck */}
+                  <span
+                    className={`absolute -right-1.5 top-2 bottom-2 w-1.5 rounded-r-md border-r border-y transition-all pointer-events-none ${
+                      isDefaultActive
+                        ? 'border-ink bg-surface-card shadow-xs opacity-90'
+                        : 'border-hairline bg-surface-soft/80 opacity-60 group-hover:border-ink/50 group-hover:opacity-100'
                     }`}
+                    title="Multi-state toggle card"
+                  />
+                  <span
+                    className={`absolute -right-2.5 top-3.5 bottom-3.5 w-1 rounded-r-sm border-r border-y transition-all pointer-events-none ${
+                      isDefaultActive
+                        ? 'border-ink/50 bg-surface-card/60 opacity-60'
+                        : 'border-hairline/60 bg-surface-soft/40 opacity-40 group-hover:opacity-70'
+                    }`}
+                  />
+
+                  {/* Left: Color Indicator with Vertical Divider */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleDefaultTheme();
+                    }}
+                    className="px-3 py-2 flex items-center justify-center border-r border-hairline/70 hover:bg-surface-soft active:scale-95 transition-all cursor-pointer group/toggle shrink-0"
+                    title={`Current: ${defaultModeInfo.label}. Click to toggle Light / Dark / Adaptive`}
                   >
-                    <span className="w-3 h-3 rounded-full border border-hairline" style={{ background: t.bg }} />
-                    <span className="truncate">{t.label}</span>
+                    <div className="relative flex items-center justify-center">
+                      <span
+                        className="w-4 h-4 rounded-full border border-hairline shadow-2xs transition-transform group-hover/toggle:scale-110"
+                        style={{ background: defaultModeInfo.bg }}
+                      />
+                      <span className="absolute -bottom-1 -right-1.5 text-[8px] bg-surface-card border border-hairline rounded-full px-0.5 leading-none shadow-2xs">
+                        {defaultModeInfo.icon}
+                      </span>
+                    </div>
                   </button>
-                ))}
+
+                  {/* Right: Theme Name & Active Sub-Mode Label */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isDefaultActive) toggleDefaultTheme();
+                      else setTheme(lastDefaultMode);
+                    }}
+                    className="flex-1 py-2 px-2.5 flex items-center justify-between gap-1.5 text-left cursor-pointer min-w-0"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">Default</div>
+                      <div className="text-[10px] text-muted-custom font-normal truncate">
+                        {defaultModeInfo.label}
+                      </div>
+                    </div>
+
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-surface-soft/80 border border-hairline text-muted-custom font-mono shrink-0 group-hover:text-ink">
+                      ⇄
+                    </span>
+                  </button>
+                </div>
+
+                {/* 2. SERENE SAGE (GREY & GREY-BROWN PASTEL PLASTIC) MULTI-STATE CARD */}
+                <div
+                  className={`relative flex items-stretch rounded-xl border text-xs font-mono transition-all select-none group ${
+                    isSereneActive
+                      ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
+                      : 'border-hairline bg-surface-card text-body-custom hover:border-ink/60'
+                  }`}
+                >
+                  {/* Protruding stacked cards on right edge to visually indicate toggleable multi-state deck */}
+                  <span
+                    className={`absolute -right-1.5 top-2 bottom-2 w-1.5 rounded-r-md border-r border-y transition-all pointer-events-none ${
+                      isSereneActive
+                        ? 'border-ink bg-surface-card shadow-xs opacity-90'
+                        : 'border-hairline bg-surface-soft/80 opacity-60 group-hover:border-ink/50 group-hover:opacity-100'
+                    }`}
+                    title="Multi-state toggle card"
+                  />
+                  <span
+                    className={`absolute -right-2.5 top-3.5 bottom-3.5 w-1 rounded-r-sm border-r border-y transition-all pointer-events-none ${
+                      isSereneActive
+                        ? 'border-ink/50 bg-surface-card/60 opacity-60'
+                        : 'border-hairline/60 bg-surface-soft/40 opacity-40 group-hover:opacity-70'
+                    }`}
+                  />
+
+                  {/* Left: Color Indicator with Vertical Divider */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSereneTheme();
+                    }}
+                    className="px-3 py-2 flex items-center justify-center border-r border-hairline/70 hover:bg-surface-soft active:scale-95 transition-all cursor-pointer group/toggle shrink-0"
+                    title={`Current: ${sereneModeInfo.label}. Click to toggle Light / Dark / Adaptive`}
+                  >
+                    <div className="relative flex items-center justify-center">
+                      <span
+                        className="w-4 h-4 rounded-full border border-hairline shadow-2xs transition-transform group-hover/toggle:scale-110"
+                        style={{ background: sereneModeInfo.bg }}
+                      />
+                      <span className="absolute -bottom-1 -right-1.5 text-[8px] bg-surface-card border border-hairline rounded-full px-0.5 leading-none shadow-2xs">
+                        {sereneModeInfo.icon}
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Right: Theme Name & Active Sub-Mode Label */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isSereneActive) toggleSereneTheme();
+                      else setTheme(lastSereneMode);
+                    }}
+                    className="flex-1 py-2 px-2.5 flex items-center justify-between gap-1.5 text-left cursor-pointer min-w-0"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">Serene Sage</div>
+                      <div className="text-[10px] text-muted-custom font-normal truncate">
+                        {sereneModeInfo.label}
+                      </div>
+                    </div>
+
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-surface-soft/80 border border-hairline text-muted-custom font-mono shrink-0 group-hover:text-ink">
+                      ⇄
+                    </span>
+                  </button>
+                </div>
+
+                {/* 3. EMERALD MINT (SINGULAR CARD) */}
+                <button
+                  type="button"
+                  onClick={() => setTheme('emerald')}
+                  className={`p-2.5 rounded-xl border text-xs font-mono flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                    theme === 'emerald'
+                      ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
+                      : 'border-hairline bg-surface-card text-body-custom hover:border-ink/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-4 h-4 rounded-full border border-hairline shrink-0 shadow-2xs" style={{ background: '#04140d' }} />
+                    <div className="min-w-0 text-left">
+                      <div className="text-xs font-bold truncate">Emerald Mint</div>
+                      <div className="text-[10px] text-muted-custom font-normal">Singular Dark</div>
+                    </div>
+                  </div>
+                </button>
+
+                {/* 4. SUNSET COPPER (SINGULAR CARD) */}
+                <button
+                  type="button"
+                  onClick={() => setTheme('sunset')}
+                  className={`p-2.5 rounded-xl border text-xs font-mono flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                    theme === 'sunset'
+                      ? 'border-ink text-ink font-bold shadow-sm bg-surface-soft'
+                      : 'border-hairline bg-surface-card text-body-custom hover:border-ink/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-4 h-4 rounded-full border border-hairline shrink-0 shadow-2xs" style={{ background: '#120b09' }} />
+                    <div className="min-w-0 text-left">
+                      <div className="text-xs font-bold truncate">Sunset Copper</div>
+                      <div className="text-[10px] text-muted-custom font-normal">Singular Dark</div>
+                    </div>
+                  </div>
+                </button>
               </div>
 
               <div className="border-t border-hairline/60 pt-2" />
