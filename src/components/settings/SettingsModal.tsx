@@ -40,7 +40,6 @@ import {
 import {
   initializeGlobalRecoveryKey,
   hasGlobalRecoveryKey,
-  revealRecoveryKeyWithPassword,
   verifyGlobalRecoveryKey
 } from '../../services/recoveryService';
 import {
@@ -296,33 +295,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   };
 
-  // View & Regenerate Recovery Key State
-  const [isViewingRecoveryKey, setIsViewingRecoveryKey] = useState(false);
-  const [viewRecoveryPasswordInput, setViewRecoveryPasswordInput] = useState('');
-  const [revealedRecoveryKey, setRevealedRecoveryKey] = useState<string | null>(null);
-  const [viewRecoveryError, setViewRecoveryError] = useState('');
-
-  const handleRevealRecoveryKey = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setViewRecoveryError('');
-    if (!viewRecoveryPasswordInput) {
-      setViewRecoveryError('Password is required.');
-      return;
-    }
-    const key = await revealRecoveryKeyWithPassword(viewRecoveryPasswordInput);
-    if (key) {
-      setRevealedRecoveryKey(key);
-      setViewRecoveryPasswordInput('');
-    } else {
-      setViewRecoveryError('Incorrect password. Could not reveal Recovery Key.');
-    }
-  };
-
   const handleRegenerateRecoveryKey = async () => {
     const username = user?.username || 'USER';
     const newKey = await initializeGlobalRecoveryKey(username);
     setGeneratedRecoveryKey(newKey);
-    setRevealedRecoveryKey(newKey);
   };
 
   // Backup State
@@ -1551,107 +1527,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     <span>Master Security Recovery Key</span>
                   </h3>
                   <p className="text-[11px] font-mono text-muted-custom mt-1">
-                    Single universal emergency recovery key for App Lock, Password Vault, and Backup PIN.
+                    Zero-Knowledge Offline Key: Never saved on this device. Serves as universal emergency fallback for App Lock, Password Vault, and Backup PIN.
                   </p>
                 </div>
                 <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-brand-yellow/15 text-brand-yellow border border-brand-yellow/30 shrink-0">
-                  {hasGlobalRecoveryKey() ? 'Active' : 'Uninitialized'}
+                  {hasGlobalRecoveryKey() ? 'Active (Offline)' : 'Uninitialized'}
                 </span>
               </div>
 
-              <div className="pt-3 border-t border-hairline/60 space-y-3">
-                {!isViewingRecoveryKey ? (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsViewingRecoveryKey(true);
-                        setViewRecoveryPasswordInput('');
-                        setRevealedRecoveryKey(null);
-                        setViewRecoveryError('');
-                      }}
-                      className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-hairline text-ink hover:border-ink transition-all cursor-pointer"
-                    >
-                      View Recovery Key
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRegenerateRecoveryKey}
-                      className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-brand-yellow text-brand-yellow hover:bg-brand-yellow/10 transition-all cursor-pointer"
-                    >
-                      Regenerate Key
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-3 bg-surface-card p-3 rounded-xl border border-hairline">
-                    <div className="text-xs font-mono font-bold text-ink flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 text-brand-yellow">
-                        <Key className="w-3.5 h-3.5" />
-                        <span>Master Recovery Key Security</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsViewingRecoveryKey(false);
-                          setRevealedRecoveryKey(null);
-                          setViewRecoveryPasswordInput('');
-                        }}
-                        className="text-muted-custom text-xs cursor-pointer"
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    {!revealedRecoveryKey ? (
-                      <form onSubmit={handleRevealRecoveryKey} className="space-y-2">
-                        <p className="text-[11px] font-mono text-muted-custom">
-                          Enter your App Password to reveal your Master Recovery Key:
-                        </p>
-                        <div className="flex gap-2">
-                          <input
-                            type="password"
-                            value={viewRecoveryPasswordInput}
-                            onChange={e => setViewRecoveryPasswordInput(e.target.value)}
-                            placeholder="Enter App Password"
-                            required
-                            className="flex-1 bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
-                          />
-                          <button
-                            type="submit"
-                            className="px-4 py-1.5 bg-brand-blue text-white rounded-xl text-xs font-mono font-bold cursor-pointer hover:bg-blue-600 transition-all"
-                          >
-                            Reveal Key
-                          </button>
-                        </div>
-                        {viewRecoveryError && <p className="text-[10px] font-mono text-brand-coral">{viewRecoveryError}</p>}
-                      </form>
-                    ) : (
-                      <div className="space-y-2">
-                        <p className="text-[11px] font-mono text-brand-mint font-bold">
-                          Master Recovery Key:
-                        </p>
-                        <div className="p-3 bg-surface-soft rounded-xl border border-hairline flex items-center justify-between">
-                          <span className="text-sm font-mono font-bold text-ink tracking-widest selection:bg-brand-yellow selection:text-black">
-                            {revealedRecoveryKey}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(revealedRecoveryKey);
-                            }}
-                            className="px-3 py-1 bg-surface-card hover:bg-surface-card/80 border border-hairline rounded-lg text-xs font-mono cursor-pointer flex items-center gap-1 text-ink"
-                          >
-                            <Check className="w-3.5 h-3.5 text-brand-mint" />
-                            <span>Copy</span>
-                          </button>
-                        </div>
-                        <p className="text-[10px] font-mono text-muted-custom">
-                          Store this in a secure password manager or offline safe. It can recover your App Lock, Password Vault, and Encrypted Backups.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
+              <div className="pt-3 border-t border-hairline/60 flex items-center justify-between gap-3">
+                <p className="text-[11px] font-mono text-muted-custom">
+                  Keep your 12-character key written down or in a password manager. Need a new one?
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRegenerateRecoveryKey}
+                  className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-brand-yellow text-brand-yellow hover:bg-brand-yellow/10 transition-all cursor-pointer shrink-0"
+                >
+                  {hasGlobalRecoveryKey() ? 'Rotate Recovery Key' : 'Generate Recovery Key'}
+                </button>
               </div>
             </div>
 

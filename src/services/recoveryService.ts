@@ -1,7 +1,11 @@
 import { hashPasswordArgon2id } from './kdfService';
 
 const VERIFIER_KEY = 'fa_global_recovery_verifier';
-const ENCRYPTED_KEY_STORAGE = 'fa_global_recovery_escrow_key';
+
+// Clean up any legacy escrow key storage if it ever existed
+try {
+  localStorage.removeItem('fa_global_recovery_escrow_key');
+} catch {}
 
 // Helper: buffer to base64 with chunking (stack safe)
 function bufToBase64(buf: ArrayBuffer): string {
@@ -26,7 +30,7 @@ function base64ToBuf(b64: string): Uint8Array<ArrayBuffer> {
 }
 
 /**
- * Normalizes recovery key format: trimmed, uppercase prefix, case-preserved or upper
+ * Normalizes recovery key format: trimmed, uppercase prefix
  */
 export function normalizeRecoveryKey(raw: string): string {
   return raw.trim();
@@ -35,6 +39,7 @@ export function normalizeRecoveryKey(raw: string): string {
 /**
  * Generates a high-entropy 12-character recovery key with username prefix:
  * e.g. JOH-a1b2-c3d4-e5f6
+ * This key is shown ONCE to the user and NEVER saved in plaintext or reversible form on the device.
  */
 export function generateRecoveryKey(username: string): string {
   const cleanName = username.replace(/[^a-zA-Z0-9]/g, '');
@@ -67,14 +72,15 @@ export async function deriveKeyFromRecovery(recoveryKey: string, salt: Uint8Arra
 }
 
 /**
- * Checks if a Global Recovery Key has been initialized
+ * Checks if a Global Recovery Key has been initialized (i.e. verifier hash exists)
  */
 export function hasGlobalRecoveryKey(): boolean {
   return !!localStorage.getItem(VERIFIER_KEY);
 }
 
 /**
- * Sets up and stores the verifier hash for a recovery key
+ * Sets up and stores only the one-way Argon2id verifier hash for a recovery key.
+ * The recovery key itself is never stored.
  */
 export async function setGlobalRecoveryKeyVerifier(recoveryKey: string): Promise<void> {
   const normKey = normalizeRecoveryKey(recoveryKey);
@@ -88,7 +94,7 @@ export async function setGlobalRecoveryKeyVerifier(recoveryKey: string): Promise
 }
 
 /**
- * Verifies if an entered recovery key matches the stored verifier
+ * Verifies if an entered recovery key matches the stored Argon2id verifier
  */
 export async function verifyGlobalRecoveryKey(enteredKey: string): Promise<boolean> {
   const raw = localStorage.getItem(VERIFIER_KEY);
@@ -148,89 +154,11 @@ export async function decryptPayloadWithRecovery(
 }
 
 /**
- * Stores an encrypted copy of the recovery key protected by the user's password,
- * allowing the user to view their recovery key in Settings after verifying their password.
+ * Generates and initializes a new Global Recovery Key, saves its verifier hash,
+ * and returns the key so it can be presented ONCE to the user.
  */
-export async function storeRecoveryKeyForViewing(recoveryKey: string, userPassword: string): Promise<void> {
-  const salt = crypto.getRandomValues(new Uint8Array(16)) as Uint8Array<ArrayBuffer>;
-  const iv = crypto.getRandomValues(new Uint8Array(12)) as Uint8Array<ArrayBuffer>;
-  const enc = new TextEncoder();
-  const baseKey = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(userPassword),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
-  const aesKey = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' },
-    baseKey,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-
-  const encBuf = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    aesKey,
-    enc.encode(recoveryKey)
-  );
-
-  const bundle = {
-    ciphertext: bufToBase64(encBuf),
-    iv: bufToBase64(iv.buffer as ArrayBuffer),
-    salt: bufToBase64(salt.buffer as ArrayBuffer)
-  };
-  localStorage.setItem(ENCRYPTED_KEY_STORAGE, JSON.stringify(bundle));
-}
-
-/**
- * Attempts to decrypt and reveal the recovery key by providing the user's password.
- */
-export async function revealRecoveryKeyWithPassword(userPassword: string): Promise<string | null> {
-  const raw = localStorage.getItem(ENCRYPTED_KEY_STORAGE);
-  if (!raw) return null;
-  try {
-    const { ciphertext, iv, salt } = JSON.parse(raw);
-    const saltBuf = base64ToBuf(salt);
-    const ivBuf = base64ToBuf(iv);
-    const dataBuf = base64ToBuf(ciphertext);
-
-    const enc = new TextEncoder();
-    const baseKey = await crypto.subtle.importKey(
-      'raw',
-      enc.encode(userPassword),
-      'PBKDF2',
-      false,
-      ['deriveKey']
-    );
-    const aesKey = await crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt: saltBuf, iterations: 100_000, hash: 'SHA-256' },
-      baseKey,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['encrypt', 'decrypt']
-    );
-
-    const decBuf = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: ivBuf },
-      aesKey,
-      dataBuf
-    );
-    return new TextDecoder().decode(decBuf);
-  } catch {
-    return null; // Incorrect password
-  }
-}
-
-/**
- * Creates and registers a new Global Recovery Key
- */
-export async function initializeGlobalRecoveryKey(username: string, userPassword?: string): Promise<string> {
+export async function initializeGlobalRecoveryKey(username: string): Promise<string> {
   const key = generateRecoveryKey(username);
   await setGlobalRecoveryKeyVerifier(key);
-  if (userPassword) {
-    await storeRecoveryKeyForViewing(key, userPassword);
-  }
   return key;
 }

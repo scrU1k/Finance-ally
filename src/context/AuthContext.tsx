@@ -183,7 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const onboard = async (username: string, password: string, baseCurrency: CurrencyCode) => {
     const newUser = await createInitialUser(username, password, baseCurrency);
-    await initializeGlobalRecoveryKey(username, password);
+    await initializeGlobalRecoveryKey(username);
     setAccountCreatedAt(Date.now());
     setUser(newUser);
     setNeedsOnboarding(false);
