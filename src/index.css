@@ -73,20 +73,27 @@
     --brand-lavender: #d4c2f8;
   }
 
-  /* Cyberpunk Theme Override */
+  /* Nordic Slate Theme (Soft, Low-Contrast, Eye-Comfort Minimalist) */
+  .theme-nordic-slate,
   .theme-cyberpunk {
-    --canvas: rgba(5, 5, 12, 0.94);
-    --surface-card: rgba(13, 13, 30, 0.75);
-    --surface-soft: rgba(20, 20, 43, 0.65);
-    --ink: #00ffcc;
-    --body: #d1d5db;
-    --muted: #6b7280;
-    --hairline: rgba(255, 0, 85, 0.25);
-    --brand-blue: #00ffcc;
-    --term-green: #00ff66;
-    --brand-yellow: #ffe600;
-    --brand-coral: #ff0055;
-    --brand-purple: #b000ff;
+    --canvas: rgba(26, 31, 38, 0.96);
+    --surface-card: rgba(33, 40, 49, 0.78);
+    --surface-soft: rgba(40, 48, 59, 0.65);
+    --surface-dark: #13171d;
+    --ink: #e2e8f0;
+    --body: #94a3b8;
+    --muted: #64748b;
+    --hairline: rgba(51, 65, 85, 0.7);
+    --hairline-soft: rgba(51, 65, 85, 0.35);
+
+    /* Softer, non-neon, eye-friendly pastel tones */
+    --brand-blue: #60a5fa;
+    --brand-mint: #6ee7b7;
+    --term-green: #6ee7b7;
+    --brand-yellow: #fcd34d;
+    --brand-coral: #f87171;
+    --brand-purple: #a78bfa;
+    --brand-lavender: #c4b5fd;
   }
 
   /* Emerald Mint Theme Override */

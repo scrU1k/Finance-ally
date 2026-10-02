@@ -736,7 +736,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     { id: 'system', label: 'System Default', bg: 'linear-gradient(135deg, #0e0e0c 50%, #fafaf7 50%)' },
     { id: 'dotgui-dark', label: 'Obsidian Dark', bg: '#0e0e0c' },
     { id: 'dotgui-light', label: 'Warm Light', bg: '#fafaf7' },
-    { id: 'cyberpunk', label: 'Cyberpunk Neon', bg: '#05050c' },
+    { id: 'nordic-slate', label: 'Nordic Slate', bg: '#1a1f26' },
     { id: 'emerald', label: 'Emerald Mint', bg: '#04140d' },
     { id: 'sunset', label: 'Sunset Copper', bg: '#120b09' },
   ];
@@ -1885,7 +1885,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             : 'text-muted-custom hover:text-ink border border-transparent'
                         }`}
                       >
-                        &lt;{limit}&gt;
+                        {limit}
                       </button>
                     );
                   })}

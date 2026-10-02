@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type ThemeMode = 'dotgui-dark' | 'dotgui-light' | 'cyberpunk' | 'emerald' | 'sunset' | 'system';
+export type ThemeMode = 'dotgui-dark' | 'dotgui-light' | 'nordic-slate' | 'emerald' | 'sunset' | 'system' | 'cyberpunk';
 export type FontFamily = 'geist' | 'inter' | 'mono' | 'outfit' | 'space';
 
 interface ThemeContextType {
@@ -14,7 +14,9 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
-    return (localStorage.getItem('fa_theme') as ThemeMode) || 'system';
+    const saved = localStorage.getItem('fa_theme') as ThemeMode;
+    if (saved === 'cyberpunk') return 'nordic-slate';
+    return saved || 'system';
   });
 
   const [fontFamily, setFontState] = useState<FontFamily>(() => {
@@ -32,11 +34,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         resolvedTheme = isDark ? 'dotgui-dark' : 'dotgui-light';
       }
 
-      root.classList.remove('dark', 'theme-cyberpunk', 'theme-emerald', 'theme-sunset');
+      root.classList.remove('dark', 'theme-nordic-slate', 'theme-cyberpunk', 'theme-emerald', 'theme-sunset');
       if (resolvedTheme === 'dotgui-dark') {
         root.classList.add('dark');
-      } else if (resolvedTheme === 'cyberpunk') {
-        root.classList.add('dark', 'theme-cyberpunk');
+      } else if (resolvedTheme === 'nordic-slate' || resolvedTheme === 'cyberpunk') {
+        root.classList.add('dark', 'theme-nordic-slate');
       } else if (resolvedTheme === 'emerald') {
         root.classList.add('dark', 'theme-emerald');
       } else if (resolvedTheme === 'sunset') {

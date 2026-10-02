@@ -66,7 +66,7 @@ export interface UserProfile {
   passwordHash: string; // PBKDF2 derived hash (Base64)
   passwordSalt?: string; // Unique random salt for PBKDF2 (Base64)
   baseCurrency: CurrencyCode;
-  theme: 'dotgui-dark' | 'dotgui-light' | 'cyberpunk' | 'emerald' | 'sunset' | 'system';
+  theme: 'dotgui-dark' | 'dotgui-light' | 'nordic-slate' | 'cyberpunk' | 'emerald' | 'sunset' | 'system';
   fontFamily: 'geist' | 'inter' | 'mono' | 'outfit' | 'space';
   emailForReport?: string;
   reportFrequency?: 'weekly' | 'monthly' | 'annually' | 'none';
