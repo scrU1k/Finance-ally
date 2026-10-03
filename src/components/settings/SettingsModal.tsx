@@ -5,7 +5,7 @@ import { useTheme, ThemeMode, FontFamily } from '../../context/ThemeContext';
 import { TOP_CURRENCIES, convertCurrencyAmount, formatCurrency } from '../../services/currency';
 import { exportFullDataBackup, importFullDataBackup } from '../../services/db';
 import { exportTransactionsToCSV, importTransactionsFromCSV } from '../../services/csvParser';
-import { encryptJSON, decryptJSON, isEncryptedBackup, setupExportPin, changeExportPin, recoverExportPin, resetExportPin, hasExportPin, clearExportPin, verifyExportPin } from '../../services/cryptoService';
+import { encryptJSON, decryptJSON, decryptJSONWithRecoveryKey, isEncryptedBackup, setupExportPin, changeExportPin, recoverExportPin, resetExportPin, hasExportPin, clearExportPin, verifyExportPin } from '../../services/cryptoService';
 import { verifyUserPassword } from '../../services/auth';
 import { RecoveryKeyModal } from '../common/RecoveryKeyModal';
 import {
@@ -41,6 +41,7 @@ import {
 } from '../../services/passwordVaultService';
 import {
   initializeGlobalRecoveryKey,
+  rotateGlobalRecoveryKey,
   hasGlobalRecoveryKey,
   verifyGlobalRecoveryKey
 } from '../../services/recoveryService';
@@ -319,12 +320,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   // Rotate Recovery Key State
   const [showRotateWarningModal, setShowRotateWarningModal] = useState(false);
+  const [rotateCurrentRecoveryKey, setRotateCurrentRecoveryKey] = useState('');
   const [rotateAuthPassword, setRotateAuthPassword] = useState('');
   const [rotateAuthError, setRotateAuthError] = useState('');
   const [rotateLoading, setRotateLoading] = useState(false);
 
+  // Backup Import Recovery State
+  const [isRecoveringBackupImport, setIsRecoveringBackupImport] = useState(false);
+
   const handleConfirmRotateRecoveryKey = async () => {
     setRotateAuthError('');
+    if (!rotateCurrentRecoveryKey.trim()) {
+      setRotateAuthError('Please enter your Current Recovery Key to authorize migration.');
+      return;
+    }
     if (user?.requirePassword) {
       if (!rotateAuthPassword) {
         setRotateAuthError('Please enter your App Password to authorize rotation.');
@@ -342,15 +351,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setRotateLoading(true);
     try {
       const username = user?.username || 'USER';
-      const newKey = await initializeGlobalRecoveryKey(username);
+      const newKey = await rotateGlobalRecoveryKey(rotateCurrentRecoveryKey.trim(), username);
       setShowRotateWarningModal(false);
       setRotateAuthPassword('');
+      setRotateCurrentRecoveryKey('');
       setRotateAuthError('');
       setGeneratedRecoveryKey(newKey);
     } catch (err: any) {
-      setRotateAuthError(err.message || 'Failed to rotate recovery key.');
+      setRotateAuthError(err?.message || 'Failed to rotate recovery key.');
     } finally {
       setRotateLoading(false);
+    }
+  };
+
+  const handleRecoveryImportAndSetPin = async (recoveryKey: string, newPin?: string) => {
+    if (!pendingImportContent) return;
+    if (!newPin || newPin.length < 4) {
+      setVerifyPinError('New Backup PIN must be at least 4 characters.');
+      return;
+    }
+    setVerifyPinLoading(true);
+    setVerifyPinError('');
+    try {
+      const decrypted = await decryptJSONWithRecoveryKey(pendingImportContent, recoveryKey.trim());
+      const ok = await importFullDataBackup(decrypted);
+      if (!ok) {
+        setVerifyPinLoading(false);
+        setVerifyPinError('Data decrypted but schema validation failed. File may be corrupted or from an incompatible version.');
+        return;
+      }
+      const username = user?.username || 'USER';
+      await setupExportPin(newPin, username, recoveryKey.trim());
+      setPinEnabled(true);
+      setVerifyPinLoading(false);
+      setIsRecoveringBackupImport(false);
+      setShowVerifyPinModal(false);
+      setPendingImportContent(null);
+      setImportStatus('Backup restored and new Backup PIN set! Restarting app...');
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err: any) {
+      setVerifyPinLoading(false);
+      setVerifyPinError(err?.message || 'Failed to restore backup with Recovery Key.');
     }
   };
 
@@ -2497,11 +2538,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
         {showVerifyPinModal && (
           <PinModal
-            mode="verify"
-            title="Enter Backup Encryption PIN"
-            description="This backup is encrypted. Enter the correct PIN to decrypt and restore your data."
-            onConfirm={handleVerifyPinAndImport}
-            onCancel={() => { setShowVerifyPinModal(false); setVerifyPinError(''); setPendingImportContent(null); }}
+            mode={isRecoveringBackupImport ? 'recover' : 'verify'}
+            title={isRecoveringBackupImport ? 'Restore with Recovery Key' : 'Enter Backup Encryption PIN'}
+            description={
+              isRecoveringBackupImport
+                ? 'Enter your Global Recovery Key to decrypt this backup archive and set a new Backup PIN for future exports.'
+                : 'This backup is encrypted. Enter the correct PIN to decrypt and restore your data.'
+            }
+            onConfirm={isRecoveringBackupImport ? handleRecoveryImportAndSetPin : handleVerifyPinAndImport}
+            onCancel={() => {
+              setShowVerifyPinModal(false);
+              setIsRecoveringBackupImport(false);
+              setVerifyPinError('');
+              setPendingImportContent(null);
+            }}
+            onForgotPin={!isRecoveringBackupImport ? () => { setIsRecoveringBackupImport(true); setVerifyPinError(''); } : undefined}
             loading={verifyPinLoading}
             error={verifyPinError}
           />
@@ -2515,19 +2566,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   <AlertTriangle className="w-5 h-5 text-brand-coral" />
                 </div>
                 <div>
-                  <h2 className="text-base font-display font-bold text-ink">Invalidate Current Recovery Key?</h2>
-                  <p className="text-[11px] font-mono text-brand-coral font-bold">Irreversible Action</p>
+                  <h2 className="text-base font-display font-bold text-ink">Rotate Recovery Key</h2>
+                  <p className="text-[11px] font-mono text-brand-coral font-bold">Re-encrypts Escrows</p>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <p className="text-xs font-mono text-ink leading-relaxed">
-                  Generating a new recovery key will <strong className="text-brand-coral">permanently invalidate</strong> your current one. Any previously saved paper copy or digital note will no longer work.
+                  Generating a new recovery key will migrate your existing password vault and backup escrows to the new key and invalidate the old one.
                 </p>
                 <div className="bg-surface-soft border border-hairline rounded-xl p-3">
                   <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
-                    💡 <em>Note: Your current transactions, password vault cards, and existing backups remain completely safe as long as you remember your current PINs and password.</em>
+                    💡 <em>Note: Your current transactions, password cards, and backups remain safe. Entering your current key ensures all recovery escrows remain unbroken.</em>
                   </p>
+                </div>
+
+                <div className="space-y-1 pt-1">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold block">
+                    Current Recovery Key (Required)
+                  </label>
+                  <input
+                    type="text"
+                    value={rotateCurrentRecoveryKey}
+                    onChange={e => { setRotateCurrentRecoveryKey(e.target.value); setRotateAuthError(''); }}
+                    placeholder="FAK-xxxx-xxxx-xxxx-xxxx"
+                    autoFocus
+                    className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-brand-coral tracking-wider"
+                  />
                 </div>
 
                 {user?.requirePassword && (
@@ -2540,7 +2605,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       value={rotateAuthPassword}
                       onChange={e => { setRotateAuthPassword(e.target.value); setRotateAuthError(''); }}
                       placeholder="Your App Password"
-                      autoFocus
                       className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-brand-coral"
                     />
                   </div>
@@ -2557,6 +2621,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   onClick={() => {
                     setShowRotateWarningModal(false);
                     setRotateAuthPassword('');
+                    setRotateCurrentRecoveryKey('');
                     setRotateAuthError('');
                   }}
                   className="flex-1 py-2 rounded-xl border border-hairline text-muted-custom text-xs font-mono font-bold hover:border-ink hover:text-ink transition-all cursor-pointer"
@@ -2569,7 +2634,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   onClick={handleConfirmRotateRecoveryKey}
                   className="flex-1 py-2 rounded-xl border border-brand-coral bg-brand-coral/10 hover:bg-brand-coral text-brand-coral hover:text-white text-xs font-mono font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
                 >
-                  {rotateLoading ? 'Generating...' : 'Proceed & Generate'}
+                  {rotateLoading ? 'Migrating...' : 'Migrate & Rotate'}
                 </button>
               </div>
             </div>

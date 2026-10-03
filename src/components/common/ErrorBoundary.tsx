@@ -23,11 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught React Error:', error, errorInfo);
-    logDiagnosticError('ErrorBoundary', {
-      message: error?.message || String(error),
-      stack: error?.stack,
-      componentStack: errorInfo?.componentStack,
-    });
+    logDiagnosticError('ErrorBoundary', error, errorInfo?.componentStack);
   }
 
   private handleReload = () => {

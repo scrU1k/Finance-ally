@@ -1,6 +1,7 @@
 import { registerPlugin } from '@capacitor/core';
 import { Transaction, Subscription, CurrencyCode } from '../types';
 import { formatCurrency } from './currency';
+import { logDiagnosticWarn } from './diagnosticLogger';
 
 // Register the native ScheduledNotification plugin
 const ScheduledNotification = registerPlugin<{
@@ -62,13 +63,13 @@ export async function requestNotificationPermission(): Promise<boolean> {
  * Uses AlarmManager.setExactAndAllowWhileIdle via the native ScheduledNotificationPlugin —
  * fires even when the app is in background or closed.
  */
-export async function scheduleFutureNativeNotification(tx: Transaction, baseCurrency: CurrencyCode) {
-  if (!tx.isScheduled || !tx.date) return;
+export async function scheduleFutureNativeNotification(tx: Transaction, baseCurrency: CurrencyCode): Promise<boolean> {
+  if (!tx.isScheduled || !tx.date) return false;
 
   const tTimeStr = tx.time && tx.time.trim() ? tx.time.trim() : '00:00';
   const targetTime = new Date(`${tx.date}T${tTimeStr}:00`).getTime();
 
-  if (isNaN(targetTime) || targetTime <= Date.now()) return;
+  if (isNaN(targetTime) || targetTime <= Date.now()) return false;
 
   const formattedAmt = formatCurrency(tx.amount, tx.currency || baseCurrency);
   const title = '⏰ Scheduled Payment Due';
@@ -76,10 +77,14 @@ export async function scheduleFutureNativeNotification(tx: Transaction, baseCurr
   const id = hashString(tx.id);
 
   try {
-    await ScheduledNotification.scheduleNotification({ id, title, body, timestamp: targetTime });
+    const res = await ScheduledNotification.scheduleNotification({ id, title, body, timestamp: targetTime });
     console.log(`[Native] Scheduled alarm notification for ${tx.date} at ${tTimeStr}, id=${id}`);
-  } catch (e) {
+    return res?.success ?? true;
+  } catch (e: any) {
+    const msg = e?.message || String(e);
     console.warn('[Native] scheduleNotification failed:', e);
+    logDiagnosticWarn('NotificationService', `Failed to schedule native alarm for tx ${tx.id}: ${msg}`);
+    return false;
   }
 }
 

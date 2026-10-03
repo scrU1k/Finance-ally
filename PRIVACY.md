@@ -9,7 +9,7 @@
 
 > [!NOTE]
 > **Finance-Ally is a 100% offline-first, client-side personal finance vault.**  
-> No personal or financial data is ever collected, tracked, or sent to any remote server. Everything is processed, encrypted, and stored locally on your device.
+> No personal or financial data is ever collected, tracked, or sent to any remote server. Everything is processed and stored locally on your device within sandboxed client storage. Sensitive credentials in the Password Manager Vault and exported backups are protected by AES-256 authenticated encryption.
 
 ---
 
@@ -34,10 +34,10 @@
 
 ## 3. Password Manager Vault Cryptography & Global Recovery Key
 
-* **AES-256-GCM + Argon2id:** Credentials and secrets stored inside the Password Manager Vault are encrypted locally using AES-256-GCM. Encryption keys are derived via memory-hard **Argon2id** (64 MiB memory cost, 3 iterations, 1 parallelism thread).
+* **AES-256-GCM + Argon2id:** Credentials and secrets stored inside the Password Manager Vault are encrypted locally using AES-256-GCM. Encryption keys are derived via memory-hard **Argon2id** (32 MiB memory cost, 3 iterations, 1 parallelism thread).
 * **Volatile Memory Only:** Decrypted secrets reside strictly in volatile application memory while actively unlocked and are purged upon app lock, session expiry, or tab close.
 * **Unified Global Recovery Key:**
-  * A 16-character full Base-62 emergency key (`PREFIX-XXXX-XXXX-XXXX-XXXX`) is generated on-device.
+  * A 16-character full Base-62 emergency key (`FAK-xxxx-xxxx-xxxx-xxxx`) is generated on-device.
   * The key is protected using an irreversible one-way Argon2id verifier hash on the device.
   * Operates on a strict **zero-knowledge** basis: because the key is not stored anywhere in reversible plaintext or sent to external servers, no third party can recover it if you lose both your master credentials and recovery key.
 

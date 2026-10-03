@@ -47,6 +47,12 @@ public class NotificationReceiver extends BroadcastReceiver {
             iconRes = android.R.drawable.ic_dialog_info;
         }
 
+        // Generic public summary shown on locked screens (no sensitive details)
+        NotificationCompat.Builder publicVersion = new NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(iconRes)
+            .setContentTitle("Finance-Ally")
+            .setContentText("Scheduled payment reminder");
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(iconRes)
             .setContentTitle(title)
@@ -54,7 +60,8 @@ public class NotificationReceiver extends BroadcastReceiver {
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion.build())
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent);

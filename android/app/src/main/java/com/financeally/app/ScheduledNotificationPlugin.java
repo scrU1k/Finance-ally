@@ -93,6 +93,7 @@ public class ScheduledNotificationPlugin extends Plugin {
                 }
             } catch (Exception ex) {
                 Log.e(TAG, "Final alarm fallback failed: " + ex.getMessage());
+                throw new RuntimeException("All alarm scheduling methods failed: " + ex.getMessage(), ex);
             }
         }
     }

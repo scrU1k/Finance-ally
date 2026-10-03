@@ -122,7 +122,7 @@ export const PinModal: React.FC<PinModalProps> = ({
                 type={showPin || mode === 'recover' || mode === 'recover-disable' ? 'text' : 'password'}
                 value={pin}
                 onChange={e => setPin(e.target.value)}
-                placeholder={mode === 'recover' || mode === 'recover-disable' ? 'USR-xxxx-xxxx-xxxx-xxxx' : '••••'}
+                placeholder={mode === 'recover' || mode === 'recover-disable' ? 'FAK-xxxx-xxxx-xxxx-xxxx' : '••••'}
                 autoFocus
                 className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-10 py-2 text-sm font-mono text-ink focus:outline-none focus:border-ink tracking-widest"
                 maxLength={mode === 'recover' || mode === 'recover-disable' ? 60 : 40}

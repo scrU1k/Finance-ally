@@ -37,13 +37,12 @@ export function normalizeRecoveryKey(raw: string): string {
 }
 
 /**
- * Generates a high-entropy 16-character full Base-62 recovery key with username prefix:
- * e.g. JOH-k7B2-9xLm-4PqR-v8Tw
+ * Generates a high-entropy 16-character full Base-62 recovery key with static non-identifying prefix:
+ * e.g. FAK-k7B2-9xLm-4PqR-v8Tw
  * This key is shown ONCE to the user and NEVER saved in plaintext or reversible form on the device.
  */
-export function generateRecoveryKey(username: string): string {
-  const cleanName = username.replace(/[^a-zA-Z0-9]/g, '');
-  const prefix = (cleanName.substring(0, 3) || 'USR').toUpperCase().padEnd(3, 'X');
+export function generateRecoveryKey(_username?: string): string {
+  const prefix = 'FAK';
   const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
   const rand = new Uint8Array(32);
   crypto.getRandomValues(rand);
@@ -170,8 +169,91 @@ export async function decryptPayloadWithRecovery(
  * Generates and initializes a new Global Recovery Key, saves its verifier hash,
  * and returns the key so it can be presented ONCE to the user.
  */
-export async function initializeGlobalRecoveryKey(username: string): Promise<string> {
-  const key = generateRecoveryKey(username);
+export async function initializeGlobalRecoveryKey(_username?: string): Promise<string> {
+  const key = generateRecoveryKey();
   await setGlobalRecoveryKeyVerifier(key);
   return key;
+}
+
+/**
+ * Atomically rotates the Global Recovery Key.
+ * Re-encrypts ALL dependent escrows (vault PIN, backup private key) under the new key BEFORE
+ * replacing the verifier. If ANY escrow migration fails, the rotation is aborted and the old
+ * verifier remains intact.
+ *
+ * @param oldKey - The current recovery key (needed to decrypt existing escrows)
+ * @param username - Optional username for the new key (now unused in prefix, kept for API compat)
+ * @returns The new recovery key string if rotation succeeded
+ * @throws Error if any escrow fails to migrate
+ */
+export async function rotateGlobalRecoveryKey(oldKey: string, _username?: string): Promise<string> {
+  const isOldValid = await verifyGlobalRecoveryKey(oldKey);
+  if (!isOldValid) {
+    throw new Error('Current Recovery Key is incorrect. Rotation aborted.');
+  }
+
+  const newKey = generateRecoveryKey();
+
+  // --- Stage 1: Migrate Vault PIN Escrow ---
+  const rawVaultEscrow = localStorage.getItem('fa_pwd_vault_recovery_escrow');
+  let newVaultEscrow: { ciphertext: string; iv: string; salt: string } | null = null;
+  if (rawVaultEscrow) {
+    try {
+      const oldEscrow = JSON.parse(rawVaultEscrow);
+      const vaultPin = await decryptPayloadWithRecovery(oldEscrow, oldKey);
+      newVaultEscrow = await encryptPayloadWithRecovery(vaultPin, newKey);
+    } catch {
+      throw new Error('Failed to migrate Vault PIN recovery escrow. Rotation aborted. Your current key remains valid.');
+    }
+  }
+
+  // --- Stage 2: Migrate Backup Private Key Escrow ---
+  const rawBackupKeys = localStorage.getItem('fa_export_pin');
+  let newBackupEscrow: { ciphertext: string; iv: string; salt: string } | null = null;
+  let parsedBackupKeys: Record<string, unknown> | null = null;
+  if (rawBackupKeys) {
+    try {
+      parsedBackupKeys = JSON.parse(rawBackupKeys);
+      const existingRecovery = (parsedBackupKeys as any)?.encryptedPrivateKeyRecovery;
+      if (existingRecovery) {
+        const rSalt = base64ToBuf(existingRecovery.salt);
+        const rIv = base64ToBuf(existingRecovery.iv);
+        const rData = base64ToBuf(existingRecovery.ciphertext);
+        const oldRKey = await deriveKeyFromRecovery(oldKey, rSalt);
+
+        let privateKeyPkcs8: ArrayBuffer;
+        try {
+          privateKeyPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: rIv }, oldRKey, rData);
+        } catch {
+          throw new Error('Failed to migrate Backup PIN recovery escrow. Rotation aborted. Your current key remains valid.');
+        }
+
+        // Re-encrypt with new key using PBKDF2 (same as setupExportPin)
+        const newSalt = crypto.getRandomValues(new Uint8Array(16)) as Uint8Array<ArrayBuffer>;
+        const newIv = crypto.getRandomValues(new Uint8Array(12)) as Uint8Array<ArrayBuffer>;
+        const newRKey = await deriveKeyFromRecovery(newKey, newSalt);
+        const newCipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: newIv }, newRKey, privateKeyPkcs8);
+        newBackupEscrow = {
+          ciphertext: bufToBase64(newCipherBuf),
+          iv: bufToBase64(newIv.buffer as ArrayBuffer),
+          salt: bufToBase64(newSalt.buffer as ArrayBuffer),
+        };
+      }
+    } catch (e: any) {
+      if (e?.message?.includes('Rotation aborted')) throw e;
+      // No existing backup escrow is OK — skip
+    }
+  }
+
+  // --- Commit: All escrows staged successfully — now write everything ---
+  if (newVaultEscrow) {
+    localStorage.setItem('fa_pwd_vault_recovery_escrow', JSON.stringify(newVaultEscrow));
+  }
+  if (newBackupEscrow && parsedBackupKeys) {
+    (parsedBackupKeys as any).encryptedPrivateKeyRecovery = newBackupEscrow;
+    localStorage.setItem('fa_export_pin', JSON.stringify(parsedBackupKeys));
+  }
+  await setGlobalRecoveryKeyVerifier(newKey);
+
+  return newKey;
 }

@@ -35,15 +35,46 @@ function persistLogs(logs: DiagnosticLogEntry[]): void {
   } catch {}
 }
 
-export function logDiagnosticError(context: string, error: unknown): void {
+export function sanitizeLogString(str: string): string {
+  if (!str) return '';
+  return str
+    // Redact Windows absolute user paths
+    .replace(/[a-zA-Z]:\\(?:Users|home)\\[^\s\\/]+/gi, '[USER_DIR]')
+    // Redact Unix/Mac user paths
+    .replace(/\/(?:Users|home)\/[^\s/]+/gi, '[USER_DIR]')
+    // Redact emails
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[REDACTED_EMAIL]')
+    // Redact recovery key pattern
+    .replace(/[A-Z0-9]{3,4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}/gi, '[REDACTED_KEY]');
+}
+
+export function logDiagnosticError(context: string, error: unknown, extra?: string | null): void {
   try {
     const logs = getStoredLogs();
+    let message = 'Unknown error';
+    let stack: string | undefined;
+
+    if (error instanceof Error) {
+      message = error.message;
+      stack = error.stack;
+    } else if (typeof error === 'object' && error !== null) {
+      const errObj = error as Record<string, any>;
+      message = errObj.message ? String(errObj.message) : JSON.stringify(errObj);
+      stack = errObj.stack ? String(errObj.stack) : errObj.componentStack ? String(errObj.componentStack) : undefined;
+    } else {
+      message = String(error);
+    }
+
+    if (extra) {
+      stack = stack ? `${stack}\nAdditional: ${extra}` : extra;
+    }
+
     const entry: DiagnosticLogEntry = {
       timestamp: new Date().toISOString(),
       level: 'error',
-      context,
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
+      context: sanitizeLogString(context),
+      message: sanitizeLogString(message),
+      stack: stack ? sanitizeLogString(stack) : undefined,
     };
     logs.push(entry);
     persistLogs(logs);
@@ -57,8 +88,8 @@ export function logDiagnosticWarn(context: string, message: string): void {
     const entry: DiagnosticLogEntry = {
       timestamp: new Date().toISOString(),
       level: 'warn',
-      context,
-      message,
+      context: sanitizeLogString(context),
+      message: sanitizeLogString(message),
     };
     logs.push(entry);
     persistLogs(logs);

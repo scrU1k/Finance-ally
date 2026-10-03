@@ -11,7 +11,7 @@ Finance-Ally is a private, beautifully crafted personal finance application desi
 ## Why Choose Finance-Ally?
 
 - **100% Local-First & Zero Cloud Lock-in**: All your transactions, trip budgets, credentials, and notes remain on your device in sandboxed IndexedDB and encrypted storage. No mandatory account signup, no cloud tracking, no analytics telemetry, and zero third-party data collection.
-- **Unified Global Recovery Key**: Single universal emergency recovery key (`<USER_PREFIX>-XXXX-XXXX-XXXX-XXXX`) protects all three security gates (Startup App Lock, Password Vault Master PIN, and Backup PIN). Easily change or recover forgotten PINs/passwords without losing your encrypted password cards or backup files.
+- **Unified Global Recovery Key**: Single universal emergency recovery key (`FAK-xxxx-xxxx-xxxx-xxxx`) protects all three security gates (Startup App Lock, Password Vault Master PIN, and Backup PIN). Easily change or recover forgotten PINs/passwords without losing your encrypted password cards or backups.
 - **Stunning Glassmorphic Interface**: Built with frosted glass surfaces, dynamic lighting, fluid micro-interactions, responsive mobile toolbars, and ambient glowing active tabs.
 - **Smart Natural Language Quick Logging**: Type expenses naturally (`450rs coffee 2nd aug 8pm`, `250 petrol tomorrow at 9a`, `1200 dinner at 8pn`) — Finance-Ally automatically parses the amount, date, time, category, and payment method with typo tolerance and calendar day validation.
 - **Multi-Currency Normalization**: Log transactions in multiple currencies (INR, USD, EUR, GBP, JPY, etc.). Monthly audits, smart suggestions, velocity charts, and natural language queries normalize amounts to your base currency using live or cached forex rates.
@@ -90,10 +90,10 @@ Emergency Fallback ("Forgot Password / PIN?"):
 ```
 
 - **Startup App Lock**: Optional PIN lock screen guarding the application UI from unauthorized access on shared devices.
-- **Unified Global Recovery Key**: A single emergency recovery key (`<USER_PREFIX>-XXXX-XXXX-XXXX-XXXX`) generated during setup allows resetting the App Lock, Vault Master PIN, or Backup PIN if forgotten.
+- **Unified Global Recovery Key**: A single emergency recovery key (`FAK-xxxx-xxxx-xxxx-xxxx`) generated during setup allows resetting the App Lock, Vault Master PIN, or Backup PIN if forgotten.
 - **Password Vault (Argon2id + AES-256-GCM)**: Sensitive credentials in the Password Manager are client-side encrypted with a dedicated Master PIN. An encrypted recovery escrow wrapper allows resetting a forgotten Master PIN without losing stored cards.
 - **Encrypted Backups & Local Snapshots**:
-  - Full database exports can be password-protected as `.json.enc` files via Argon2id (64 MiB memory, 3 iterations) and AES-256-GCM.
+  - Full database exports can be password-protected as `.json.enc` files via Argon2id (32 MiB memory, 3 iterations) and AES-256-GCM. Backups created with v3.1+ include recovery escrow support for emergency restoration with the Global Recovery Key.
   - Automated disaster recovery snapshots (`Daily`, `Weekly`, `Monthly`, or manual) store up to 5 snapshots in browser storage and native Android `Documents/` storage.
   - Snapshots are encrypted with AES-256-GCM when a Backup PIN is configured. If no Backup PIN is set, snapshots are stored as plaintext JSON and badged with an amber `PLAINTEXT` indicator in Settings.
 - **Zero Third-Party Telemetry & Clear Disclosures**:

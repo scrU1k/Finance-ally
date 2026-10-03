@@ -72,6 +72,7 @@ export interface HybridCryptoBundle {
   payloadIv: string;            // base64
   encryptedDek: string;         // base64 (RSA-OAEP of AES key)
   encryptedPrivateKey: EncryptedPrivateKey; // Allows portability to other devices
+  encryptedPrivateKeyRecovery?: EncryptedPrivateKey; // Allows recovery via Global Recovery Key
 }
 
 export async function compressGzip(data: Uint8Array): Promise<Uint8Array<ArrayBuffer>> {
@@ -428,7 +429,10 @@ export async function encryptHybridJSON(plaintext: string, compress = false): Pr
     encryptedPayload: bufToBase64(encryptedPayloadBuf),
     payloadIv: bufToBase64(payloadIv.buffer as ArrayBuffer),
     encryptedDek: bufToBase64(encryptedDekBuf),
-    encryptedPrivateKey: storedKeys.encryptedPrivateKey
+    encryptedPrivateKey: storedKeys.encryptedPrivateKey,
+    ...(storedKeys.encryptedPrivateKeyRecovery
+      ? { encryptedPrivateKeyRecovery: storedKeys.encryptedPrivateKeyRecovery }
+      : {})
   };
 
   return JSON.stringify(bundle);
@@ -564,3 +568,89 @@ export function isEncryptedBackup(jsonString: string): boolean {
 export async function encryptJSON(plaintext: string, _pin: string, compress = false): Promise<string> {
   return encryptHybridJSON(plaintext, compress);
 }
+
+/**
+ * Decrypts a Finance-Ally encrypted backup using the Global Recovery Key instead of the Backup PIN.
+ * Only works for bundles that include an encryptedPrivateKeyRecovery escrow (created with v3.1+).
+ * Uses PBKDF2 to derive the decryption key from the recovery key (same as setupExportPin).
+ */
+export async function decryptJSONWithRecoveryKey(
+  encryptedString: string,
+  recoveryKey: string
+): Promise<string> {
+  let parsed: any;
+  try {
+    parsed = JSON.parse(encryptedString);
+  } catch {
+    throw new Error('Corrupt backup file: Malformed or invalid JSON syntax.');
+  }
+
+  if (!parsed || (!parsed._fa_encrypted_v2 && !parsed._fa_encrypted_v3)) {
+    // Plain (unencrypted) backup — just return it
+    return encryptedString;
+  }
+
+  const bundle = parsed as HybridCryptoBundle;
+
+  if (!bundle.encryptedPrivateKeyRecovery) {
+    throw new Error(
+      'This backup was created without a Recovery Key escrow. ' +
+      'It can only be restored using its original Backup PIN. ' +
+      'Future backups will include a recovery escrow once your Recovery Key is configured.'
+    );
+  }
+
+  // 1. Decrypt private key using Recovery Key (PBKDF2-AES-GCM)
+  let privateKeyPkcs8: ArrayBuffer;
+  try {
+    const rSalt = base64ToBuf(bundle.encryptedPrivateKeyRecovery.salt);
+    const rIv = base64ToBuf(bundle.encryptedPrivateKeyRecovery.iv);
+    const rData = base64ToBuf(bundle.encryptedPrivateKeyRecovery.ciphertext);
+    const rAesKey = await deriveKeyPbkdf2(recoveryKey.trim(), rSalt);
+    privateKeyPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: rIv }, rAesKey, rData);
+  } catch {
+    throw new Error('Incorrect Recovery Key or corrupted recovery escrow in this backup file.');
+  }
+
+  // 2. Import Private Key
+  let privateKey: CryptoKey;
+  try {
+    privateKey = await crypto.subtle.importKey(
+      'pkcs8',
+      privateKeyPkcs8,
+      { name: 'RSA-OAEP', hash: 'SHA-256' },
+      false,
+      ['decrypt']
+    );
+  } catch {
+    throw new Error('Corrupt backup file: Invalid private key structure in recovery escrow.');
+  }
+
+  // 3. Decrypt DEK using Private Key
+  const encryptedDek = base64ToBuf(bundle.encryptedDek);
+  let dekRaw: ArrayBuffer;
+  try {
+    dekRaw = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, encryptedDek);
+  } catch {
+    throw new Error('Corrupt backup file: Failed to decrypt DEK with recovery key.');
+  }
+
+  // 4. Import DEK and Decrypt Payload
+  const dek = await crypto.subtle.importKey('raw', dekRaw, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const encryptedPayload = base64ToBuf(bundle.encryptedPayload);
+  const payloadIv = base64ToBuf(bundle.payloadIv);
+
+  let payloadBuf: ArrayBuffer;
+  try {
+    payloadBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: payloadIv }, dek, encryptedPayload);
+  } catch {
+    throw new Error('Backup file is corrupted or has been tampered with (AES-GCM integrity check failed).');
+  }
+
+  let rawBytes = new Uint8Array(payloadBuf) as Uint8Array<ArrayBuffer>;
+  if (bundle.compressed === 'gzip' || isGzipBytes(rawBytes)) {
+    rawBytes = await decompressGzip(rawBytes);
+  }
+  return new TextDecoder().decode(rawBytes);
+}
+

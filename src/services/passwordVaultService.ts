@@ -250,41 +250,60 @@ export async function recoverVaultMasterPin(recoveryKey: string, newPin: string)
     return false;
   }
 
+  const items = getStoredPasswordItems();
   const rawEscrow = localStorage.getItem(VAULT_RECOVERY_ESCROW_KEY);
+
   if (!rawEscrow) {
-    // If no escrow exists (e.g. legacy/fresh), set new master pin and initialize escrow
+    if (items.length > 0) {
+      // Cards exist but no escrow — resetting the PIN here would lock every card permanently.
+      throw new Error(
+        'Cannot recover: this vault has saved passwords but no recovery escrow was ever created. ' +
+        'Your passwords cannot be migrated automatically. Please use the Master PIN you originally set.'
+      );
+    }
+    // Empty vault — safe to bootstrap fresh
     await setMasterPin(newPin, recoveryKey);
     resetFailedPinAttempts();
     return true;
   }
 
+  // Decode the old PIN from escrow
+  let oldPin: string;
   try {
     const escrow = JSON.parse(rawEscrow);
-    const oldPin = await decryptPayloadWithRecovery(escrow, recoveryKey);
-
-    // Re-encrypt all stored password cards from oldPin to newPin
-    const items = getStoredPasswordItems();
-    const reEncryptedItems: PasswordVaultItem[] = [];
-    for (const item of items) {
-      try {
-        const card = await decryptCardPayload(item, oldPin);
-        const reEnc = await encryptCardPayload(card, newPin);
-        reEncryptedItems.push(reEnc);
-      } catch (err) {
-        console.warn('Card re-encryption failed during recovery:', item.id, err);
-        reEncryptedItems.push(item);
-      }
-    }
-    await savePasswordEnvelope(reEncryptedItems);
-
-    // Update verifier and update escrow with the new PIN
-    await setMasterPin(newPin, recoveryKey);
-    resetFailedPinAttempts();
-    return true;
-  } catch (err) {
-    console.error('Failed to recover vault master pin:', err);
-    return false;
+    oldPin = await decryptPayloadWithRecovery(escrow, recoveryKey);
+  } catch {
+    throw new Error('Recovery escrow could not be decrypted. The recovery key may not match the one used to create it.');
   }
+
+  // Stage ALL card re-encryptions in memory first — abort if any card fails
+  const staged: PasswordVaultItem[] = [];
+  for (const item of items) {
+    let card: DecryptedPasswordCard;
+    try {
+      card = await decryptCardPayload(item, oldPin);
+    } catch {
+      throw new Error(
+        `Recovery aborted: password card "${item.serviceName || item.id}" could not be decrypted with the recovered PIN. ` +
+        'No data has been changed.'
+      );
+    }
+    try {
+      const reEnc = await encryptCardPayload(card, newPin);
+      staged.push(reEnc);
+    } catch {
+      throw new Error(
+        `Recovery aborted: password card "${item.serviceName || item.id}" could not be re-encrypted. ` +
+        'No data has been changed.'
+      );
+    }
+  }
+
+  // All cards passed — now commit atomically
+  await savePasswordEnvelope(staged);
+  await setMasterPin(newPin, recoveryKey);
+  resetFailedPinAttempts();
+  return true;
 }
 
 export async function verifyMasterPin(pin: string): Promise<boolean> {
