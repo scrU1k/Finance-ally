@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Transaction, CurrencyCode, PeriodType } from '../types';
 import { loadTransactions, saveTransaction, deleteTransaction, loadSubscriptions } from '../services/db';
-import { getStoredForexRates, fetchLiveExchangeRates, switchAppBaseCurrency } from '../services/currency';
+import { getStoredForexRates, fetchLiveExchangeRates, switchAppBaseCurrency, convertCurrencyAmount } from '../services/currency';
 import { useAuth } from './AuthContext';
 import { useTrips } from './TripContext';
 import { useCategories } from './CategoryContext';
-import { isFutureDateTime } from '../utils/scheduledUtils';
+import { isPendingScheduledTx, isFutureDateTime } from '../utils/scheduledUtils';
+import { getLocalDateString, getWeekDateBounds, parseLocalDate } from '../utils/dateUtils';
 import { requestNotificationPermission, triggerScheduledPaymentNotification, scheduleFutureNativeNotification, cancelScheduledNotification } from '../services/notificationService';
 import { runStartupSync, triggerBackgroundBackup, scheduleModelRetraining, checkAndAutoSyncForex } from '../services/financeOrchestrator';
 
@@ -240,6 +241,63 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return transactions;
   }, [transactions, activeTripVault, includeTripExpensesInTimeline]);
 
+  const [topmostVisibleDate, setTopmostVisibleDate] = useState<string>('');
+
+  // Compute dynamic viewed total and label for the bottom bar and live spend charts based on topmostVisibleDate & period
+  const { viewedPeriodTotal, viewedPeriodLabel } = useMemo(() => {
+    const targetDateStr = topmostVisibleDate || getLocalDateString();
+    const targetDate = parseLocalDate(targetDateStr);
+
+    if (period === 'day') {
+      const dayTxs = filteredTransactions.filter(t => t.date === targetDateStr);
+      const total = dayTxs.reduce((sum, t) => {
+        if (isPendingScheduledTx(t)) return sum;
+        return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
+      }, 0);
+      const label = targetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      return { viewedPeriodTotal: total, viewedPeriodLabel: label };
+    }
+
+    if (period === 'week') {
+      const { monStr, sunStr, weekNo } = getWeekDateBounds(targetDateStr);
+      const [monY] = monStr.split('-').map(Number);
+      const weekTxs = filteredTransactions.filter(t => t.date >= monStr && t.date <= sunStr);
+      const total = weekTxs.reduce((sum, t) => {
+        if (isPendingScheduledTx(t)) return sum;
+        return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
+      }, 0);
+      return { viewedPeriodTotal: total, viewedPeriodLabel: `Week ${weekNo}, ${monY}` };
+    }
+
+    if (period === 'month') {
+      const monthPrefix = targetDateStr.substring(0, 7); // YYYY-MM
+      const monthTxs = filteredTransactions.filter(t => t.date.startsWith(monthPrefix));
+      const total = monthTxs.reduce((sum, t) => {
+        if (isPendingScheduledTx(t)) return sum;
+        return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
+      }, 0);
+      const label = targetDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      return { viewedPeriodTotal: total, viewedPeriodLabel: label };
+    }
+
+    if (period === 'year') {
+      const yearPrefix = targetDateStr.substring(0, 4); // YYYY
+      const yearTxs = filteredTransactions.filter(t => t.date.startsWith(yearPrefix));
+      const total = yearTxs.reduce((sum, t) => {
+        if (isPendingScheduledTx(t)) return sum;
+        return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
+      }, 0);
+      return { viewedPeriodTotal: total, viewedPeriodLabel: `Year ${yearPrefix}` };
+    }
+
+    // fallback for 'all'
+    const total = filteredTransactions.reduce((sum, t) => {
+      if (isPendingScheduledTx(t)) return sum;
+      return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
+    }, 0);
+    return { viewedPeriodTotal: total, viewedPeriodLabel: 'All Time' };
+  }, [topmostVisibleDate, period, filteredTransactions, baseCurrency, forexRates]);
+
   return (
     <TransactionContext.Provider
       value={{
@@ -258,11 +316,11 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         scheduledToast,
         dismissScheduledToast,
         undoScheduledActivation,
-        periodTotalSpent: 0,
-        viewedPeriodTotal: 0,
-        viewedPeriodLabel: '',
-        topmostVisibleDate: '',
-        setTopmostVisibleDate: () => {},
+        periodTotalSpent: viewedPeriodTotal,
+        viewedPeriodTotal,
+        viewedPeriodLabel,
+        topmostVisibleDate,
+        setTopmostVisibleDate,
       }}
     >
       {children}
