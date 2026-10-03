@@ -349,11 +349,12 @@ export const PasswordManagerTab: React.FC = () => {
       lastActivityTimeRef.current = Date.now();
     };
 
-    // Activity event listeners
-    window.addEventListener('mousemove', updateActivity);
-    window.addEventListener('keydown', updateActivity);
-    window.addEventListener('touchstart', updateActivity);
-    window.addEventListener('pointerdown', updateActivity);
+    // Activity event listeners (deliberate user actions, avoiding ambient mousemove jitter)
+    window.addEventListener('pointerdown', updateActivity, { passive: true });
+    window.addEventListener('keydown', updateActivity, { passive: true });
+    window.addEventListener('touchstart', updateActivity, { passive: true });
+    window.addEventListener('scroll', updateActivity, { passive: true });
+    window.addEventListener('wheel', updateActivity, { passive: true });
 
     // Auto-lock on app background / tab hidden
     const handleVisibilityChange = () => {
@@ -363,18 +364,19 @@ export const PasswordManagerTab: React.FC = () => {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Check inactivity every 5 seconds (3 minutes = 180,000ms threshold)
+    // Check inactivity every 4 seconds (3 minutes = 180,000ms threshold)
     autoLockTimerRef.current = setInterval(() => {
-      if (Date.now() - lastActivityTimeRef.current > 180000) {
+      if (Date.now() - lastActivityTimeRef.current >= 180000) {
         lockVault();
       }
-    }, 5000);
+    }, 4000);
 
     return () => {
-      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('pointerdown', updateActivity);
       window.removeEventListener('keydown', updateActivity);
       window.removeEventListener('touchstart', updateActivity);
-      window.removeEventListener('pointerdown', updateActivity);
+      window.removeEventListener('scroll', updateActivity);
+      window.removeEventListener('wheel', updateActivity);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (autoLockTimerRef.current) clearInterval(autoLockTimerRef.current);
     };

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { UserProfile, CurrencyCode } from '../types';
 import { getStoredUserProfile, createInitialUser, verifyUserPassword, saveUserProfile, changeUserPassword, recoverAppPassword } from '../services/auth';
 import { initializeGlobalRecoveryKey, hasGlobalRecoveryKey } from '../services/recoveryService';
@@ -86,8 +86,9 @@ export function resetSystemPickerBypass() {
   if (systemPickerTimeout) clearTimeout(systemPickerTimeout);
 }
 
-const BACKGROUND_LOCK_GRACE_PERIOD_MS = 180_000; // 3-minute grace period for switching apps in memory
-let lastBackgroundTimestamp: number | null = null;
+const INACTIVITY_AUTO_LOCK_MS = 180_000; // 3-minute inactivity threshold for auto-locking
+const LAST_ACTIVITY_KEY = 'fa_last_activity_time';
+const LAST_BACKGROUND_KEY = 'fa_last_background_time';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => getStoredUserProfile());
@@ -96,38 +97,99 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const existing = getStoredUserProfile();
     if (!existing) return false;
     // Password protection is required by default unless explicitly disabled
-    return existing.requirePassword === false;
+    if (existing.requirePassword === false) return true;
+
+    // Check if background or inactivity elapsed during prior session
+    try {
+      const bgRaw = localStorage.getItem(LAST_BACKGROUND_KEY);
+      if (bgRaw) {
+        const bgTime = parseInt(bgRaw, 10);
+        if (Date.now() - bgTime >= INACTIVITY_AUTO_LOCK_MS) {
+          return false;
+        }
+      }
+    } catch {}
+
+    return false;
   });
 
   // Lockout state — initialize from persisted storage
   const [lockoutState, setLockoutState] = useState<LockoutState>(() => getLockout());
 
-  // Listen for App Background / Foreground events (Capacitor native & Web visibilitychange)
+  // Ref tracking last user interaction timestamp in foreground
+  const lastActivityRef = useRef<number>(Date.now());
+
+  // Inactivity auto-lock and background/foreground handler
   useEffect(() => {
-    const handleBackground = () => {
-      if (isSystemPickerActive) return;
-      lastBackgroundTimestamp = Date.now();
+    // Update activity timestamp on user interaction
+    const updateActivity = () => {
+      lastActivityRef.current = Date.now();
+      try {
+        sessionStorage.setItem(LAST_ACTIVITY_KEY, lastActivityRef.current.toString());
+      } catch {}
     };
 
+    // User interaction listeners
+    window.addEventListener('pointerdown', updateActivity, { passive: true });
+    window.addEventListener('keydown', updateActivity, { passive: true });
+    window.addEventListener('touchstart', updateActivity, { passive: true });
+    window.addEventListener('scroll', updateActivity, { passive: true });
+    window.addEventListener('wheel', updateActivity, { passive: true });
+
+    // Handle backgrounding
+    const handleBackground = () => {
+      if (isSystemPickerActive) return;
+      const now = Date.now();
+      lastActivityRef.current = now;
+      try {
+        localStorage.setItem(LAST_BACKGROUND_KEY, now.toString());
+      } catch {}
+    };
+
+    // Handle returning to foreground
     const handleForeground = () => {
       if (isSystemPickerActive) {
-        lastBackgroundTimestamp = null;
+        try {
+          localStorage.removeItem(LAST_BACKGROUND_KEY);
+        } catch {}
         return;
       }
 
       const stored = getStoredUserProfile();
       if (!stored || stored.requirePassword === false) {
-        lastBackgroundTimestamp = null;
+        try {
+          localStorage.removeItem(LAST_BACKGROUND_KEY);
+        } catch {}
         return;
       }
 
-      if (lastBackgroundTimestamp !== null) {
-        const elapsed = Date.now() - lastBackgroundTimestamp;
-        // Lock only if minimized for 3 minutes (180,000 ms) or longer
-        if (elapsed >= BACKGROUND_LOCK_GRACE_PERIOD_MS) {
-          setIsUnlocked(false);
+      const now = Date.now();
+      let shouldLock = false;
+
+      // Check time spent in background
+      try {
+        const bgRaw = localStorage.getItem(LAST_BACKGROUND_KEY);
+        if (bgRaw) {
+          const bgTime = parseInt(bgRaw, 10);
+          if (now - bgTime >= INACTIVITY_AUTO_LOCK_MS) {
+            shouldLock = true;
+          }
         }
-        lastBackgroundTimestamp = null;
+      } catch {}
+
+      // Also check time since last user activity
+      if (now - lastActivityRef.current >= INACTIVITY_AUTO_LOCK_MS) {
+        shouldLock = true;
+      }
+
+      try {
+        localStorage.removeItem(LAST_BACKGROUND_KEY);
+      } catch {}
+
+      if (shouldLock) {
+        setIsUnlocked(false);
+      } else {
+        lastActivityRef.current = now;
       }
     };
 
@@ -158,11 +220,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // 3. Foreground Inactivity Auto-Lock Timer (Checks every 4 seconds)
+    const inactivityInterval = setInterval(() => {
+      if (isSystemPickerActive) return;
+      const stored = getStoredUserProfile();
+      if (!stored || stored.requirePassword === false) return;
+
+      const idle = Date.now() - lastActivityRef.current;
+      if (idle >= INACTIVITY_AUTO_LOCK_MS) {
+        setIsUnlocked(false);
+      }
+    }, 4000);
+
     return () => {
+      window.removeEventListener('pointerdown', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('touchstart', updateActivity);
+      window.removeEventListener('scroll', updateActivity);
+      window.removeEventListener('wheel', updateActivity);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(inactivityInterval);
       if (appStateListener) {
         appStateListener.remove();
       }
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -177,6 +257,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (success) {
       setIsUnlocked(true);
+      lastActivityRef.current = Date.now();
+      try {
+        sessionStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
+        localStorage.removeItem(LAST_BACKGROUND_KEY);
+      } catch {}
       // Clear lockout on success
       clearLockout();
       setLockoutState({ attempts: 0, lockedUntil: 0 });
