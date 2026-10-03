@@ -120,36 +120,92 @@
     --brand-lavender: #c2b8bf;
   }
 
-  /* Emerald Mint Theme Override */
+  /* Emerald Mint Theme (Matte, Light-on-Eyes, Muted Eucalyptus & Deep Pine) */
   .theme-emerald {
-    --canvas: rgba(4, 20, 13, 0.94);
-    --surface-card: rgba(8, 36, 25, 0.75);
-    --surface-soft: rgba(13, 53, 38, 0.65);
-    --ink: #e6f4ee;
-    --body: #9ccab6;
-    --muted: #4e806b;
-    --hairline: rgba(24, 72, 53, 0.85);
-    --brand-blue: #34d399;
-    --term-green: #34d399;
-    --brand-yellow: #fbbf24;
-    --brand-coral: #f87171;
-    --brand-purple: #a78bfa;
+    /* Day / Matte Muted Eucalyptus Tint */
+    --canvas: rgba(241, 245, 242, 0.98);
+    --surface-card: rgba(230, 237, 233, 0.92);
+    --surface-soft: rgba(220, 229, 224, 0.85);
+    --surface-dark: #1a2921;
+    --ink: #1a2921;
+    --body: #445c4f;
+    --muted: #6b8577;
+    --hairline: rgba(186, 203, 193, 0.85);
+    --hairline-soft: rgba(186, 203, 193, 0.45);
+
+    --brand-blue: #3b7b68;
+    --brand-mint: #4a9478;
+    --term-green: #43886d;
+    --brand-yellow: #bfa15c;
+    --brand-coral: #b6685f;
+    --brand-purple: #7d7392;
+    --brand-lavender: #a39bb8;
   }
 
-  /* Sunset Copper Theme Override */
+  /* Night / Matte Muted Deep Pine Slate */
+  .dark.theme-emerald,
+  .dark .theme-emerald {
+    --canvas: rgba(19, 26, 22, 0.98);
+    --surface-card: rgba(28, 38, 32, 0.92);
+    --surface-soft: rgba(38, 51, 44, 0.82);
+    --surface-dark: #0e1612;
+    --ink: #e8f1ec;
+    --body: #a2b8ad;
+    --muted: #6d8477;
+    --hairline: rgba(62, 84, 73, 0.65);
+    --hairline-soft: rgba(62, 84, 73, 0.35);
+
+    --brand-blue: #7bbca6;
+    --brand-mint: #8fd5ba;
+    --term-green: #8fd5ba;
+    --brand-yellow: #dbc07e;
+    --brand-coral: #d4877e;
+    --brand-purple: #a69ebd;
+    --brand-lavender: #c4bcd8;
+  }
+
+  /* Sunset Copper Theme (Matte, Light-on-Eyes, Muted Terracotta & Warm Clay) */
   .theme-sunset {
-    --canvas: rgba(18, 11, 9, 0.94);
-    --surface-card: rgba(32, 19, 15, 0.75);
-    --surface-soft: rgba(44, 27, 22, 0.65);
-    --ink: #fdf5f2;
-    --body: #d6b8b0;
-    --muted: #8c6a61;
-    --hairline: rgba(61, 38, 32, 0.85);
-    --brand-blue: #f97316;
-    --term-green: #4ade80;
-    --brand-yellow: #f59e0b;
-    --brand-coral: #ff5722;
-    --brand-purple: #c084fc;
+    /* Day / Matte Muted Bisque & Earthen Clay */
+    --canvas: rgba(248, 243, 239, 0.98);
+    --surface-card: rgba(239, 231, 224, 0.92);
+    --surface-soft: rgba(231, 221, 213, 0.85);
+    --surface-dark: #2d201c;
+    --ink: #2d201c;
+    --body: #5d4a43;
+    --muted: #8c736a;
+    --hairline: rgba(210, 193, 183, 0.85);
+    --hairline-soft: rgba(210, 193, 183, 0.45);
+
+    --brand-blue: #8b5b4a;
+    --brand-mint: #628673;
+    --term-green: #5e806e;
+    --brand-yellow: #c68a49;
+    --brand-coral: #be5a41;
+    --brand-purple: #896d84;
+    --brand-lavender: #ab92a7;
+  }
+
+  /* Night / Matte Muted Deep Terracotta Slate */
+  .dark.theme-sunset,
+  .dark .theme-sunset {
+    --canvas: rgba(26, 21, 19, 0.98);
+    --surface-card: rgba(38, 30, 28, 0.92);
+    --surface-soft: rgba(50, 40, 36, 0.82);
+    --surface-dark: #130e0c;
+    --ink: #f3ebe6;
+    --body: #baa79e;
+    --muted: #806c64;
+    --hairline: rgba(89, 70, 64, 0.65);
+    --hairline-soft: rgba(89, 70, 64, 0.35);
+
+    --brand-blue: #d0947f;
+    --brand-mint: #98b9a7;
+    --term-green: #98b9a7;
+    --brand-yellow: #dfa867;
+    --brand-coral: #e07960;
+    --brand-purple: #b89db2;
+    --brand-lavender: #d2bdce;
   }
 }
 
