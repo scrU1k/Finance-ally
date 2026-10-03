@@ -37,10 +37,9 @@ import {
   savePasswordEnvelope,
   isVaultBackup,
   recoverVaultMasterPin,
-  saveMasterPinRecoveryEscrow
+  hasMasterPinRecoveryEscrow
 } from '../../services/passwordVaultService';
 import {
-  initializeGlobalRecoveryKey,
   rotateGlobalRecoveryKey,
   hasGlobalRecoveryKey,
   verifyGlobalRecoveryKey
@@ -179,6 +178,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [pwdVaultOldPin, setPwdVaultOldPin] = useState('');
   const [pwdVaultNewPin, setPwdVaultNewPin] = useState('');
   const [pwdVaultConfirmPin, setPwdVaultConfirmPin] = useState('');
+  const [pwdVaultRecoveryKeyInput, setPwdVaultRecoveryKeyInput] = useState('');
   const [pwdVaultPinError, setPwdVaultPinError] = useState('');
   const [pwdVaultPinSuccess, setPwdVaultPinSuccess] = useState('');
 
@@ -210,6 +210,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       return;
     }
 
+    const hasEscrow = hasMasterPinRecoveryEscrow();
+    const enteredKey = pwdVaultRecoveryKeyInput.trim();
+
+    // If an escrow currently exists, require the recovery key to update it
+    if (exists && hasEscrow && !enteredKey) {
+      setPwdVaultPinError(
+        'Your vault has emergency recovery escrow enabled. Please enter your Global Recovery Key to refresh the escrow for your new Master PIN.'
+      );
+      return;
+    }
+
+    if (enteredKey) {
+      const isKeyValid = await verifyGlobalRecoveryKey(enteredKey);
+      if (!isKeyValid) {
+        setPwdVaultPinError('Invalid Global Recovery Key. Please check and re-enter.');
+        return;
+      }
+    }
+
     try {
       if (exists) {
         const items = getStoredPasswordItems();
@@ -221,12 +240,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         }
         await savePasswordEnvelope(reEncryptedItems);
       }
-      await setMasterPin(pwdVaultNewPin);
-      setPwdVaultPinSuccess(exists ? 'Master PIN updated successfully!' : 'Master PIN created successfully!');
+      const setOk = await setMasterPin(pwdVaultNewPin, enteredKey || undefined);
+      if (!setOk) {
+        throw new Error('Failed to update Master PIN');
+      }
+      setPwdVaultPinSuccess(
+        exists
+          ? (enteredKey ? 'Master PIN and recovery escrow updated successfully!' : 'Master PIN updated successfully!')
+          : (enteredKey ? 'Master PIN and recovery escrow created successfully!' : 'Master PIN created successfully!')
+      );
       setIsEditingPwdVaultPin(false);
       setPwdVaultOldPin('');
       setPwdVaultNewPin('');
       setPwdVaultConfirmPin('');
+      setPwdVaultRecoveryKeyInput('');
     } catch {
       setPwdVaultPinError('Failed to update Master PIN. Operation aborted.');
     }
@@ -691,32 +718,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   };
 
-  const handleSavePin = async (pin1: string, pin2?: string) => {
+  const handleSavePin = async (pin1: string, pin2?: string, recoveryKey?: string) => {
     setPinActionLoading(true);
     setPinActionError('');
     try {
+      if (recoveryKey) {
+        const isKeyValid = await verifyGlobalRecoveryKey(recoveryKey.trim());
+        if (!isKeyValid) {
+          setPinActionLoading(false);
+          setPinActionError('Invalid Global Recovery Key. Please re-check.');
+          return;
+        }
+      }
+
       if (showSetPinModal === 'set' || showSetPinModal === 'reset') {
         const username = user?.username || 'USER';
         if (showSetPinModal === 'set') {
-          await setupExportPin(pin1, username);
+          await setupExportPin(pin1, username, recoveryKey?.trim() || undefined);
         } else {
-          await resetExportPin(pin1, username);
+          await resetExportPin(pin1, username, recoveryKey?.trim() || undefined);
         }
         setPinEnabled(true);
-        setPinMsg(showSetPinModal === 'set' ? 'Backup encryption PIN set successfully!' : 'Backup PIN reset successfully. Old backups are orphaned.');
+        setPinMsg(
+          showSetPinModal === 'set'
+            ? (recoveryKey ? 'Backup password & recovery escrow set successfully!' : 'Backup password set successfully!')
+            : 'Backup password reset successfully.'
+        );
         setShowSetPinModal(null);
       } else if (showSetPinModal === 'change') {
         const ok = await changeExportPin(pin1, pin2!);
         if (ok) {
-          setPinMsg('Backup encryption PIN changed successfully!');
+          if (recoveryKey) {
+            const username = user?.username || 'USER';
+            await setupExportPin(pin2!, username, recoveryKey.trim());
+          }
+          setPinMsg('Backup password changed successfully!');
           setShowSetPinModal(null);
         } else {
-          setPinActionError('Incorrect Current PIN.');
+          setPinActionError('Incorrect Current Backup Password.');
         }
       } else if (showSetPinModal === 'recover') {
         const ok = await recoverExportPin(pin1, pin2!);
         if (ok) {
-          setPinMsg('Backup encryption PIN recovered and updated!');
+          setPinMsg('Backup password recovered and updated!');
           setShowSetPinModal(null);
         } else {
           setPinActionError('Invalid Recovery Key.');
@@ -1446,7 +1490,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         type="text"
                         value={appPasswordRecoveryKey}
                         onChange={e => setAppPasswordRecoveryKey(e.target.value)}
-                        placeholder="USR-xxxx-xxxx-xxxx-xxxx"
+                        placeholder="FAK-xxxx-xxxx-xxxx-xxxx"
                         required
                         className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink tracking-wider"
                       />
@@ -1671,7 +1715,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         type="text"
                         value={pwdVaultRecoveryKey}
                         onChange={e => setPwdVaultRecoveryKey(e.target.value)}
-                        placeholder="USR-xxxx-xxxx-xxxx-xxxx"
+                        placeholder="FAK-xxxx-xxxx-xxxx-xxxx"
                         required
                         className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink tracking-wider"
                       />
@@ -1758,6 +1802,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
                           />
                         </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-mono text-muted-custom uppercase flex justify-between">
+                          <span>Global Recovery Key {hasMasterPin() && hasMasterPinRecoveryEscrow() ? '(Required to update escrow)' : '(Recommended)'}</span>
+                          <span className="text-brand-purple lowercase font-normal">enables reset</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={pwdVaultRecoveryKeyInput}
+                          onChange={e => setPwdVaultRecoveryKeyInput(e.target.value)}
+                          placeholder="FAK-xxxx-xxxx-xxxx-xxxx"
+                          required={hasMasterPin() && hasMasterPinRecoveryEscrow()}
+                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink tracking-wider"
+                        />
+                        <p className="text-[9px] font-mono text-muted-custom mt-0.5">
+                          {hasMasterPin() && hasMasterPinRecoveryEscrow()
+                            ? 'Required so your emergency recovery escrow is re-encrypted with this new Master PIN.'
+                            : 'Links your recovery key to this vault so you can recover passwords if you forget this PIN.'}
+                        </p>
                       </div>
                     </div>
 
@@ -2511,18 +2575,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         {showSetPinModal && (
           <PinModal
             mode={showSetPinModal}
+            secretType="password"
             title={
-              showSetPinModal === 'set' ? 'Set Backup Encryption PIN' : 
-              showSetPinModal === 'change' ? 'Change Export PIN' : 
-              showSetPinModal === 'recover' ? 'Recover Export PIN' : 
+              showSetPinModal === 'set' ? 'Set Backup Password' : 
+              showSetPinModal === 'change' ? 'Change Backup Password' : 
+              showSetPinModal === 'recover' ? 'Recover Backup Password' : 
               showSetPinModal === 'disable' ? 'Disable Backup Encryption' :
-              showSetPinModal === 'recover-disable' ? 'Disable Backup Encryption' : 'Reset Export PIN'
+              showSetPinModal === 'recover-disable' ? 'Disable Backup Encryption' : 'Reset Backup Password'
             }
             description={
-              showSetPinModal === 'set' ? 'This PIN will AES-256 encrypt your backup exports.' :
-              showSetPinModal === 'change' ? 'Change your PIN securely without losing access to older backups.' :
-              showSetPinModal === 'recover' ? 'Enter your 16-character Recovery Key to securely set a new PIN.' :
-              showSetPinModal === 'disable' ? 'Enter your Current Backup PIN to authorize disabling backup encryption.' :
+              showSetPinModal === 'set' ? 'This password (processed with Argon2id + AES-256) will encrypt your backup exports. 6+ characters or passphrase recommended.' :
+              showSetPinModal === 'change' ? 'Change your backup password. Enter your Global Recovery Key to keep emergency recovery linked.' :
+              showSetPinModal === 'recover' ? 'Enter your 16-character Global Recovery Key to set a new Backup Password.' :
+              showSetPinModal === 'disable' ? 'Enter your Current Backup Password to authorize disabling backup encryption.' :
               showSetPinModal === 'recover-disable' ? 'Enter your 16-character Global Recovery Key to disable encryption.' : undefined
             }
             onConfirm={handleSavePin}
@@ -2539,11 +2604,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         {showVerifyPinModal && (
           <PinModal
             mode={isRecoveringBackupImport ? 'recover' : 'verify'}
-            title={isRecoveringBackupImport ? 'Restore with Recovery Key' : 'Enter Backup Encryption PIN'}
+            secretType="password"
+            title={isRecoveringBackupImport ? 'Restore with Recovery Key' : 'Enter Backup Password'}
             description={
               isRecoveringBackupImport
-                ? 'Enter your Global Recovery Key to decrypt this backup archive and set a new Backup PIN for future exports.'
-                : 'This backup is encrypted. Enter the correct PIN to decrypt and restore your data.'
+                ? 'Enter your Global Recovery Key to decrypt this backup archive and set a new Backup Password for future exports.'
+                : 'This backup is encrypted. Enter the correct password to decrypt and restore your data.'
             }
             onConfirm={isRecoveringBackupImport ? handleRecoveryImportAndSetPin : handleVerifyPinAndImport}
             onCancel={() => {

@@ -50,6 +50,7 @@ import {
   recoverVaultMasterPin
 } from '../../services/passwordVaultService';
 import { verifyUserPassword } from '../../services/auth';
+import { hasGlobalRecoveryKey, verifyGlobalRecoveryKey } from '../../services/recoveryService';
 import { suppressLockForSystemPicker, resetSystemPickerBypass } from '../../context/AuthContext';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -120,6 +121,7 @@ export const PasswordManagerTab: React.FC = () => {
   const [formPassword, setFormPassword] = useState('');
   const [formMasterPin, setFormMasterPin] = useState('');
   const [formConfirmPin, setFormConfirmPin] = useState('');
+  const [formRecoveryKey, setFormRecoveryKey] = useState('');
   const [formError, setFormError] = useState('');
 
   // Vault Master PIN Emergency Recovery State
@@ -790,7 +792,19 @@ export const PasswordManagerTab: React.FC = () => {
         setFormError('Master PINs do not match');
         return;
       }
-      await setMasterPin(formMasterPin);
+      const trimmedRecKey = formRecoveryKey.trim();
+      if (trimmedRecKey) {
+        const isKeyValid = await verifyGlobalRecoveryKey(trimmedRecKey);
+        if (!isKeyValid) {
+          setFormError('Invalid Global Recovery Key. Please verify or leave blank.');
+          return;
+        }
+      }
+      const ok = await setMasterPin(formMasterPin, trimmedRecKey || undefined);
+      if (!ok) {
+        setFormError('Failed to initialize Master PIN');
+        return;
+      }
       setHasPin(true);
     }
 
@@ -862,6 +876,7 @@ export const PasswordManagerTab: React.FC = () => {
     setFormPassword('');
     setFormMasterPin(vaultMasterPin);
     setFormConfirmPin('');
+    setFormRecoveryKey('');
     setFormError('');
     setIsAddModalOpen(true);
   };
@@ -869,6 +884,7 @@ export const PasswordManagerTab: React.FC = () => {
   const closeAddModal = () => {
     setIsAddModalOpen(false);
     setEditingItem(null);
+    setFormRecoveryKey('');
   };
 
   const closeDetailModal = () => {
@@ -1496,7 +1512,7 @@ export const PasswordManagerTab: React.FC = () => {
                     type="text"
                     value={vaultRecoveryKey}
                     onChange={e => { setVaultRecoveryKey(e.target.value); setVaultRecoveryError(''); }}
-                    placeholder="USR-xxxx-xxxx-xxxx-xxxx"
+                    placeholder="FAK-xxxx-xxxx-xxxx-xxxx"
                     autoFocus
                     required
                     className="w-full text-xs font-mono px-3 py-2 bg-surface-soft border border-hairline rounded-xl text-ink tracking-wider focus:outline-none focus:border-[#005687]"
@@ -1821,6 +1837,19 @@ export const PasswordManagerTab: React.FC = () => {
                       placeholder="Confirm Master PIN"
                       required
                       className="px-3 py-1.5 text-xs font-mono bg-surface-card border border-hairline rounded-lg text-ink"
+                    />
+                  </div>
+                  <div className="pt-1 space-y-1">
+                    <label className="text-[10px] font-mono text-muted-custom flex items-center justify-between">
+                      <span>Global Recovery Key {hasGlobalRecoveryKey() ? '(Recommended for escrow)' : '(Optional)'}</span>
+                      <span className="text-[9px] text-[#005687] dark:text-[#0088cc]">Enables PIN recovery</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formRecoveryKey}
+                      onChange={e => setFormRecoveryKey(e.target.value)}
+                      placeholder="FAK-xxxx-xxxx-xxxx-xxxx (optional)"
+                      className="w-full px-3 py-1.5 text-xs font-mono bg-surface-card border border-hairline rounded-lg text-ink"
                     />
                   </div>
                 </div>

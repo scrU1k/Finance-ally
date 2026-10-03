@@ -245,15 +245,33 @@ export async function rotateGlobalRecoveryKey(oldKey: string, _username?: string
     }
   }
 
-  // --- Commit: All escrows staged successfully — now write everything ---
-  if (newVaultEscrow) {
-    localStorage.setItem('fa_pwd_vault_recovery_escrow', JSON.stringify(newVaultEscrow));
+  // --- Commit: All escrows staged successfully — write atomically with rollback protection ---
+  const backupVaultEscrow = localStorage.getItem('fa_pwd_vault_recovery_escrow');
+  const backupExportPin = localStorage.getItem('fa_export_pin');
+  const backupVerifier = localStorage.getItem(VERIFIER_KEY);
+
+  try {
+    if (newVaultEscrow) {
+      localStorage.setItem('fa_pwd_vault_recovery_escrow', JSON.stringify(newVaultEscrow));
+    }
+    if (newBackupEscrow && parsedBackupKeys) {
+      (parsedBackupKeys as any).encryptedPrivateKeyRecovery = newBackupEscrow;
+      localStorage.setItem('fa_export_pin', JSON.stringify(parsedBackupKeys));
+    }
+    await setGlobalRecoveryKeyVerifier(newKey);
+  } catch (writeErr) {
+    // Revert all modified storage keys if any write fails
+    if (backupVaultEscrow !== null) localStorage.setItem('fa_pwd_vault_recovery_escrow', backupVaultEscrow);
+    else localStorage.removeItem('fa_pwd_vault_recovery_escrow');
+
+    if (backupExportPin !== null) localStorage.setItem('fa_export_pin', backupExportPin);
+    else localStorage.removeItem('fa_export_pin');
+
+    if (backupVerifier !== null) localStorage.setItem(VERIFIER_KEY, backupVerifier);
+    else localStorage.removeItem(VERIFIER_KEY);
+
+    throw new Error('Key rotation commit failed due to storage error. All escrows rolled back safely.');
   }
-  if (newBackupEscrow && parsedBackupKeys) {
-    (parsedBackupKeys as any).encryptedPrivateKeyRecovery = newBackupEscrow;
-    localStorage.setItem('fa_export_pin', JSON.stringify(parsedBackupKeys));
-  }
-  await setGlobalRecoveryKeyVerifier(newKey);
 
   return newKey;
 }

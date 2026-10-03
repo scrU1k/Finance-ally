@@ -6,8 +6,9 @@ interface PinModalProps {
   mode: 'verify' | 'set' | 'change' | 'recover' | 'reset' | 'disable' | 'recover-disable';
   title: string;
   description?: string;
-  // If mode is change or recover, onConfirm gets two strings (oldPin/recoveryKey, newPin)
-  onConfirm: (pin1: string, pin2?: string) => void;
+  secretType?: 'pin' | 'password';
+  // onConfirm passes (primarySecret, secondarySecret, recoveryKey)
+  onConfirm: (pin1: string, pin2?: string, recoveryKey?: string) => void;
   onCancel: () => void;
   onForgotPin?: () => void;
   loading?: boolean;
@@ -18,19 +19,24 @@ export const PinModal: React.FC<PinModalProps> = ({
   mode,
   title,
   description,
+  secretType = 'password',
   onConfirm,
   onCancel,
   onForgotPin,
   loading = false,
   error,
 }) => {
-  const [pin, setPin] = useState(''); // Serves as old PIN or Recovery Key in change/recover/recover-disable mode
+  const [pin, setPin] = useState(''); // Serves as password or old PIN or Recovery Key
   const [newPin, setNewPin] = useState(''); 
   const [confirmPin, setConfirmPin] = useState('');
+  const [recoveryKey, setRecoveryKey] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [localError, setLocalError] = useState('');
+
+  const isPassword = secretType === 'password';
+  const term = isPassword ? 'Password' : 'PIN';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,28 +44,28 @@ export const PinModal: React.FC<PinModalProps> = ({
 
     if (mode === 'verify' || mode === 'set' || mode === 'reset' || mode === 'disable' || mode === 'recover-disable') {
       if (!pin || (mode !== 'recover-disable' && pin.length < 4)) {
-        setLocalError(mode === 'recover-disable' ? 'Recovery Key is required.' : 'PIN must be at least 4 characters.');
+        setLocalError(mode === 'recover-disable' ? 'Recovery Key is required.' : `${term} must be at least 4 characters.`);
         return;
       }
       if ((mode === 'set' || mode === 'reset') && pin !== confirmPin) {
-        setLocalError('PINs do not match. Please re-check.');
+        setLocalError(`${term}s do not match. Please re-check.`);
         return;
       }
-      onConfirm(pin);
+      onConfirm(pin, confirmPin, recoveryKey.trim() || undefined);
     } else if (mode === 'change' || mode === 'recover') {
       if (!pin) {
-        setLocalError(mode === 'change' ? 'Current PIN is required.' : 'Recovery Key is required.');
+        setLocalError(mode === 'change' ? `Current ${term} is required.` : 'Recovery Key is required.');
         return;
       }
       if (!newPin || newPin.length < 4) {
-        setLocalError('New PIN must be at least 4 characters.');
+        setLocalError(`New ${term} must be at least 4 characters.`);
         return;
       }
       if (newPin !== confirmPin) {
-        setLocalError('New PINs do not match. Please re-check.');
+        setLocalError(`New ${term}s do not match. Please re-check.`);
         return;
       }
-      onConfirm(pin, newPin);
+      onConfirm(pin, newPin, recoveryKey.trim() || undefined);
     }
   };
 
@@ -106,14 +112,14 @@ export const PinModal: React.FC<PinModalProps> = ({
           <div className="space-y-1">
             <label className="text-[10px] font-mono text-muted-custom uppercase font-bold flex justify-between">
               <span>
-                {mode === 'verify' ? 'Enter Your Backup PIN' :
-                 mode === 'change' || mode === 'disable' ? 'Current Backup PIN' :
+                {mode === 'verify' ? `Enter Your Backup ${term}` :
+                 mode === 'change' || mode === 'disable' ? `Current Backup ${term}` :
                  mode === 'recover' || mode === 'recover-disable' ? 'Global Recovery Key' :
-                 'New PIN (min 4 characters)'}
+                 `New Backup ${term} (min 4 characters)`}
               </span>
               {(mode === 'change' || mode === 'verify' || mode === 'disable') && onForgotPin && (
                 <button type="button" onClick={onForgotPin} className="text-brand-blue hover:underline cursor-pointer">
-                  Forgot PIN?
+                  Forgot {term}?
                 </button>
               )}
             </label>
@@ -122,7 +128,7 @@ export const PinModal: React.FC<PinModalProps> = ({
                 type={showPin || mode === 'recover' || mode === 'recover-disable' ? 'text' : 'password'}
                 value={pin}
                 onChange={e => setPin(e.target.value)}
-                placeholder={mode === 'recover' || mode === 'recover-disable' ? 'FAK-xxxx-xxxx-xxxx-xxxx' : '••••'}
+                placeholder={mode === 'recover' || mode === 'recover-disable' ? 'FAK-xxxx-xxxx-xxxx-xxxx' : (isPassword ? 'Enter backup password...' : '••••')}
                 autoFocus
                 className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-10 py-2 text-sm font-mono text-ink focus:outline-none focus:border-ink tracking-widest"
                 maxLength={mode === 'recover' || mode === 'recover-disable' ? 60 : 40}
@@ -141,15 +147,15 @@ export const PinModal: React.FC<PinModalProps> = ({
 
           {isMultiInput && (
             <div className="space-y-1 pt-2">
-              <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">New PIN (min 4 characters)</label>
+              <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">New Backup {term} (min 4 characters)</label>
               <div className="relative">
                 <input
                   type={showNew ? 'text' : 'password'}
                   value={newPin}
                   onChange={e => setNewPin(e.target.value)}
-                  placeholder="••••"
+                  placeholder={isPassword ? 'Enter new backup password...' : '••••'}
                   className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-10 py-2 text-sm font-mono text-ink focus:outline-none focus:border-ink tracking-widest"
-                  maxLength={20}
+                  maxLength={40}
                 />
                 <button
                   type="button"
@@ -164,15 +170,15 @@ export const PinModal: React.FC<PinModalProps> = ({
 
           {(mode === 'set' || mode === 'change' || mode === 'recover' || mode === 'reset') && (
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Confirm PIN</label>
+              <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Confirm Backup {term}</label>
               <div className="relative">
                 <input
                   type={showConfirm ? 'text' : 'password'}
                   value={confirmPin}
                   onChange={e => setConfirmPin(e.target.value)}
-                  placeholder="••••"
+                  placeholder={isPassword ? 'Confirm password...' : '••••'}
                   className="w-full bg-surface-soft border border-hairline rounded-xl pl-3 pr-10 py-2 text-sm font-mono text-ink focus:outline-none focus:border-ink tracking-widest"
-                  maxLength={20}
+                  maxLength={40}
                 />
                 <button
                   type="button"
@@ -185,10 +191,32 @@ export const PinModal: React.FC<PinModalProps> = ({
             </div>
           )}
 
-          {(mode === 'set' || mode === 'reset' || mode === 'change' || mode === 'recover') && (
-            <p className="text-[10px] font-mono text-muted-custom/90 italic">
-              💡 Recommended: 6+ digits or a passphrase for maximum offline resistance.
-            </p>
+          {/* Optional Recovery Key input for automatic escrow linking */}
+          {(mode === 'set' || mode === 'change') && (
+            <div className="space-y-1 pt-1">
+              <label className="text-[10px] font-mono text-muted-custom uppercase font-bold flex justify-between">
+                <span>Global Recovery Key (Recommended)</span>
+                <span className="text-brand-blue lowercase font-normal">enables emergency reset</span>
+              </label>
+              <input
+                type="text"
+                value={recoveryKey}
+                onChange={e => setRecoveryKey(e.target.value)}
+                placeholder="FAK-xxxx-xxxx-xxxx-xxxx"
+                className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink focus:outline-none focus:border-ink tracking-wider"
+                maxLength={60}
+              />
+              <p className="text-[9px] font-mono text-muted-custom">
+                Links your recovery key to this backup so you can recover data even if you lose this password.
+              </p>
+            </div>
+          )}
+
+          {/* Real-time Strength Warning for secrets shorter than 6 characters */}
+          {(mode === 'set' || mode === 'reset' || mode === 'change') && (isMultiInput ? newPin : pin).length > 0 && (isMultiInput ? newPin : pin).length < 6 && (
+            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[10px] font-mono text-amber-600 dark:text-amber-400">
+              ⚠️ Short password: 6+ characters or a passphrase strongly recommended for maximum offline resistance against dictionary attacks.
+            </div>
           )}
 
           {displayError && (
@@ -210,9 +238,9 @@ export const PinModal: React.FC<PinModalProps> = ({
             >
               {loading ? 'Processing...' : (
                 mode === 'verify' ? 'Unlock & Import' : 
-                mode === 'change' || mode === 'recover' ? 'Update PIN' : 
-                mode === 'reset' ? 'Reset PIN' : 
-                mode === 'disable' || mode === 'recover-disable' ? 'Disable PIN' : 'Set PIN'
+                mode === 'change' || mode === 'recover' ? `Update ${term}` : 
+                mode === 'reset' ? `Reset ${term}` : 
+                mode === 'disable' || mode === 'recover-disable' ? `Disable ${term}` : `Set ${term}`
               )}
             </button>
           </div>

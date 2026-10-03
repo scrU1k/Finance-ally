@@ -148,7 +148,7 @@ export async function generateDiagnosticReport(): Promise<DiagnosticReport> {
     runtime: {
       platform: Capacitor.getPlatform(),
       isNative: Capacitor.isNativePlatform(),
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown',
+      userAgent: typeof navigator !== 'undefined' ? sanitizeLogString(navigator.userAgent) : 'Unknown',
       viewport: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'N/A',
       devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio : 1,
       language: typeof navigator !== 'undefined' ? navigator.language : 'en',
@@ -159,7 +159,13 @@ export async function generateDiagnosticReport(): Promise<DiagnosticReport> {
       tripCount,
       lastBackupTime,
     },
-    logs: getStoredLogs(),
+    // Scrub historical logs so entries recorded before sanitization was enabled are clean
+    logs: getStoredLogs().map(entry => ({
+      ...entry,
+      context: sanitizeLogString(entry.context),
+      message: sanitizeLogString(entry.message),
+      stack: entry.stack ? sanitizeLogString(entry.stack) : undefined,
+    })),
   };
 }
 

@@ -232,10 +232,32 @@ export async function saveMasterPinRecoveryEscrow(pin: string, recoveryKey: stri
 export async function setMasterPin(pin: string, recoveryKey?: string): Promise<boolean> {
   try {
     const verifier = await encryptPassword(MAGIC_STRING, pin, 'argon2id');
-    localStorage.setItem(VERIFIER_KEY, JSON.stringify(verifier));
+    let escrowPayload: any = null;
     if (recoveryKey) {
-      await saveMasterPinRecoveryEscrow(pin, recoveryKey);
+      escrowPayload = await encryptPayloadWithRecovery(pin, recoveryKey);
+      if (!escrowPayload) {
+        throw new Error('Failed to generate master pin recovery escrow');
+      }
     }
+
+    const prevVerifier = localStorage.getItem(VERIFIER_KEY);
+    const prevEscrow = localStorage.getItem(VAULT_RECOVERY_ESCROW_KEY);
+
+    try {
+      localStorage.setItem(VERIFIER_KEY, JSON.stringify(verifier));
+      if (escrowPayload) {
+        localStorage.setItem(VAULT_RECOVERY_ESCROW_KEY, JSON.stringify(escrowPayload));
+      }
+    } catch (writeErr) {
+      if (prevVerifier !== null) localStorage.setItem(VERIFIER_KEY, prevVerifier);
+      else localStorage.removeItem(VERIFIER_KEY);
+
+      if (prevEscrow !== null) localStorage.setItem(VAULT_RECOVERY_ESCROW_KEY, prevEscrow);
+      else localStorage.removeItem(VAULT_RECOVERY_ESCROW_KEY);
+
+      throw writeErr;
+    }
+
     resetFailedPinAttempts();
     return true;
   } catch (e) {
@@ -262,7 +284,8 @@ export async function recoverVaultMasterPin(recoveryKey: string, newPin: string)
       );
     }
     // Empty vault — safe to bootstrap fresh
-    await setMasterPin(newPin, recoveryKey);
+    const ok = await setMasterPin(newPin, recoveryKey);
+    if (!ok) throw new Error('Failed to initialize Master PIN');
     resetFailedPinAttempts();
     return true;
   }
@@ -299,9 +322,50 @@ export async function recoverVaultMasterPin(recoveryKey: string, newPin: string)
     }
   }
 
-  // All cards passed — now commit atomically
-  await savePasswordEnvelope(staged);
-  await setMasterPin(newPin, recoveryKey);
+  // Stage all payload objects in memory before writing to storage
+  const checksum = await calculateVaultChecksum(staged);
+  const envelope: PasswordVaultEnvelope = {
+    version: '2.2',
+    checksum,
+    items: staged
+  };
+  const envelopeStr = JSON.stringify(envelope);
+  const itemsStr = JSON.stringify(staged);
+
+  const newVerifier = await encryptPassword(MAGIC_STRING, newPin, 'argon2id');
+  const verifierStr = JSON.stringify(newVerifier);
+
+  const newEscrow = await encryptPayloadWithRecovery(newPin, recoveryKey);
+  const escrowStr = JSON.stringify(newEscrow);
+
+  // Snapshot existing storage values for atomic rollback
+  const backupEnvelope = localStorage.getItem(ENVELOPE_KEY);
+  const backupItems = localStorage.getItem(ITEMS_KEY);
+  const backupVerifier = localStorage.getItem(VERIFIER_KEY);
+  const backupEscrow = localStorage.getItem(VAULT_RECOVERY_ESCROW_KEY);
+
+  try {
+    localStorage.setItem(ENVELOPE_KEY, envelopeStr);
+    localStorage.setItem(ITEMS_KEY, itemsStr);
+    localStorage.setItem(VERIFIER_KEY, verifierStr);
+    localStorage.setItem(VAULT_RECOVERY_ESCROW_KEY, escrowStr);
+  } catch (writeErr) {
+    // Atomic rollback: restore every key to its previous state
+    if (backupEnvelope !== null) localStorage.setItem(ENVELOPE_KEY, backupEnvelope);
+    else localStorage.removeItem(ENVELOPE_KEY);
+
+    if (backupItems !== null) localStorage.setItem(ITEMS_KEY, backupItems);
+    else localStorage.removeItem(ITEMS_KEY);
+
+    if (backupVerifier !== null) localStorage.setItem(VERIFIER_KEY, backupVerifier);
+    else localStorage.removeItem(VERIFIER_KEY);
+
+    if (backupEscrow !== null) localStorage.setItem(VAULT_RECOVERY_ESCROW_KEY, backupEscrow);
+    else localStorage.removeItem(VAULT_RECOVERY_ESCROW_KEY);
+
+    throw new Error('Recovery atomic commit failed due to storage error. All password cards and verifier rolled back safely.');
+  }
+
   resetFailedPinAttempts();
   return true;
 }
