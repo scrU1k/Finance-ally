@@ -89,6 +89,7 @@ export function resetSystemPickerBypass() {
 const INACTIVITY_AUTO_LOCK_MS = 180_000; // 3-minute inactivity threshold for auto-locking
 const LAST_ACTIVITY_KEY = 'fa_last_activity_time';
 const LAST_BACKGROUND_KEY = 'fa_last_background_time';
+const SESSION_UNLOCKED_KEY = 'fa_session_unlocked';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => getStoredUserProfile());
@@ -99,18 +100,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Password protection is required by default unless explicitly disabled
     if (existing.requirePassword === false) return true;
 
-    // Check if background or inactivity elapsed during prior session
+    // Check if the current in-memory process session was previously unlocked
+    const isSessionActive = sessionStorage.getItem(SESSION_UNLOCKED_KEY) === 'true';
+    if (!isSessionActive) {
+      return false; // Cold start / process killed from RAM -> prompt password
+    }
+
+    // App is still in memory: verify whether the 3-minute grace period has elapsed
+    const now = Date.now();
     try {
       const bgRaw = localStorage.getItem(LAST_BACKGROUND_KEY);
       if (bgRaw) {
         const bgTime = parseInt(bgRaw, 10);
-        if (Date.now() - bgTime >= INACTIVITY_AUTO_LOCK_MS) {
+        if (now - bgTime >= INACTIVITY_AUTO_LOCK_MS) {
+          sessionStorage.removeItem(SESSION_UNLOCKED_KEY);
+          return false;
+        }
+      }
+      const actRaw = sessionStorage.getItem(LAST_ACTIVITY_KEY);
+      if (actRaw) {
+        const actTime = parseInt(actRaw, 10);
+        if (now - actTime >= INACTIVITY_AUTO_LOCK_MS) {
+          sessionStorage.removeItem(SESSION_UNLOCKED_KEY);
           return false;
         }
       }
     } catch {}
 
-    return false;
+    // Process is still in memory and within the 3-minute inactivity window -> remain logged in
+    return true;
   });
 
   // Lockout state — initialize from persisted storage
@@ -187,6 +205,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch {}
 
       if (shouldLock) {
+        try {
+          sessionStorage.removeItem(SESSION_UNLOCKED_KEY);
+        } catch {}
         setIsUnlocked(false);
       } else {
         lastActivityRef.current = now;
@@ -228,6 +249,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const idle = Date.now() - lastActivityRef.current;
       if (idle >= INACTIVITY_AUTO_LOCK_MS) {
+        try {
+          sessionStorage.removeItem(SESSION_UNLOCKED_KEY);
+        } catch {}
         setIsUnlocked(false);
       }
     }, 4000);
@@ -259,6 +283,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsUnlocked(true);
       lastActivityRef.current = Date.now();
       try {
+        sessionStorage.setItem(SESSION_UNLOCKED_KEY, 'true');
         sessionStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
         localStorage.removeItem(LAST_BACKGROUND_KEY);
       } catch {}
@@ -281,6 +306,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    try {
+      sessionStorage.removeItem(SESSION_UNLOCKED_KEY);
+    } catch {}
     setIsUnlocked(false);
   };
 
@@ -290,6 +318,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAccountCreatedAt(Date.now());
     setUser(newUser);
     setNeedsOnboarding(false);
+    try {
+      sessionStorage.setItem(SESSION_UNLOCKED_KEY, 'true');
+      sessionStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
+      localStorage.removeItem(LAST_BACKGROUND_KEY);
+    } catch {}
     setIsUnlocked(true);
   };
 
@@ -315,6 +348,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updated = { ...user, requirePassword: enabled };
       setUser(updated);
       saveUserProfile(updated);
+      try {
+        if (enabled) {
+          sessionStorage.removeItem(SESSION_UNLOCKED_KEY);
+        } else {
+          sessionStorage.setItem(SESSION_UNLOCKED_KEY, 'true');
+        }
+      } catch {}
       setIsUnlocked(!enabled);
     }
   };
