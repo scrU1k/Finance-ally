@@ -254,11 +254,11 @@ export const SubscriptionPage: React.FC = () => {
 
   const formatReminderText = (offset?: ReminderOffset) => {
     switch (offset) {
-      case '15m': return '15 minutes';
-      case '30m': return '30 minutes';
-      case '1h': return '1 hour';
-      case '4h': return '4 hours';
-      case '12h': return '12 hours';
+      case '15m': return '15min';
+      case '30m': return '30min';
+      case '1h': return '1hr';
+      case '4h': return '4hr';
+      case '12h': return '12hr';
       case '1d': return '1 day';
       case '2d': return '2 days';
       default: return null;
@@ -537,7 +537,7 @@ export const SubscriptionPage: React.FC = () => {
                         style={{ backgroundColor: catObj?.color || 'var(--color-brand-blue, #3b82f6)' }}
                       />
                       <span>
-                        Reminds {formatReminderText(sub.reminderOffset)} at {sub.dueTime || '09:00'}
+                        Reminds {formatReminderText(sub.reminderOffset)} before {sub.dueTime || '09:00'}
                       </span>
                     </div>
                   )}

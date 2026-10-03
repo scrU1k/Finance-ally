@@ -19,13 +19,16 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOp
   // New Category State
   const [newName, setNewName] = useState('');
   const [newLimit, setNewLimit] = useState('');
-  const [newColor, setNewColor] = useState('#ec4899');
+  const [newColor, setNewColor] = useState('#f472b6');
   const [showAddForm, setShowAddForm] = useState(false);
 
   const colorPalette = [
-    '#ee5f1c', '#f2b300', '#2b6be4', '#002688',
-    '#009efd', '#717171', '#ff0073', '#950000',
-    '#34d399', '#ec4899', '#8b5cf6', '#14b8a6'
+    '#f472b6', '#fb7185', '#e879f9', '#c026d3', '#831843',
+    '#c4b5fd', '#9333ea', '#7c3aed', '#6366f1', '#4338ca',
+    '#0284c7', '#38bdf8', '#06b6d4', '#475569', '#047857',
+    '#059669', '#10b981', '#14b8a6', '#0f766e', '#65a30d',
+    '#84cc16', '#f59e0b', '#d97706', '#ea580c', '#dc2626',
+    '#9a3412', '#78716c', '#b45309'
   ];
 
   if (!isOpen) return null;
@@ -123,15 +126,19 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOp
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-[10px] font-mono text-muted-custom uppercase font-bold block">Accent Color</label>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-2 px-1 -mx-1 scroll-smooth">
                 {colorPalette.map(c => (
                   <button
                     key={c}
                     type="button"
                     onClick={() => setNewColor(c)}
-                    className={`w-5 h-5 rounded-full border transition-transform cursor-pointer ${newColor === c ? 'scale-125 border-ink ring-2 ring-white/20' : 'border-hairline'}`}
+                    className={`w-6 h-6 rounded-full border transition-all cursor-pointer shrink-0 ${
+                      newColor === c
+                        ? 'scale-115 border-ink ring-2 ring-brand-purple/60 shadow-sm'
+                        : 'border-hairline hover:scale-105 opacity-85 hover:opacity-100'
+                    }`}
                     style={{ backgroundColor: c }}
                   />
                 ))}
@@ -201,15 +208,19 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOp
                       />
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-mono text-muted-custom uppercase font-bold block">Change Color Accent</label>
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-2 px-1 -mx-1 scroll-smooth">
                         {colorPalette.map(c => (
                           <button
                             key={c}
                             type="button"
                             onClick={() => setEditColor(c)}
-                            className={`w-5 h-5 rounded-full border transition-transform cursor-pointer ${editColor === c ? 'scale-125 border-ink ring-2 ring-white/20' : 'border-hairline'}`}
+                            className={`w-6 h-6 rounded-full border transition-all cursor-pointer shrink-0 ${
+                              editColor === c
+                                ? 'scale-115 border-ink ring-2 ring-brand-blue/60 shadow-sm'
+                                : 'border-hairline hover:scale-105 opacity-85 hover:opacity-100'
+                            }`}
                             style={{ backgroundColor: c }}
                           />
                         ))}
