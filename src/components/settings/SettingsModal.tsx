@@ -69,10 +69,7 @@ import {
   Check,
   Key,
   AlertTriangle,
-  FileText,
-  Sun,
-  Moon,
-  Sparkles
+  FileText
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -779,13 +776,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const defaultModeInfo = {
     label: defaultSubMode === 'light' ? 'Warm Light' : defaultSubMode === 'dark' ? 'Obsidian Dark' : 'Adaptive (Auto)',
     bg: defaultSubMode === 'light' ? '#fafaf7' : defaultSubMode === 'dark' ? '#0e0e0c' : 'linear-gradient(135deg, #0e0e0c 50%, #fafaf7 50%)',
-    icon: defaultSubMode === 'light' ? '☀️' : defaultSubMode === 'dark' ? '🌙' : '⚡',
   };
 
   const sereneModeInfo = {
     label: sereneSubMode === 'light' ? 'Light (Matte)' : sereneSubMode === 'dark' ? 'Dark (Matte)' : 'Adaptive (Auto)',
     bg: sereneSubMode === 'light' ? '#f2f0ec' : sereneSubMode === 'dark' ? '#1a1918' : 'linear-gradient(135deg, #1a1918 50%, #f2f0ec 50%)',
-    icon: sereneSubMode === 'light' ? '☀️' : sereneSubMode === 'dark' ? '🌙' : '⚡',
   };
 
   const fonts: { id: FontFamily; label: string; style: React.CSSProperties }[] = [
@@ -1159,18 +1154,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       e.stopPropagation();
                       toggleDefaultTheme();
                     }}
-                    className="px-3 py-2 flex items-center justify-center border-r border-hairline/70 hover:bg-surface-soft active:scale-95 transition-all cursor-pointer group/toggle shrink-0"
+                    className="px-3 py-2 flex items-center justify-center border-r border-hairline/70 rounded-l-xl hover:bg-surface-soft active:scale-95 transition-all cursor-pointer group/toggle shrink-0"
                     title={`Current: ${defaultModeInfo.label}. Click to toggle Light / Dark / Adaptive`}
                   >
-                    <div className="relative flex items-center justify-center">
-                      <span
-                        className="w-4 h-4 rounded-full border border-hairline shadow-2xs transition-transform group-hover/toggle:scale-110"
-                        style={{ background: defaultModeInfo.bg }}
-                      />
-                      <span className="absolute -bottom-1 -right-1.5 text-[8px] bg-surface-card border border-hairline rounded-full px-0.5 leading-none shadow-2xs">
-                        {defaultModeInfo.icon}
-                      </span>
-                    </div>
+                    <span
+                      className="w-4 h-4 rounded-full border border-hairline shadow-2xs transition-transform group-hover/toggle:scale-110"
+                      style={{ background: defaultModeInfo.bg }}
+                    />
                   </button>
 
                   {/* Right: Theme Name & Active Sub-Mode Label */}
@@ -1227,18 +1217,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       e.stopPropagation();
                       toggleSereneTheme();
                     }}
-                    className="px-3 py-2 flex items-center justify-center border-r border-hairline/70 hover:bg-surface-soft active:scale-95 transition-all cursor-pointer group/toggle shrink-0"
+                    className="px-3 py-2 flex items-center justify-center border-r border-hairline/70 rounded-l-xl hover:bg-surface-soft active:scale-95 transition-all cursor-pointer group/toggle shrink-0"
                     title={`Current: ${sereneModeInfo.label}. Click to toggle Light / Dark / Adaptive`}
                   >
-                    <div className="relative flex items-center justify-center">
-                      <span
-                        className="w-4 h-4 rounded-full border border-hairline shadow-2xs transition-transform group-hover/toggle:scale-110"
-                        style={{ background: sereneModeInfo.bg }}
-                      />
-                      <span className="absolute -bottom-1 -right-1.5 text-[8px] bg-surface-card border border-hairline rounded-full px-0.5 leading-none shadow-2xs">
-                        {sereneModeInfo.icon}
-                      </span>
-                    </div>
+                    <span
+                      className="w-4 h-4 rounded-full border border-hairline shadow-2xs transition-transform group-hover/toggle:scale-110"
+                      style={{ background: sereneModeInfo.bg }}
+                    />
                   </button>
 
                   {/* Right: Theme Name & Active Sub-Mode Label */}

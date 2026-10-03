@@ -107,9 +107,9 @@ export function getLocalAutoBackupConfig(): LocalAutoBackupConfig {
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
+        ...parsed,
         retentionLimit: parsed.retentionLimit === 5 ? 5 : 10,
         gzipCompression: !!parsed.gzipCompression,
-        ...parsed,
       };
     }
   } catch (e) {
@@ -134,7 +134,7 @@ export function saveLocalAutoBackupConfig(config: Partial<LocalAutoBackupConfig>
   const updated = { ...current, ...config };
   localStorage.setItem(CONFIG_KEY, JSON.stringify(updated));
   if (config.retentionLimit) {
-    pruneFilesystemSnapshots(config.retentionLimit).catch(() => {});
+    pruneFilesystemSnapshots(config.retentionLimit).catch((e) => console.warn('Pruning error:', e));
   }
   return updated;
 }
@@ -156,13 +156,23 @@ function saveSnapshotsList(list: LocalSnapshotMetadata[]) {
 }
 
 /**
+ * Safely extracts a string filename from readdir results across Capacitor versions.
+ */
+export function getEntryName(item: any): string {
+  if (typeof item === 'string') return item;
+  if (item && typeof item === 'object' && typeof item.name === 'string') return item.name;
+  return '';
+}
+
+/**
  * Extracts a dependable timestamp from a snapshot file's name and metadata.
  * Ensures newest-first ordering even if Android filesystem readdir omits mtime.
  */
-export function getFileTime(f: { name: string; mtime?: number }): number {
-  if (f.mtime && f.mtime > 0) return f.mtime;
+export function getFileTime(f: any): number {
+  if (f && typeof f === 'object' && typeof f.mtime === 'number' && f.mtime > 0) return f.mtime;
+  const name = getEntryName(f);
   // Match fa_autobackup_YYYY-MM-DD_1727891234567 or fa_autobackup_YYYY-MM-DD_1234
-  const match = f.name.match(/fa_autobackup_(\d{4}-\d{2}-\d{2})(?:_(\d+))?/);
+  const match = name.match(/fa_autobackup_(\d{4}-\d{2}-\d{2})(?:_(\d+))?/);
   if (match) {
     const datePart = match[1];
     const suffix = match[2];
@@ -186,8 +196,10 @@ export async function pruneFilesystemSnapshots(retentionLimit: number): Promise<
 
   const locations = [
     { path: 'Finance-Ally/Snapshots', dir: Directory.Documents },
+    { path: 'Snapshots', dir: Directory.Documents },
+    { path: 'Finance-Ally', dir: Directory.Documents },
+    { path: 'Finance-Ally/Snapshots', dir: Directory.Data },
     { path: '', dir: Directory.Cache },
-    { path: 'Finance-Ally', dir: Directory.Documents }
   ];
 
   for (const loc of locations) {
@@ -197,27 +209,34 @@ export async function pruneFilesystemSnapshots(retentionLimit: number): Promise<
         directory: loc.dir,
       });
 
-      const snapshotFiles = res.files.filter(f =>
-        f.name.startsWith('fa_autobackup_') && (f.name.endsWith('.json') || f.name.endsWith('.json.enc'))
-      );
+      if (!res || !Array.isArray(res.files)) continue;
+
+      const snapshotFiles = res.files.filter(f => {
+        const name = getEntryName(f);
+        return name.startsWith('fa_autobackup_') && (name.endsWith('.json') || name.endsWith('.json.enc') || name.endsWith('.gz'));
+      });
 
       if (snapshotFiles.length > retentionLimit) {
         snapshotFiles.sort((a, b) => getFileTime(b) - getFileTime(a));
         const surplus = snapshotFiles.slice(retentionLimit);
         for (const file of surplus) {
-          const filePath = loc.path ? `${loc.path}/${file.name}` : file.name;
+          const fileName = getEntryName(file);
+          if (!fileName) continue;
+          const filePath = loc.path ? `${loc.path}/${fileName}` : fileName;
           try {
             await Filesystem.deleteFile({
               path: filePath,
               directory: loc.dir,
             });
-            console.log(`Pruned surplus snapshot from filesystem: ${filePath}`);
+            console.log(`[Auto-Backup] Pruned surplus snapshot from filesystem: ${filePath}`);
           } catch (e) {
-            console.warn(`Could not delete surplus snapshot: ${filePath}`, e);
+            console.warn(`[Auto-Backup] Could not delete surplus snapshot: ${filePath}`, e);
           }
         }
       }
-    } catch {}
+    } catch (locErr) {
+      // Directory may not exist in this particular location, ignore silently
+    }
   }
 }
 
@@ -233,15 +252,18 @@ export async function syncSnapshotsFromFilesystem(): Promise<LocalSnapshotMetada
     // 1. Physically prune surplus files on disk first
     await pruneFilesystemSnapshots(limit);
 
-    // 2. Read current files
+    // 2. Read current files from primary snapshot directory
     const res = await Filesystem.readdir({
       path: 'Finance-Ally/Snapshots',
       directory: Directory.Documents,
     });
 
-    const validFiles = res.files.filter(f =>
-      f.name.startsWith('fa_autobackup_') && (f.name.endsWith('.json') || f.name.endsWith('.json.enc'))
-    );
+    if (!res || !Array.isArray(res.files)) return getLocalSnapshots().slice(0, limit);
+
+    const validFiles = res.files.filter(f => {
+      const name = getEntryName(f);
+      return name.startsWith('fa_autobackup_') && (name.endsWith('.json') || name.endsWith('.json.enc') || name.endsWith('.gz'));
+    });
     if (validFiles.length === 0) return getLocalSnapshots().slice(0, limit);
 
     // Sort newest first
@@ -251,15 +273,17 @@ export async function syncSnapshotsFromFilesystem(): Promise<LocalSnapshotMetada
 
     // Rebuild metadata array for the kept files
     const rebuilt: LocalSnapshotMetadata[] = keptFiles.map((f, i) => {
+      const fileName = getEntryName(f);
       const timeMs = getFileTime(f) || Date.now();
       const timestamp = new Date(timeMs).toLocaleString();
+      const fileSize = (typeof f === 'object' && f && typeof f.size === 'number') ? f.size : 0;
       return {
         id: `snap_recovered_${timeMs}_${i}`,
-        filename: f.name,
+        filename: fileName,
         timestamp,
         schedule: 'off' as LocalSyncSchedule,
-        isEncrypted: f.name.endsWith('.json.enc'),
-        sizeBytes: f.size || 0,
+        isEncrypted: fileName.endsWith('.json.enc'),
+        sizeBytes: fileSize,
       };
     });
 
@@ -268,11 +292,12 @@ export async function syncSnapshotsFromFilesystem(): Promise<LocalSnapshotMetada
     const merged: LocalSnapshotMetadata[] = [];
 
     for (const k of keptFiles) {
-      const match = existing.find(e => e.filename === k.name);
+      const fileName = getEntryName(k);
+      const match = existing.find(e => e.filename === fileName);
       if (match) {
         merged.push(match);
       } else {
-        const r = rebuilt.find(rb => rb.filename === k.name);
+        const r = rebuilt.find(rb => rb.filename === fileName);
         if (r) merged.push(r);
       }
     }

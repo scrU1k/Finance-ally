@@ -206,3 +206,29 @@ export async function cancelSubscriptionReminder(subId: string): Promise<void> {
   }
 }
 
+/**
+ * Synchronizes all upcoming scheduled payments and subscription reminders with the native OS alarm manager.
+ * Ensures native alarms are always active even if the app was closed or device was rebooted.
+ */
+export async function syncAllFutureNotifications(
+  transactions: Transaction[],
+  subscriptions: Subscription[],
+  categories: { id: string; name: string }[],
+  baseCurrency: CurrencyCode
+): Promise<void> {
+  // 1. Sync future scheduled transactions
+  for (const tx of transactions) {
+    if (tx.isScheduled && tx.date) {
+      await scheduleFutureNativeNotification(tx, baseCurrency);
+    }
+  }
+
+  // 2. Sync future subscription reminders
+  for (const sub of subscriptions) {
+    if (sub.reminderOffset && sub.reminderOffset !== 'none') {
+      const cat = categories.find(c => c.id === sub.categoryId);
+      await scheduleSubscriptionReminder(sub, cat?.name || 'General', baseCurrency);
+    }
+  }
+}
+

@@ -24,6 +24,7 @@ public class ScheduledNotificationPlugin extends Plugin {
 
     /**
      * Schedule a notification at an exact future timestamp.
+     * Uses AlarmClock / ExactAlarm so it reliably fires when the app is closed or device is in Doze.
      * Called from JS as: ScheduledNotification.scheduleNotification({ id, title, body, timestamp })
      */
     @PluginMethod
@@ -47,17 +48,9 @@ public class ScheduledNotificationPlugin extends Plugin {
         }
 
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-                // Fall back to inexact alarm if exact not allowed
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timestamp, pendingIntent);
-                Log.d(TAG, "Scheduled inexact alarm at " + timestamp + " for id=" + id);
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timestamp, pendingIntent);
-                Log.d(TAG, "Scheduled exact alarm at " + timestamp + " for id=" + id);
-            } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, timestamp, pendingIntent);
-                Log.d(TAG, "Scheduled exact alarm (pre-M) at " + timestamp + " for id=" + id);
-            }
+            setExactOrClockAlarm(context, alarmManager, timestamp, pendingIntent, id);
+            // Persist to AlarmStore so it survives device reboot!
+            AlarmStore.saveAlarm(context, id, title, body, timestamp);
 
             JSObject result = new JSObject();
             result.put("success", true);
@@ -65,6 +58,42 @@ public class ScheduledNotificationPlugin extends Plugin {
         } catch (Exception e) {
             Log.e(TAG, "Failed to schedule alarm: " + e.getMessage());
             call.reject("Failed to schedule alarm: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Dispatches exact alarms using setAlarmClock or setExactAndAllowWhileIdle.
+     * setAlarmClock does NOT require SCHEDULE_EXACT_ALARM permission on Android 12/13/14+
+     * and is guaranteed to wake the device from deep sleep/Doze mode even when app is killed.
+     */
+    public static void setExactOrClockAlarm(Context context, AlarmManager alarmManager, long timestamp, PendingIntent pendingIntent, int id) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timestamp, pendingIntent);
+                Log.d(TAG, "Scheduled exact alarm via setExactAndAllowWhileIdle at " + timestamp + " for id=" + id);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                // setAlarmClock is an exact alarm exempt from exact alarm restrictions
+                AlarmManager.AlarmClockInfo clockInfo = new AlarmManager.AlarmClockInfo(timestamp, pendingIntent);
+                alarmManager.setAlarmClock(clockInfo, pendingIntent);
+                Log.d(TAG, "Scheduled exact alarm via setAlarmClock at " + timestamp + " for id=" + id);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timestamp, pendingIntent);
+            } else {
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, timestamp, pendingIntent);
+            }
+        } catch (SecurityException se) {
+            Log.w(TAG, "Exact alarm permission restricted, falling back to setAlarmClock: " + se.getMessage());
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    AlarmManager.AlarmClockInfo clockInfo = new AlarmManager.AlarmClockInfo(timestamp, pendingIntent);
+                    alarmManager.setAlarmClock(clockInfo, pendingIntent);
+                    Log.d(TAG, "Fallback setAlarmClock scheduled at " + timestamp + " for id=" + id);
+                } else {
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, timestamp, pendingIntent);
+                }
+            } catch (Exception ex) {
+                Log.e(TAG, "Final alarm fallback failed: " + ex.getMessage());
+            }
         }
     }
 
@@ -108,14 +137,18 @@ public class ScheduledNotificationPlugin extends Plugin {
             alarmManager.cancel(pendingIntent);
         }
 
+        // Remove from persistent store
+        AlarmStore.removeAlarm(context, id);
+
         Log.d(TAG, "Cancelled notification id=" + id);
         JSObject result = new JSObject();
         result.put("success", true);
         call.resolve(result);
     }
 
-    private Intent buildNotifIntent(Context context, int id, String title, String body) {
+    public static Intent buildNotifIntent(Context context, int id, String title, String body) {
         Intent intent = new Intent(context, NotificationReceiver.class);
+        intent.setAction("com.financeally.app.NOTIFICATION_" + id);
         intent.putExtra("title", title);
         intent.putExtra("body", body);
         intent.putExtra("notifId", id);

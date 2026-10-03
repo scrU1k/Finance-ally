@@ -26,22 +26,35 @@ public class NotificationReceiver extends BroadcastReceiver {
 
         Log.d(TAG, "Firing scheduled notification: " + title);
 
+        // Remove from persistent store since it has fired
+        AlarmStore.removeAlarm(context, notifId);
+
         // Create channel if needed
         createChannelIfNeeded(context);
 
         // Launch app on tap
         Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+        if (launchIntent != null) {
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        }
         PendingIntent pendingIntent = PendingIntent.getActivity(
             context, notifId, launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
+        int iconRes = context.getApplicationInfo().icon;
+        if (iconRes == 0) {
+            iconRes = android.R.drawable.ic_dialog_info;
+        }
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(iconRes)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent);

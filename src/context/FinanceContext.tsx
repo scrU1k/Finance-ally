@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Transaction, Category, Trip, CurrencyCode, PeriodType } from '../types';
-import { loadTransactions, saveTransaction, deleteTransaction, loadCategories, saveCategory, deleteCategory, loadTrips, saveTrip, deleteTrip } from '../services/db';
+import { loadTransactions, saveTransaction, deleteTransaction, loadCategories, saveCategory, deleteCategory, loadTrips, saveTrip, deleteTrip, loadSubscriptions } from '../services/db';
 import { getStoredForexRates, fetchLiveExchangeRates, switchAppBaseCurrency, convertCurrencyAmount } from '../services/currency';
 import { useAuth } from './AuthContext';
 import { isPendingScheduledTx, isFutureDateTime } from '../utils/scheduledUtils';
-import { requestNotificationPermission, triggerScheduledPaymentNotification, scheduleFutureNativeNotification, cancelScheduledNotification } from '../services/notificationService';
+import { requestNotificationPermission, triggerScheduledPaymentNotification, scheduleFutureNativeNotification, cancelScheduledNotification, syncAllFutureNotifications } from '../services/notificationService';
 import { trainModel } from '../services/localInferenceEngine';
-import { checkAndPerformLocalAutoBackup } from '../services/localAutoBackupService';
+import { checkAndPerformLocalAutoBackup, pruneFilesystemSnapshots, getRetentionLimit } from '../services/localAutoBackupService';
 import { getLocalDateString, getWeekDateBounds, parseLocalDate } from '../utils/dateUtils';
 
 interface FinanceContextType {
@@ -99,9 +99,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const txs = await loadTransactions();
     const cats = await loadCategories();
     const trps = await loadTrips();
+    const subs = await loadSubscriptions();
     setTransactions(txs);
     setCategories(cats);
     setTrips(trps);
+
+    // Auto backup & file pruning on startup
+    checkAndPerformLocalAutoBackup(txs.length).catch(() => {});
+    pruneFilesystemSnapshots(getRetentionLimit()).catch(() => {});
+
+    // Sync all upcoming native alarms (payments & subscriptions)
+    syncAllFutureNotifications(txs, subs, cats, baseCurrency).catch(() => {});
   };
 
   useEffect(() => {
