@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useFinance } from '../../context/FinanceContext';
-import { Subscription, CurrencyCode } from '../../types';
+import { Subscription, CurrencyCode, ReminderOffset } from '../../types';
 import { loadSubscriptions, saveSubscription, deleteSubscription as dbDeleteSub } from '../../services/db';
-import { triggerSystemNotification } from '../../services/notificationService';
+import { triggerSystemNotification, scheduleSubscriptionReminder, cancelSubscriptionReminder } from '../../services/notificationService';
 import { formatCurrency, TOP_CURRENCIES } from '../../services/currency';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { CustomDatePicker } from '../common/CustomDatePicker';
@@ -21,14 +21,24 @@ export const SubscriptionPage: React.FC = () => {
   const [currency, setCurrency] = useState<CurrencyCode>(baseCurrency);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'bi-monthly' | 'tri-monthly' | 'annually'>('monthly');
   const [nextDueDate, setNextDueDate] = useState(getLocalDateString());
+  const [dueTime, setDueTime] = useState('09:00');
+  const [reminderOffset, setReminderOffset] = useState<ReminderOffset>('none');
   const [categoryId, setCategoryId] = useState(categories[0]?.id || 'cat-housing');
   const [paymentMethod, setPaymentMethod] = useState('Bank Auto-Debit');
 
   const formRef = useRef<HTMLFormElement | null>(null);
 
   useEffect(() => {
-    loadSubscriptions().then(setSubscriptions);
-  }, []);
+    loadSubscriptions().then(subs => {
+      setSubscriptions(subs);
+      subs.forEach(s => {
+        if (s.reminderOffset && s.reminderOffset !== 'none') {
+          const cat = categories.find(c => c.id === s.categoryId);
+          scheduleSubscriptionReminder(s, cat?.name || 'General', baseCurrency);
+        }
+      });
+    });
+  }, [categories, baseCurrency]);
 
   useEffect(() => {
     if (showAddForm && formRef.current) {
@@ -46,6 +56,8 @@ export const SubscriptionPage: React.FC = () => {
     setCurrency(sub.currency);
     setBillingCycle(sub.billingCycle);
     setNextDueDate(sub.nextDueDate);
+    setDueTime(sub.dueTime || '09:00');
+    setReminderOffset(sub.reminderOffset || 'none');
     setCategoryId(sub.categoryId);
     setPaymentMethod(sub.paymentMethod);
     setEditingSubId(sub.id);
@@ -66,6 +78,8 @@ export const SubscriptionPage: React.FC = () => {
         currency,
         billingCycle,
         nextDueDate,
+        dueTime,
+        reminderOffset,
         categoryId,
         paymentMethod,
         autoLog: true,
@@ -74,6 +88,13 @@ export const SubscriptionPage: React.FC = () => {
       };
 
       await saveSubscription(updatedSub);
+      const cat = categories.find(c => c.id === updatedSub.categoryId);
+      if (updatedSub.reminderOffset && updatedSub.reminderOffset !== 'none') {
+        await scheduleSubscriptionReminder(updatedSub, cat?.name || 'General', baseCurrency);
+      } else {
+        await cancelSubscriptionReminder(updatedSub.id);
+      }
+
       setSubscriptions(prev => prev.map(s => s.id === editingSubId ? updatedSub : s));
       setEditingSubId(null);
     } else {
@@ -84,6 +105,8 @@ export const SubscriptionPage: React.FC = () => {
         currency,
         billingCycle,
         nextDueDate,
+        dueTime,
+        reminderOffset,
         categoryId,
         paymentMethod,
         autoLog: true,
@@ -91,15 +114,23 @@ export const SubscriptionPage: React.FC = () => {
       };
 
       await saveSubscription(newSub);
+      const cat = categories.find(c => c.id === newSub.categoryId);
+      if (newSub.reminderOffset && newSub.reminderOffset !== 'none') {
+        await scheduleSubscriptionReminder(newSub, cat?.name || 'General', baseCurrency);
+      }
+
       setSubscriptions(prev => [newSub, ...prev]);
     }
 
     setName('');
     setAmount('');
+    setDueTime('09:00');
+    setReminderOffset('none');
     setShowAddForm(false);
   };
 
   const handleDeleteSub = async (id: string) => {
+    await cancelSubscriptionReminder(id);
     await dbDeleteSub(id);
     setSubscriptions(prev => prev.filter(s => s.id !== id));
   };
@@ -167,6 +198,10 @@ export const SubscriptionPage: React.FC = () => {
           const newDateStr = advanceDueDate(sub.nextDueDate, sub.billingCycle);
           sub = { ...sub, nextDueDate: newDateStr, lastProcessedDate: today };
           await saveSubscription(sub);
+          if (sub.reminderOffset && sub.reminderOffset !== 'none') {
+            const cat = categories.find(c => c.id === sub.categoryId);
+            await scheduleSubscriptionReminder(sub, cat?.name || 'General', baseCurrency);
+          }
           cyclesProcessed++;
           loggedCount++;
         }
@@ -205,6 +240,30 @@ export const SubscriptionPage: React.FC = () => {
     { value: 'tri-monthly', label: 'Tri-monthly (Quarterly / 3 Months)' },
     { value: 'annually', label: 'Annually (Yearly / 12 Months)' },
   ];
+
+  const reminderOptions: SelectOption[] = [
+    { value: 'none', label: 'None' },
+    { value: '15m', label: '15 minutes' },
+    { value: '30m', label: '30 minutes' },
+    { value: '1h', label: '1 hour' },
+    { value: '4h', label: '4 hours' },
+    { value: '12h', label: '12 hours' },
+    { value: '1d', label: '1 day' },
+    { value: '2d', label: '2 days' },
+  ];
+
+  const formatReminderText = (offset?: ReminderOffset) => {
+    switch (offset) {
+      case '15m': return '15 minutes';
+      case '30m': return '30 minutes';
+      case '1h': return '1 hour';
+      case '4h': return '4 hours';
+      case '12h': return '12 hours';
+      case '1d': return '1 day';
+      case '2d': return '2 days';
+      default: return null;
+    }
+  };
 
   const categoryOptions: SelectOption[] = categories.map(c => ({
     value: c.id,
@@ -366,12 +425,39 @@ export const SubscriptionPage: React.FC = () => {
 
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[11px] font-mono text-muted-custom uppercase font-bold block">Next Due Date</label>
-            <CustomDatePicker
-              value={nextDueDate}
-              onChange={val => setNextDueDate(val)}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[11px] font-mono text-muted-custom uppercase font-bold block">Next Due Date</label>
+              <CustomDatePicker
+                value={nextDueDate}
+                onChange={val => setNextDueDate(val)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-mono text-muted-custom uppercase font-bold block">Due Time</label>
+              <input
+                type="time"
+                value={dueTime}
+                onChange={e => setDueTime(e.target.value)}
+                className="w-full bg-surface-card border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink min-h-[38px]"
+              />
+            </div>
+          </div>
+
+          <div className="pt-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-surface-card/60 p-3 rounded-xl border border-hairline">
+              <label className="text-xs font-mono text-ink font-semibold flex items-center gap-1.5 shrink-0">
+                Get reminded before
+              </label>
+              <CustomSelect
+                direction="up"
+                options={reminderOptions}
+                value={reminderOffset}
+                onChange={val => setReminderOffset(val as ReminderOffset)}
+                className="w-full sm:w-44 shrink-0"
+              />
+            </div>
           </div>
 
           <button
@@ -442,6 +528,19 @@ export const SubscriptionPage: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Category Colored Dot Reminder Info (No Emoji) */}
+                  {sub.reminderOffset && sub.reminderOffset !== 'none' && (
+                    <div className="flex items-center gap-2 text-[11px] font-mono text-muted-custom bg-surface-soft/60 px-2.5 py-1.5 rounded-lg border border-hairline">
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: catObj?.color || 'var(--color-brand-blue, #3b82f6)' }}
+                      />
+                      <span>
+                        Reminds {formatReminderText(sub.reminderOffset)} at {sub.dueTime || '09:00'}
+                      </span>
+                    </div>
+                  )}
 
                 </div>
 

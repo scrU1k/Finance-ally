@@ -1,5 +1,5 @@
 import { registerPlugin } from '@capacitor/core';
-import { Transaction, CurrencyCode } from '../types';
+import { Transaction, Subscription, CurrencyCode } from '../types';
 import { formatCurrency } from './currency';
 
 // Register the native ScheduledNotification plugin
@@ -138,3 +138,71 @@ export async function triggerSystemNotification(title: string, body: string, idS
     }
   }
 }
+
+/**
+ * Pre-schedules a native Android system notification reminder for a subscription.
+ * Uses exact alarm notification via ScheduledNotificationPlugin without emojis.
+ */
+export async function scheduleSubscriptionReminder(
+  sub: Subscription,
+  categoryName: string,
+  baseCurrency: CurrencyCode
+): Promise<void> {
+  if (!sub.reminderOffset || sub.reminderOffset === 'none') {
+    await cancelSubscriptionReminder(sub.id);
+    return;
+  }
+
+  const timeStr = sub.dueTime && sub.dueTime.trim() ? sub.dueTime.trim() : '09:00';
+  const dueDateTime = new Date(`${sub.nextDueDate}T${timeStr}:00`).getTime();
+  if (isNaN(dueDateTime)) return;
+
+  let offsetMs = 0;
+  switch (sub.reminderOffset) {
+    case '15m': offsetMs = 15 * 60 * 1000; break;
+    case '30m': offsetMs = 30 * 60 * 1000; break;
+    case '1h': offsetMs = 60 * 60 * 1000; break;
+    case '4h': offsetMs = 4 * 60 * 60 * 1000; break;
+    case '12h': offsetMs = 12 * 60 * 60 * 1000; break;
+    case '1d': offsetMs = 24 * 60 * 60 * 1000; break;
+    case '2d': offsetMs = 48 * 60 * 60 * 1000; break;
+    default: return;
+  }
+
+  const targetReminderTime = dueDateTime - offsetMs;
+  if (targetReminderTime <= Date.now()) {
+    return;
+  }
+
+  const formattedAmt = formatCurrency(sub.amount, sub.currency || baseCurrency);
+  // Strictly without emojis:
+  const title = `Subscription Due: ${sub.name}`;
+  const body = `"${sub.name}" (${categoryName}) due on ${sub.nextDueDate} at ${timeStr} • ${formattedAmt}`;
+  const id = hashString(`sub_reminder_${sub.id}`);
+
+  try {
+    await ScheduledNotification.scheduleNotification({
+      id,
+      title,
+      body,
+      timestamp: targetReminderTime
+    });
+    console.log(`[Native] Scheduled subscription reminder for ${sub.name} at ${new Date(targetReminderTime).toISOString()} (id=${id})`);
+  } catch (e) {
+    console.warn('[Native] scheduleSubscriptionReminder failed:', e);
+  }
+}
+
+/**
+ * Cancels a pre-scheduled native Android system notification reminder for a subscription.
+ */
+export async function cancelSubscriptionReminder(subId: string): Promise<void> {
+  const id = hashString(`sub_reminder_${subId}`);
+  try {
+    await ScheduledNotification.cancelNotification({ id });
+    console.log(`[Native] Cancelled subscription reminder for sub: ${subId} (id=${id})`);
+  } catch (e) {
+    console.warn('[Native] cancelSubscriptionReminder failed:', e);
+  }
+}
+

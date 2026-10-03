@@ -67,10 +67,41 @@ export interface HybridCryptoBundle {
   _fa_encrypted_v3?: true; // v4 modern tag
   v?: 3 | 4;
   kdf?: 'argon2id' | 'pbkdf2';
+  compressed?: 'gzip';
   encryptedPayload: string;     // base64 (AES-GCM of JSON)
   payloadIv: string;            // base64
   encryptedDek: string;         // base64 (RSA-OAEP of AES key)
   encryptedPrivateKey: EncryptedPrivateKey; // Allows portability to other devices
+}
+
+export async function compressGzip(data: Uint8Array): Promise<Uint8Array<ArrayBuffer>> {
+  if (typeof CompressionStream === 'undefined') {
+    return data as Uint8Array<ArrayBuffer>;
+  }
+  const cs = new CompressionStream('gzip');
+  const writer = cs.writable.getWriter();
+  await writer.write(data as any);
+  await writer.close();
+  const response = new Response(cs.readable);
+  const ab = await response.arrayBuffer();
+  return new Uint8Array(ab) as Uint8Array<ArrayBuffer>;
+}
+
+export async function decompressGzip(data: Uint8Array): Promise<Uint8Array<ArrayBuffer>> {
+  if (typeof DecompressionStream === 'undefined') {
+    return data as Uint8Array<ArrayBuffer>;
+  }
+  const ds = new DecompressionStream('gzip');
+  const writer = ds.writable.getWriter();
+  await writer.write(data as any);
+  await writer.close();
+  const response = new Response(ds.readable);
+  const ab = await response.arrayBuffer();
+  return new Uint8Array(ab) as Uint8Array<ArrayBuffer>;
+}
+
+export function isGzipBytes(bytes: Uint8Array): boolean {
+  return bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
 }
 
 export interface StoredHybridKeys {
@@ -338,7 +369,7 @@ export function getStoredHybridKeys(): StoredHybridKeys | null {
 // ─── HYBRID ENCRYPTION & DECRYPTION ──────────────────────────────────────────
 
 /** Encrypts data using Hybrid Cryptography (Argon2id + RSA-OAEP + AES-256-GCM) */
-export async function encryptHybridJSON(plaintext: string): Promise<string> {
+export async function encryptHybridJSON(plaintext: string, compress = false): Promise<string> {
   const storedKeys = getStoredHybridKeys();
   if (!storedKeys) {
     throw new Error('Hybrid keys not found. Please set a backup PIN first.');
@@ -360,13 +391,24 @@ export async function encryptHybridJSON(plaintext: string): Promise<string> {
     ['encrypt', 'decrypt']
   );
 
-  // 3. Encrypt the JSON Payload with DEK
+  // 3. Encrypt the JSON Payload with DEK (optional lossless gzip compression before encryption)
   const enc = new TextEncoder();
+  let payloadBytes = enc.encode(plaintext) as Uint8Array<ArrayBuffer>;
+  let isCompressed = false;
+  if (compress) {
+    try {
+      payloadBytes = await compressGzip(payloadBytes);
+      isCompressed = true;
+    } catch (e) {
+      console.warn('Gzip compression failed, saving uncompressed:', e);
+    }
+  }
+
   const payloadIv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
   const encryptedPayloadBuf = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv: payloadIv },
     dek,
-    enc.encode(plaintext)
+    payloadBytes
   );
 
   // 4. Export DEK and Encrypt it with RSA Public Key
@@ -382,6 +424,7 @@ export async function encryptHybridJSON(plaintext: string): Promise<string> {
     _fa_encrypted_v3: true,
     v: 4,
     kdf: 'argon2id',
+    compressed: isCompressed ? 'gzip' : undefined,
     encryptedPayload: bufToBase64(encryptedPayloadBuf),
     payloadIv: bufToBase64(payloadIv.buffer as ArrayBuffer),
     encryptedDek: bufToBase64(encryptedDekBuf),
@@ -493,8 +536,17 @@ export async function decryptJSON(encryptedString: string, pin: string): Promise
     throw new Error('Backup file is corrupted or has been tampered with (AES-GCM integrity check failed).');
   }
 
+  let rawBytes = new Uint8Array(payloadBuf) as Uint8Array<ArrayBuffer>;
+  if (bundle.compressed === 'gzip' || isGzipBytes(rawBytes)) {
+    try {
+      rawBytes = await decompressGzip(rawBytes);
+    } catch {
+      throw new Error('Corrupt backup file: Failed to decompress gzip payload.');
+    }
+  }
+
   try {
-    return new TextDecoder().decode(payloadBuf);
+    return new TextDecoder().decode(rawBytes);
   } catch {
     throw new Error('Corrupt backup file: Failed to decode UTF-8 payload.');
   }
@@ -509,6 +561,6 @@ export function isEncryptedBackup(jsonString: string): boolean {
   }
 }
 
-export async function encryptJSON(plaintext: string, _pin: string): Promise<string> {
-  return encryptHybridJSON(plaintext);
+export async function encryptJSON(plaintext: string, _pin: string, compress = false): Promise<string> {
+  return encryptHybridJSON(plaintext, compress);
 }

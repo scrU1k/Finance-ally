@@ -453,7 +453,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       setImportStatus('Generating backup...');
       let backupStr = await exportFullDataBackup();
       if (pinEnabled && hasExportPin()) {
-        backupStr = await encryptJSON(backupStr, ''); // Uses Hybrid Crypto automatically
+        backupStr = await encryptJSON(backupStr, '', !!localAutoConfig.gzipCompression);
       }
       setPendingImportContent(null);
       setExportModalData(backupStr);
@@ -2061,16 +2061,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </div>
               </div>
 
-              {/* Snapshot Retention Limit */}
-              <div className="flex items-center justify-between pt-1">
-                <div>
-                  <label className="text-[11px] font-mono text-ink font-bold block">
-                    Backup file limit
-                  </label>
-                  <span className="text-[9.5px] font-mono text-muted-custom">
-                    Auto-purges older snapshots from phone storage
-                  </span>
+              {/* Repeat Day for Monthly */}
+              {localAutoConfig.schedule === 'monthly' && (
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold shrink-0">Repeat on Day:</label>
+                  <CustomSelect
+                    direction="down"
+                    options={Array.from({ length: 31 }, (_, i) => ({ value: (i + 1).toString(), label: `Day ${i + 1}` }))}
+                    value={localAutoConfig.monthlyDay.toString()}
+                    onChange={val => {
+                      const updated = saveLocalAutoBackupConfig({ monthlyDay: parseInt(val) });
+                      setLocalAutoConfig(updated);
+                    }}
+                    className="w-28 shrink-0"
+                  />
                 </div>
+              )}
+
+              {/* Divider above Backup File Limit */}
+              <div className="border-t border-hairline my-2.5" />
+
+              {/* Snapshot Retention Limit */}
+              <div className="flex items-center justify-between py-1">
+                <label className="text-[11px] font-mono text-ink font-bold block">
+                  Backup file limit
+                </label>
                 <div className="flex items-center gap-1 bg-surface-soft p-1 rounded-xl border border-hairline shrink-0">
                   {[5, 10].map(limit => {
                     const isSelected = (localAutoConfig.retentionLimit || 10) === limit;
@@ -2098,25 +2113,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </div>
               </div>
 
-              {/* Repeat Day for Monthly */}
-              {localAutoConfig.schedule === 'monthly' && (
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  <label className="text-[10px] font-mono text-muted-custom uppercase font-bold shrink-0">Repeat on Day:</label>
-                  <CustomSelect
-                    direction="down"
-                    options={Array.from({ length: 31 }, (_, i) => ({ value: (i + 1).toString(), label: `Day ${i + 1}` }))}
-                    value={localAutoConfig.monthlyDay.toString()}
-                    onChange={val => {
-                      const updated = saveLocalAutoBackupConfig({ monthlyDay: parseInt(val) });
-                      setLocalAutoConfig(updated);
-                    }}
-                    className="w-28 shrink-0"
+              {/* Divider between Backup File Limit and Gzip Lossless Compression */}
+              <div className="border-t border-hairline my-2.5" />
+
+              {/* Gzip Lossless Compression Toggle */}
+              <div className="flex items-center justify-between py-1">
+                <label className="text-[11px] font-mono text-ink font-bold block">
+                  Gzip Lossless Compression
+                </label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={localAutoConfig.gzipCompression}
+                  onClick={() => {
+                    const nextVal = !localAutoConfig.gzipCompression;
+                    const updated = saveLocalAutoBackupConfig({ gzipCompression: nextVal });
+                    setLocalAutoConfig(updated);
+                    setLocalBackupMsg(nextVal ? 'Gzip compression enabled for future backups.' : 'Gzip compression disabled.');
+                  }}
+                  className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
+                    localAutoConfig.gzipCompression ? 'bg-brand-mint' : 'bg-surface-soft border border-hairline'
+                  }`}
+                >
+                  <div
+                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                      localAutoConfig.gzipCompression ? 'translate-x-5' : 'translate-x-0'
+                    }`}
                   />
-                </div>
-              )}
+                </button>
+              </div>
+
+              {/* Divider below Gzip Lossless Compression */}
+              <div className="border-t border-hairline my-2.5" />
 
               {/* Compact PIN Encryption Toggle for Backups */}
-              <div className="flex items-center justify-between border-t border-hairline/60 pt-3">
+              <div className="flex items-center justify-between pt-1">
                 <div>
                   <span className="text-[11px] font-mono font-bold text-ink block">AES-256 Backup PIN Encryption</span>
                   <span className="text-[10px] font-mono text-muted-custom block">Encrypts all database backups & snapshots</span>

@@ -98,6 +98,7 @@ export interface LocalAutoBackupConfig {
   monthlyDay: number; // 1 - 31
   lastBackupTime: number; // ms timestamp
   retentionLimit: number; // 5 or 10 (default: 10)
+  gzipCompression?: boolean;
 }
 
 export function getLocalAutoBackupConfig(): LocalAutoBackupConfig {
@@ -107,6 +108,7 @@ export function getLocalAutoBackupConfig(): LocalAutoBackupConfig {
       const parsed = JSON.parse(raw);
       return {
         retentionLimit: parsed.retentionLimit === 5 ? 5 : 10,
+        gzipCompression: !!parsed.gzipCompression,
         ...parsed,
       };
     }
@@ -119,6 +121,7 @@ export function getLocalAutoBackupConfig(): LocalAutoBackupConfig {
     monthlyDay: 1,
     lastBackupTime: 0,
     retentionLimit: 10,
+    gzipCompression: false,
   };
 }
 
@@ -358,7 +361,8 @@ export async function createLocalAutoBackup(
 
     // Automatically encrypt if a PIN is set (uses stored RSA Public Key)
     const isEncrypted = hasExportPin();
-    const finalPayload = isEncrypted ? await encryptHybridJSON(jsonStr) : jsonStr;
+    const shouldCompress = !!config.gzipCompression;
+    const finalPayload = isEncrypted ? await encryptHybridJSON(jsonStr, shouldCompress) : jsonStr;
 
     const isoDate = getLocalDateString();
     const timestampStr = new Date().toLocaleString();

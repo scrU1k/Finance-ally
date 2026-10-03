@@ -95,6 +95,8 @@ export interface SplitMember {
   isPaid: boolean;
 }
 
+export type ReminderOffset = 'none' | '15m' | '30m' | '1h' | '4h' | '12h' | '1d' | '2d';
+
 export interface Subscription {
   id: string;
   name: string;
@@ -102,6 +104,8 @@ export interface Subscription {
   currency: CurrencyCode;
   billingCycle: 'monthly' | 'bi-monthly' | 'tri-monthly' | 'annually';
   nextDueDate: string; // YYYY-MM-DD
+  dueTime?: string; // HH:mm (e.g. '09:00')
+  reminderOffset?: ReminderOffset;
   lastProcessedDate?: string; // YYYY-MM-DD
   categoryId: string;
   paymentMethod: string;
