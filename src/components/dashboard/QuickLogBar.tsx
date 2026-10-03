@@ -185,6 +185,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
             type="text"
             value={inputPrompt}
             onChange={e => setInputPrompt(e.target.value)}
+            maxLength={300}
             placeholder="Quick Log: 300Rs spent on Burger..."
             className="w-full bg-surface-soft border border-hairline rounded-2xl pl-4 pr-4 py-3.5 text-sm sm:text-base font-sans text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[54px]"
           />

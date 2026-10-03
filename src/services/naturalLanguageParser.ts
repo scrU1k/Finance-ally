@@ -226,7 +226,8 @@ export async function parseNaturalLanguageExpense(
   baseCurrency: CurrencyCode = 'INR',
   existingCategories: Array<{ id: string; name: string }> = []
 ): Promise<ParsedNaturalExpense> {
-  const text = inputText.trim();
+  const MAX_INPUT_LENGTH = 300;
+  const text = (inputText || '').slice(0, MAX_INPUT_LENGTH).trim();
   const lower = text.toLowerCase();
 
   // 0. EXPLICIT USER TYPED TAG EXTRACTION

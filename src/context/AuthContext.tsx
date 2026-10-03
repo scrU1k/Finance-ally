@@ -7,6 +7,7 @@ import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 
 const LOCKOUT_KEY = 'fa_login_lockout';
+const LOCKOUT_SEC_KEY = 'fa_login_lockout_sec';
 const LOCKOUT_TIERS_MS = [30_000, 120_000, 600_000, 1_800_000]; // 30s, 2m, 10m, 30m
 
 interface LockoutState {
@@ -16,18 +17,31 @@ interface LockoutState {
 
 function getLockout(): LockoutState {
   try {
-    const raw = localStorage.getItem(LOCKOUT_KEY);
-    if (raw) return JSON.parse(raw);
+    const raw1 = localStorage.getItem(LOCKOUT_KEY);
+    const raw2 = sessionStorage.getItem(LOCKOUT_SEC_KEY);
+    const s1: LockoutState = raw1 ? JSON.parse(raw1) : { attempts: 0, lockedUntil: 0 };
+    const s2: LockoutState = raw2 ? JSON.parse(raw2) : { attempts: 0, lockedUntil: 0 };
+    return {
+      attempts: Math.max(s1.attempts || 0, s2.attempts || 0),
+      lockedUntil: Math.max(s1.lockedUntil || 0, s2.lockedUntil || 0),
+    };
   } catch { /* */ }
   return { attempts: 0, lockedUntil: 0 };
 }
 
 function saveLockout(state: LockoutState) {
-  localStorage.setItem(LOCKOUT_KEY, JSON.stringify(state));
+  try {
+    const serialized = JSON.stringify(state);
+    localStorage.setItem(LOCKOUT_KEY, serialized);
+    sessionStorage.setItem(LOCKOUT_SEC_KEY, serialized);
+  } catch {}
 }
 
 function clearLockout() {
-  localStorage.removeItem(LOCKOUT_KEY);
+  try {
+    localStorage.removeItem(LOCKOUT_KEY);
+    sessionStorage.removeItem(LOCKOUT_SEC_KEY);
+  } catch {}
 }
 
 function computeLockedUntil(attempts: number): number {
@@ -172,6 +186,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newState = { attempts: newAttempts, lockedUntil };
       saveLockout(newState);
       setLockoutState(newState);
+
+      // Exponential backoff delay on consecutive failures (e.g., 400ms, 800ms, 1600ms, max 3000ms)
+      const penaltyMs = Math.min(400 * Math.pow(2, Math.min(newAttempts - 1, 3)), 3000);
+      await new Promise(resolve => setTimeout(resolve, penaltyMs));
     }
 
     return success;

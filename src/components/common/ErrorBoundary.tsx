@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { RefreshCw, RotateCcw, AlertTriangle } from 'lucide-react';
+import { logDiagnosticError } from '../../services/diagnosticLogger';
 
 interface Props {
   children: ReactNode;
@@ -22,6 +23,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught React Error:', error, errorInfo);
+    logDiagnosticError('ErrorBoundary', {
+      message: error?.message || String(error),
+      stack: error?.stack,
+      componentStack: errorInfo?.componentStack,
+    });
   }
 
   private handleReload = () => {

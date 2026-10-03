@@ -44,6 +44,7 @@ import {
   hasGlobalRecoveryKey,
   verifyGlobalRecoveryKey
 } from '../../services/recoveryService';
+import { exportDiagnosticReportToFile } from '../../services/diagnosticLogger';
 import {
   X,
   Settings as SettingsIcon,
@@ -363,6 +364,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [localSnapshots, setLocalSnapshotsState] = useState<LocalSnapshotMetadata[]>(getLocalSnapshots());
   const [localBackupMsg, setLocalBackupMsg] = useState('');
   const [localBackupLoading, setLocalBackupLoading] = useState(false);
+
+  // Diagnostic Log Exporter State
+  const [isExportingDiagnostics, setIsExportingDiagnostics] = useState(false);
+  const [diagnosticExportMessage, setDiagnosticExportMessage] = useState<string | null>(null);
+
+  const handleExportDiagnostics = async () => {
+    setIsExportingDiagnostics(true);
+    setDiagnosticExportMessage(null);
+    try {
+      const res = await exportDiagnosticReportToFile();
+      if (res.success) {
+        setDiagnosticExportMessage(`Saved: ${res.filename} to ${res.destination}`);
+      } else {
+        setDiagnosticExportMessage(res.error || 'Failed to export diagnostic logs');
+      }
+    } catch (err: any) {
+      setDiagnosticExportMessage(err?.message || 'Failed to export diagnostic logs');
+    } finally {
+      setIsExportingDiagnostics(false);
+    }
+  };
 
   // Export PIN / Encryption state
   const [pinEnabled, setPinEnabled] = useState<boolean>(hasExportPin);
@@ -2223,6 +2245,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* LOCALIZED DIAGNOSTIC EXPORTER */}
+            <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
+              <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-brand-purple shrink-0" />
+                  <h3 className="text-xs font-mono font-bold text-ink uppercase">Diagnostic & Crash Logs</h3>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full border border-hairline bg-surface-card text-[10px] font-mono font-bold text-muted-custom">
+                  OFFLINE
+                </span>
+              </div>
+
+              <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                Export diagnostic metadata and recent error logs directly to your device storage (Documents/Finance-Ally/Logs). No personal financial data, transactions, or passwords are ever included.
+              </p>
+
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={handleExportDiagnostics}
+                  disabled={isExportingDiagnostics}
+                  className="w-full bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer font-bold active:scale-95 shadow-sm disabled:opacity-50"
+                >
+                  <FileText className="w-3.5 h-3.5 text-brand-purple shrink-0" />
+                  <span>{isExportingDiagnostics ? 'Exporting...' : 'Export Diagnostic Logs'}</span>
+                </button>
+              </div>
+
+              {diagnosticExportMessage && (
+                <div className="p-2.5 bg-brand-mint/10 border border-brand-mint/30 rounded-lg text-[11px] font-mono text-brand-mint flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 shrink-0" />
+                  <span>{diagnosticExportMessage}</span>
                 </div>
               )}
             </div>
