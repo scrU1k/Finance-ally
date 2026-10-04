@@ -145,12 +145,13 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
             <button
               type="button"
               onClick={handleOpenNoteModal}
-              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center shrink-0 transition-all cursor-pointer active:scale-95 ${
                 currentNote?.content
                   ? 'border-brand-purple/40 text-brand-purple bg-brand-purple/10 hover:bg-brand-purple/20'
                   : 'border-hairline text-muted-custom bg-surface-soft/60 hover:border-brand-purple hover:text-brand-purple'
               }`}
               title="Period Notes"
+              aria-label="Period Notes"
             >
               <FileText className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             </button>

@@ -23,6 +23,16 @@
 }
 
 @layer base {
+  html, body {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  button, a, input, select, textarea, [role="button"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   :root {
     --font-sans: 'Geist', 'Inter', -apple-system, sans-serif;
     --font-display: 'Fraunces', 'Geist', sans-serif;

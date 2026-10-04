@@ -102,8 +102,9 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="w-9 h-9 rounded-full bg-surface-card/85 text-body-custom border border-hairline hover:border-ink hover:text-ink backdrop-blur-xl ring-1 ring-white/10 flex items-center justify-center transition-all cursor-pointer shadow-lg shrink-0"
+            className="w-9 h-9 rounded-full bg-surface-card/85 text-body-custom border border-hairline hover:border-ink hover:text-ink backdrop-blur-xl ring-1 ring-white/10 flex items-center justify-center transition-all cursor-pointer shadow-lg shrink-0 active:scale-95"
             title={isSecondaryActive ? "Show Core Tabs" : "More Financial Tools"}
+            aria-label="Toggle navigation tabs"
           >
             <ChevronDown className={`w-4 h-4 text-muted-custom transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-brand-blue' : ''}`} />
           </button>

@@ -43,32 +43,37 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           
           {/* Category Budget Caps & Tags Button */}
           <button
+            type="button"
             onClick={onOpenCategories}
-            className="p-1.5 text-muted-custom hover:text-brand-purple hover:bg-surface-card rounded-full transition-colors border border-transparent hover:border-hairline"
+            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-muted-custom hover:text-brand-purple hover:bg-surface-card rounded-full transition-all border border-transparent hover:border-hairline active:scale-95 cursor-pointer shrink-0"
             title="Category Budget Caps & Tag Palette"
+            aria-label="Categories"
           >
             <Tag className="w-4 h-4" />
           </button>
 
-
           {/* Settings */}
           <button
+            type="button"
             onClick={onOpenSettings}
-            className="p-1.5 text-muted-custom hover:text-ink hover:bg-surface-card rounded-full transition-colors border border-transparent hover:border-hairline"
+            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-muted-custom hover:text-ink hover:bg-surface-card rounded-full transition-all border border-transparent hover:border-hairline active:scale-95 cursor-pointer shrink-0"
             title="Settings & Currency Converter"
+            aria-label="Settings"
           >
             <Settings className="w-4 h-4" />
           </button>
 
           {/* Lock App Session */}
           <button
+            type="button"
             onClick={logout}
-            className="p-1.5 text-muted-custom hover:text-brand-coral hover:bg-surface-card rounded-full transition-colors border border-transparent hover:border-hairline"
+            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-muted-custom hover:text-brand-coral hover:bg-surface-card rounded-full transition-all border border-transparent hover:border-hairline active:scale-95 cursor-pointer shrink-0"
             title="Lock Session"
+            aria-label="Lock Session"
           >
             <Lock className="w-4 h-4" />
           </button>

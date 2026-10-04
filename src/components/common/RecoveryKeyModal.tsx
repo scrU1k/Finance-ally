@@ -27,22 +27,22 @@ export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-surface-card/90 backdrop-blur-2xl saturate-[180%] border border-brand-yellow/30 rounded-2xl p-6 shadow-2xl shadow-black/50 space-y-5 ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-150 relative">
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+      <div className="w-full max-w-md max-h-[90dvh] sm:max-h-[85vh] flex flex-col bg-surface-card/95 backdrop-blur-2xl saturate-[180%] border border-brand-yellow/30 rounded-2xl shadow-2xl shadow-black/50 ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-150 relative my-auto overflow-hidden">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-hairline pb-3">
+        <div className="shrink-0 flex items-center gap-3 p-4 sm:p-5 pb-3.5 border-b border-hairline bg-surface-card/60">
           <div className="w-10 h-10 rounded-full bg-brand-yellow/20 flex items-center justify-center shrink-0">
             <ShieldCheck className="w-5 h-5 text-brand-yellow" />
           </div>
           <div>
-            <h2 className="text-lg font-display font-bold text-ink">{title}</h2>
+            <h2 className="text-base sm:text-lg font-display font-bold text-ink">{title}</h2>
             <p className="text-[11px] font-mono text-brand-yellow">{subtitle}</p>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="space-y-4">
-          <div className="bg-brand-coral/10 border border-brand-coral/30 rounded-xl p-3 flex gap-2">
+        {/* Scrollable Content Body */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain">
+          <div className="bg-brand-coral/10 border border-brand-coral/30 rounded-xl p-3 flex gap-2.5">
             <AlertTriangle className="w-4 h-4 text-brand-coral shrink-0 mt-0.5" />
             <p className="text-[11px] font-mono text-ink leading-relaxed">
               {noticeText ? (
@@ -54,24 +54,37 @@ export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-mono text-muted-custom uppercase font-bold px-1">Your Unique Recovery Key</label>
-            <div className="flex items-center gap-2 bg-canvas border border-hairline rounded-xl p-2 relative group">
-              <code className="text-sm font-mono font-bold text-brand-blue flex-1 text-center tracking-widest break-all px-2 select-all">
+            <div className="flex items-center justify-between px-1">
+              <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Your Unique Recovery Key</label>
+              {copied && <span className="text-[10px] font-mono text-brand-mint font-semibold animate-in fade-in">Copied to clipboard!</span>}
+            </div>
+            <div 
+              onClick={handleCopy}
+              className="flex items-center justify-between gap-2 bg-canvas border border-hairline hover:border-brand-yellow/50 rounded-xl p-2.5 sm:p-3 cursor-pointer group transition-all"
+              title="Tap to copy key"
+            >
+              <code className="text-xs sm:text-sm font-mono font-bold text-brand-blue flex-1 text-center tracking-widest break-all px-1 select-all">
                 {recoveryKey}
               </code>
               <button
                 type="button"
-                onClick={handleCopy}
-                className="p-2 rounded-lg bg-surface-soft hover:bg-surface-card border border-hairline text-ink transition-all absolute right-2 opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy();
+                }}
+                className="p-2 rounded-lg bg-surface-soft hover:bg-surface-card border border-hairline text-ink transition-all cursor-pointer shrink-0"
                 title="Copy to clipboard"
+                aria-label="Copy to clipboard"
               >
-                {copied ? <Check className="w-4 h-4 text-brand-mint" /> : <Copy className="w-4 h-4" />}
+                {copied ? <Check className="w-4 h-4 text-brand-mint" /> : <Copy className="w-4 h-4 text-muted-custom group-hover:text-ink" />}
               </button>
             </div>
-            {copied && <p className="text-[10px] font-mono text-brand-mint text-right px-1">Copied to clipboard!</p>}
+            <p className="text-[10px] font-mono text-muted-custom px-1 text-center sm:text-left">
+              Tap the key box or the copy button to copy to clipboard.
+            </p>
           </div>
 
-          <label className="flex items-start gap-2 pt-2 cursor-pointer group">
+          <label className="flex items-start gap-2.5 p-3 rounded-xl bg-surface-soft/40 border border-hairline/60 cursor-pointer group transition-colors hover:bg-surface-soft/70">
             <div className="relative flex items-center justify-center w-4 h-4 mt-0.5 shrink-0">
               <input
                 type="checkbox"
@@ -81,14 +94,14 @@ export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({
               />
               <Check className="w-3 h-3 text-white absolute pointer-events-none opacity-0 peer-checked:opacity-100" />
             </div>
-            <span className="text-[11px] font-mono text-muted-custom group-hover:text-ink transition-colors leading-relaxed">
+            <span className="text-[11px] font-mono text-muted-custom group-hover:text-ink transition-colors leading-relaxed select-none">
               I have written down or saved this Recovery Key in a password manager. I understand that it is never saved to browser storage and cannot be recovered if dismissed.
             </span>
           </label>
         </div>
 
-        {/* Action */}
-        <div className="pt-2">
+        {/* Sticky Action Footer */}
+        <div className="shrink-0 p-4 sm:p-5 pt-3 border-t border-hairline bg-surface-card/95">
           <button
             type="button"
             disabled={!acknowledged}

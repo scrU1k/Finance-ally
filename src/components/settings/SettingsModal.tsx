@@ -924,12 +924,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       onClick={onClose}
       className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto cursor-pointer animate-in fade-in duration-200"
     >
-      {/* Fixed FAB Exit Button (Main Page Only) */}
+      {/* Fixed FAB Exit Button (Desktop Only) */}
       {activeSubPage === 'main' && (
         <button
+          type="button"
           onClick={onClose}
-          className="fixed top-8 right-8 z-[60] p-2.5 rounded-full dotgui-glass border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer bg-surface-card/90"
+          className="hidden sm:flex fixed top-8 right-8 z-[60] p-2.5 rounded-full dotgui-glass border border-hairline text-ink hover:border-ink hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer bg-surface-card/90 items-center justify-center"
           title="Close Settings"
+          aria-label="Close Settings"
         >
           <X className="w-4.5 h-4.5" />
         </button>
@@ -980,16 +982,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             </div>
           </div>
 
-          {/* Sub-Pages In-Card Top-Right Close Button */}
-          {activeSubPage !== 'main' && (
-            <button
-              onClick={onClose}
-              className="p-2 text-muted-custom hover:text-ink hover:bg-surface-soft border border-hairline rounded-full cursor-pointer transition-all shrink-0"
-              title="Close Settings"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+          {/* In-Card Top-Right Close Button */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 text-muted-custom hover:text-ink hover:bg-surface-soft border border-hairline rounded-full cursor-pointer transition-all shrink-0 active:scale-95"
+            title="Close Settings"
+            aria-label="Close Settings"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         {/* ─── MAIN SETTINGS VIEW ───────────────────────────────────────────────── */}
