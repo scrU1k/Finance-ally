@@ -156,7 +156,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
   const paymentOptions = ['UPI', 'Credit Card', 'Debit Card', 'Cash', 'Net Banking'];
 
   return (
-    <div className="space-y-2.5 dotgui-glass border border-hairline p-4 rounded-2xl shadow-lg bg-surface-card/90 backdrop-blur-xl">
+    <div className="space-y-2 dotgui-glass border border-hairline p-3 sm:p-3.5 rounded-2xl shadow-lg bg-surface-card/90 backdrop-blur-xl">
 
       {/* Centered Compact Date Pill Button ABOVE Quick Log Text Box when Multi-Log is active */}
       {isMultiLogActive && (
@@ -187,17 +187,17 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
             onChange={e => setInputPrompt(e.target.value)}
             maxLength={300}
             placeholder="Quick Log: 300Rs spent on Burger..."
-            className="w-full bg-surface-soft border border-hairline rounded-2xl pl-4 pr-4 py-3.5 text-sm sm:text-base font-sans text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[54px]"
+            className="w-full bg-surface-soft border border-hairline rounded-2xl pl-3.5 pr-3.5 py-2.5 sm:py-3 text-sm sm:text-base font-sans text-ink focus:outline-none focus:border-ink placeholder:text-muted-custom/70 min-h-[46px] sm:min-h-[48px]"
           />
         </div>
 
         <button
           type="submit"
           disabled={!inputPrompt.trim()}
-          className="border-2 border-brand-blue text-brand-blue hover:bg-brand-blue/10 disabled:opacity-40 w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-lg active:scale-95 bg-surface-card"
+          className="border-2 border-brand-blue text-brand-blue hover:bg-brand-blue/10 disabled:opacity-40 w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-lg active:scale-95 bg-surface-card"
           title="Log Expense"
         >
-          <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+          <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
         </button>
       </form>
 

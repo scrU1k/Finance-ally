@@ -258,7 +258,7 @@ export const UnifiedAuditInsights: React.FC<UnifiedAuditInsightsProps> = ({ onSe
   const existingNote = periodNotes.find(n => n.periodKey === selectedMonth);
 
   return (
-    <div className="space-y-4 pb-28 max-w-full overflow-hidden">
+    <div className="space-y-4 pb-0 max-w-full overflow-hidden">
       
       {/* Unified Compact Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline pb-3">

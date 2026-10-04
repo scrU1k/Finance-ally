@@ -726,55 +726,57 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
   };
 
   return (
-    <div className="space-y-6 pb-24">
-      {/* 1. Smart Natural Language Quick-Log Input Bar */}
-      <QuickLogBar
-        isMultiLogActive={isMultiLogActive}
-        onToggleMultiLog={handleToggleMultiLog}
-        batchDate={batchDate}
-        onBatchDateChange={setBatchDate}
-      />
+    <div className="space-y-3 pb-0">
+      {/* 1. Top Controls Header Area */}
+      <div className="space-y-2">
+        {/* Smart Natural Language Quick-Log Input Bar */}
+        <QuickLogBar
+          isMultiLogActive={isMultiLogActive}
+          onToggleMultiLog={handleToggleMultiLog}
+          batchDate={batchDate}
+          onBatchDateChange={setBatchDate}
+        />
 
-      {/* Active Drill-Down Filter Banner */}
-      {drilledFilter && (
-        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-brand-purple/10 border border-brand-purple/30 text-xs font-mono text-brand-purple font-bold animate-in fade-in duration-150 shadow-sm">
-          <span
-            onClick={handleStepBackFromBanner}
-            className="cursor-pointer hover:underline flex items-center gap-1.5"
-            title="Click to go back to parent period view"
-          >
-            <span>View: {drilledFilter.label}</span>
-          </span>
-          <button
-            type="button"
-            onClick={() => setDrilledFilter(null)}
-            className="hover:text-brand-coral cursor-pointer flex items-center gap-1 bg-surface-card px-2 py-0.5 rounded-md border border-hairline shrink-0 transition-colors text-ink font-bold"
-          >
-            <span>Reset</span>
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      )}
+        {/* Active Drill-Down Filter Banner */}
+        {drilledFilter && (
+          <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-brand-purple/10 border border-brand-purple/30 text-xs font-mono text-brand-purple font-bold animate-in fade-in duration-150 shadow-sm">
+            <span
+              onClick={handleStepBackFromBanner}
+              className="cursor-pointer hover:underline flex items-center gap-1.5"
+              title="Click to go back to parent period view"
+            >
+              <span>View: {drilledFilter.label}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setDrilledFilter(null)}
+              className="hover:text-brand-coral cursor-pointer flex items-center gap-1 bg-surface-card px-2 py-0.5 rounded-md border border-hairline shrink-0 transition-colors text-ink font-bold"
+            >
+              <span>Reset</span>
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
 
-      {/* 2. Controls Toolbar: Search, Chart Jump, Multi-Log & View Mode */}
-      <div className="space-y-3 relative">
-        <div className="flex items-center justify-between gap-1.5 sm:gap-2 py-0.5 w-full">
-          {/* 1. Search Pill Button (Icon-Only) */}
-          <button
-            type="button"
-            onClick={() => setShowSearchInput(!showSearchInput)}
-            className={`p-2 rounded-xl border transition-all flex items-center justify-center cursor-pointer shrink-0 ${
-              showSearchInput || searchQuery || selectedCatFilter !== 'all'
-                ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
-                : 'bg-surface-card text-muted-custom border-hairline hover:border-ink hover:text-ink'
-            }`}
-            title="Search & filter logs"
-          >
-            <Search className="w-4 h-4 text-brand-blue shrink-0" />
-            {(searchQuery || selectedCatFilter !== 'all') && (
-              <span className="w-2 h-2 rounded-full bg-brand-blue animate-pulse shrink-0 ml-0.5" />
-            )}
-          </button>
+        {/* 2. Controls Toolbar: Search, Chart Jump, Multi-Log & View Mode */}
+        <div className="space-y-2 relative">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2 py-0 w-full">
+            {/* 1. Search Pill Button (Icon-Only) */}
+            <button
+              type="button"
+              onClick={() => setShowSearchInput(!showSearchInput)}
+              className={`p-1.5 sm:p-2 rounded-xl border transition-all flex items-center justify-center cursor-pointer shrink-0 ${
+                showSearchInput || searchQuery || selectedCatFilter !== 'all'
+                  ? 'border-brand-blue text-brand-blue font-bold shadow-sm bg-surface-soft'
+                  : 'bg-surface-card text-muted-custom border-hairline hover:border-ink hover:text-ink'
+              }`}
+              title="Search & filter logs"
+            >
+              <Search className="w-4 h-4 text-brand-blue shrink-0" />
+              {(searchQuery || selectedCatFilter !== 'all') && (
+                <span className="w-2 h-2 rounded-full bg-brand-blue animate-pulse shrink-0 ml-0.5" />
+              )}
+            </button>
 
           {/* 2. Chart Jump Button (Icon-Only) */}
           <button
@@ -785,7 +787,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                 chartRef.current?.scrollIntoView({ behavior: 'smooth' });
               }, 50);
             }}
-            className="p-2 rounded-xl border border-hairline bg-surface-card text-muted-custom hover:text-brand-yellow hover:border-brand-yellow transition-all flex items-center justify-center cursor-pointer shrink-0"
+            className="p-1.5 sm:p-2 rounded-xl border border-hairline bg-surface-card text-muted-custom hover:text-brand-yellow hover:border-brand-yellow transition-all flex items-center justify-center cursor-pointer shrink-0"
             title="Jump to Spending Trend Chart"
           >
             <BarChart2 className="w-4 h-4 shrink-0 text-brand-yellow" />
@@ -795,7 +797,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
           <button
             type="button"
             onClick={handleToggleMultiLog}
-            className={`shrink px-2.5 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`shrink px-2.5 py-1 sm:py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
               isMultiLogActive
                 ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-muted-custom border-hairline hover:border-ink hover:text-ink'
@@ -810,7 +812,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
           <button
             type="button"
             onClick={() => setShowViewMenu(!showViewMenu)}
-            className={`shrink px-2.5 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`shrink px-2.5 py-1 sm:py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
               showViewMenu || periodMode !== 'day' || viewMode !== 'compact'
                 ? 'border-brand-purple text-brand-purple font-bold shadow-sm bg-surface-soft'
                 : 'bg-surface-card text-muted-custom border-hairline hover:border-ink hover:text-ink'
@@ -982,6 +984,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
           </div>
         )}
       </div>
+      </div>
 
       {/* Category Tag Filter Pill Rail */}
       {(showTagFilterRow || selectedCatFilter !== 'all') && (
@@ -1043,7 +1046,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
         <>
           {/* DAY MODE */}
           {periodMode === 'day' && (
-            <div className="space-y-6">
+            <div className="space-y-4">
 
               {visibleGroupedByDate.map(group => {
                 const isCollapsed = collapsedDates.has(group.date);
@@ -1118,7 +1121,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
 
               {/* Month-Chunk Pagination Banner */}
               {(hasMoreDays || visibleMonthsLimit > 1) && (
-                <div className="text-center py-6 border-t border-hairline/40 space-y-3 animate-in fade-in duration-200">
+                <div className="text-center pt-3 pb-0.5 border-t border-hairline/40 space-y-2 animate-in fade-in duration-200">
                   <p className="text-xs font-mono text-muted-custom">
                     Showing {visibleMonthsLimit} month(s) of history out of {uniqueMonths.length} total.
                   </p>
@@ -1195,7 +1198,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
             </div>
             
             {(hasMoreWeeks || visibleYearsLimit > 1) && (
-              <div className="text-center py-6 border-t border-hairline/40 space-y-3 animate-in fade-in duration-200">
+              <div className="text-center pt-3 pb-0.5 border-t border-hairline/40 space-y-2 animate-in fade-in duration-200">
                 <p className="text-xs font-mono text-muted-custom">
                   Showing {visibleYearsLimit} year(s) of weeks out of {uniqueYears.length} total.
                 </p>
@@ -1292,7 +1295,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
             </div>
             
             {(hasMoreMonths || visibleYearsLimit > 1) && (
-              <div className="text-center py-6 border-t border-hairline/40 space-y-3 animate-in fade-in duration-200">
+              <div className="text-center pt-3 pb-0.5 border-t border-hairline/40 space-y-2 animate-in fade-in duration-200">
                 <p className="text-xs font-mono text-muted-custom">
                   Showing {visibleYearsLimit} year(s) of months out of {uniqueYears.length} total.
                 </p>
@@ -1404,11 +1407,11 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
         <div
           ref={chartRef}
           id="spending-trend-chart"
-          className="animate-in fade-in duration-200 mt-16 sm:mt-24 pt-8 border-t border-hairline/60 space-y-4"
+          className="animate-in fade-in duration-200 mt-4 pt-3.5 border-t border-hairline/60 space-y-2.5"
         >
           <div className="flex items-center gap-2.5 px-1">
-            <div className="w-8 h-8 rounded-xl bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow flex items-center justify-center font-bold">
-              <BarChart2 className="w-4 h-4" />
+            <div className="w-7 h-7 rounded-xl bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow flex items-center justify-center font-bold">
+              <BarChart2 className="w-3.5 h-3.5" />
             </div>
             <div>
               <h3 className="text-sm font-mono font-bold text-ink">Charts & Analytics</h3>

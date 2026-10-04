@@ -292,7 +292,7 @@ export const LiveSpendChart: React.FC<LiveSpendChartProps> = ({ transactions: pr
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-2.5 mb-0">
       
       {/* Chart 1: Category Breakdown Doughnut */}
       <div className="dotgui-card p-5 space-y-3 flex flex-col justify-between">

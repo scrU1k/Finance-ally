@@ -199,7 +199,7 @@ const MainAppContent: React.FC = () => {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-3 pb-32">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-2 sm:pt-2.5 pb-[88px] sm:pb-[92px]">
         
         {/* Navigation Rail */}
         <SidebarNav activeTab={activeTab} setActiveTab={navigateToTab} />
