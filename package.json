@@ -10,6 +10,7 @@
     "deploy": "npm run build && gh-pages -d dist",
     "verify-embeddings": "tsx scripts/verifyEmbeddings.ts",
     "lint": "oxlint",
+    "test": "tsc -b && oxlint",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -56,3 +56,23 @@ export function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split('-').map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
 }
+
+/**
+ * Validates that year, month (1-12), and day (1-31) represent a real calendar day,
+ * checking month day limits and leap years without Date rollover.
+ */
+export function isValidCalendarDate(year: number, month: number, day: number): boolean {
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return false;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const d = new Date(year, month - 1, day);
+  return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day;
+}
+
+/**
+ * Validates that dateStr is in 'YYYY-MM-DD' format AND corresponds to an actual real calendar date.
+ */
+export function isValidDateString(dateStr: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return isValidCalendarDate(y, m, d);
+}

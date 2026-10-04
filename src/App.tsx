@@ -85,15 +85,24 @@ const MainAppContent: React.FC = () => {
         setPendingRotatedKey(unconfirmedRotatedKey);
       }
 
+      // Purge any legacy plaintext keys from persistent storage
+      localStorage.removeItem('fa_v3_recovery_pending_key');
+
       const alreadyOnboarded = localStorage.getItem(V3_RECOVERY_ONBOARDED_KEY);
       if (!alreadyOnboarded) {
-        const pendingFirstLaunchKey = localStorage.getItem('fa_v3_recovery_pending_key');
+        let pendingFirstLaunchKey: string | null = null;
+        try {
+          pendingFirstLaunchKey = sessionStorage.getItem('fa_v3_recovery_pending_key');
+        } catch {}
+
         if (pendingFirstLaunchKey) {
           setV3RecoveryKey(pendingFirstLaunchKey);
         } else {
           const username = user?.username || 'USER';
           initializeGlobalRecoveryKey(username).then(key => {
-            localStorage.setItem('fa_v3_recovery_pending_key', key);
+            try {
+              sessionStorage.setItem('fa_v3_recovery_pending_key', key);
+            } catch {}
             setV3RecoveryKey(key);
           });
         }
@@ -273,22 +282,24 @@ const MainAppContent: React.FC = () => {
             recoveryKey={v3RecoveryKey}
             title="Welcome to Finance-Ally v3.0"
             subtitle="Global Security Recovery Key"
-            noticeText="A new emergency recovery system has been added in v3.0 so you can recover your App Password, Password Vault PIN, or Backup PIN if you ever forget them. This key is held in temporary staging strictly until you confirm receipt below, after which it is permanently purged from this device. Save it safely!"
+            noticeText="A new emergency recovery system has been added in v3.0 so you can recover your App Password, Password Vault PIN, or Backup PIN if you ever forget them. This key is generated in-memory and held in an ephemeral session strictly until confirmed below; it is NEVER written to persistent device storage. Save it safely!"
             onDismiss={() => {
               localStorage.setItem(V3_RECOVERY_ONBOARDED_KEY, 'true');
-              localStorage.removeItem('fa_v3_recovery_pending_key');
+              try {
+                sessionStorage.removeItem('fa_v3_recovery_pending_key');
+              } catch {}
               setV3RecoveryKey(null);
             }}
           />
         )}
 
-        {/* Unconfirmed Rotated Global Recovery Key Modal (Resumed after restart) */}
+        {/* Unconfirmed Rotated Global Recovery Key Modal (Resumed within active session) */}
         {pendingRotatedKey && (
           <RecoveryKeyModal
             recoveryKey={pendingRotatedKey}
             title="New Global Recovery Key"
             subtitle="Rotated Security Key"
-            noticeText="Your Recovery Key was recently rotated. This key is held in temporary staging strictly until confirmed below, after which it is permanently purged from this device. Please record this new key securely."
+            noticeText="Your Recovery Key was recently rotated. This key is held in an ephemeral session strictly until confirmed below; it is NEVER written to persistent device storage. Please record this new key securely."
             onDismiss={() => {
               finalizeRecoveryKeyRotation();
               setPendingRotatedKey(null);

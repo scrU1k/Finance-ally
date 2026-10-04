@@ -4,13 +4,12 @@ const VERIFIER_KEY = 'fa_global_recovery_verifier';
 export const RECOVERY_JOURNAL_KEY = 'fa_recovery_rotation_journal';
 
 export interface RecoveryRotationJournal {
-  state: 'in_progress' | 'pending_delivery';
+  state: 'in_progress';
   timestamp: number;
   backupVaultEnvelope: string | null;
   backupVaultEscrow: string | null;
   backupExportPin: string | null;
   backupVerifier: string | null;
-  pendingKey?: string;
 }
 
 /**
@@ -21,7 +20,7 @@ export function rollbackPendingRecoveryRotation(): void {
     const raw = localStorage.getItem(RECOVERY_JOURNAL_KEY);
     if (!raw) return;
     const journal: RecoveryRotationJournal = JSON.parse(raw);
-    if (journal?.state === 'in_progress' || journal?.state === 'pending_delivery') {
+    if (journal?.state === 'in_progress') {
       if (journal.backupVaultEnvelope !== null) localStorage.setItem('fa_password_vault_envelope', journal.backupVaultEnvelope);
       else localStorage.removeItem('fa_password_vault_envelope');
 
@@ -42,16 +41,12 @@ export function rollbackPendingRecoveryRotation(): void {
 }
 
 /**
- * Retrieves unconfirmed recovery key awaiting user delivery/acknowledgement after rotation.
+ * Retrieves unconfirmed recovery key awaiting user delivery/acknowledgement within the active session.
+ * Never reads from persistent disk storage.
  */
 export function getPendingRecoveryKey(): string | null {
   try {
-    const raw = localStorage.getItem(RECOVERY_JOURNAL_KEY);
-    if (!raw) return null;
-    const journal: RecoveryRotationJournal = JSON.parse(raw);
-    if (journal?.state === 'pending_delivery' && journal.pendingKey) {
-      return journal.pendingKey;
-    }
+    return sessionStorage.getItem('fa_rotated_recovery_key_temp');
   } catch {}
   return null;
 }
@@ -62,13 +57,14 @@ export function getPendingRecoveryKey(): string | null {
 export function finalizeRecoveryKeyRotation(): void {
   try {
     localStorage.removeItem(RECOVERY_JOURNAL_KEY);
+    sessionStorage.removeItem('fa_rotated_recovery_key_temp');
   } catch {}
 }
 
 /**
  * Crash-safe recovery journal resolver.
- * If a process was terminated mid-write (in_progress), rolls back to previous known-good state.
- * If in pending_delivery, leaves journal intact so UI can re-present the new key.
+ * If a process was terminated mid-write or before user confirmation, safely rolls back
+ * to the previous known-good state so the user's prior key remains valid.
  */
 export function checkAndRecoverStaleRotationJournal(): boolean {
   try {
@@ -77,8 +73,9 @@ export function checkAndRecoverStaleRotationJournal(): boolean {
 
     const journal: RecoveryRotationJournal = JSON.parse(raw);
     if (journal?.state === 'in_progress') {
-      console.warn('Finance-Ally Recovery: Found unfinalized in-progress rotation journal. Rolling back to previous recovery key state.');
+      console.warn('Finance-Ally Recovery: Found unfinalized rotation journal from previous session. Rolling back to previous recovery key state.');
       rollbackPendingRecoveryRotation();
+      sessionStorage.removeItem('fa_rotated_recovery_key_temp');
       return true;
     }
   } catch (err) {
@@ -371,10 +368,11 @@ export async function rotateGlobalRecoveryKey(oldKey: string, _username?: string
     }
     await setGlobalRecoveryKeyVerifier(newKey);
 
-    // Transition journal to pending_delivery: committed to storage, awaiting user presentation & confirmation
-    journal.state = 'pending_delivery';
-    journal.pendingKey = newKey;
-    localStorage.setItem(RECOVERY_JOURNAL_KEY, JSON.stringify(journal));
+    // Stage in session-scoped storage strictly for page-refresh resilience during modal interaction
+    // The plaintext key is NEVER written to persistent disk storage (localStorage)
+    try {
+      sessionStorage.setItem('fa_rotated_recovery_key_temp', newKey);
+    } catch {}
   } catch {
     // Revert all modified storage keys if any write fails
     rollbackPendingRecoveryRotation();

@@ -467,88 +467,75 @@ export async function importFullDataBackup(jsonString: string): Promise<ImportBa
 
     const db = await openDatabase();
     const storesToLock = ['transactions', 'categories', 'trips', 'smsTemplates', 'subscriptions', 'userProfile'];
+
+    // --- Phase 0: Take snapshot of existing state for atomic rollback ---
+    const keysToProtect = [
+      'fa_transactions', 'fa_categories', 'fa_trips', 'fa_period_notes', 'fa_user_profile',
+      'fa_export_pin', 'fa_user_tag_rules', 'fa_custom_knowledge_rules',
+      'fa_password_vault_envelope', 'fa_password_vault_items',
+      'fa_pwd_vault_verifier', 'fa_global_recovery_verifier', 'fa_pwd_vault_recovery_escrow'
+    ];
+    const previousLocalStorage = new Map<string, string | null>();
+    for (const key of keysToProtect) {
+      previousLocalStorage.set(key, localStorage.getItem(key));
+    }
+
+    const existingDbBackup: Record<string, any[]> = {};
+    for (const storeName of storesToLock) {
+      existingDbBackup[storeName] = await new Promise<any[]>((resolve) => {
+        try {
+          const rTx = db.transaction(storeName, 'readonly');
+          const rStore = rTx.objectStore(storeName);
+          const req = rStore.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        } catch {
+          resolve([]);
+        }
+      });
+    }
+
+    const rollbackAll = async () => {
+      // Revert localStorage
+      for (const [key, val] of previousLocalStorage) {
+        if (val !== null) localStorage.setItem(key, val);
+        else localStorage.removeItem(key);
+      }
+      // Revert IndexedDB
+      try {
+        const rbTx = db.transaction(storesToLock, 'readwrite');
+        for (const storeName of storesToLock) {
+          const s = rbTx.objectStore(storeName);
+          s.clear();
+          (existingDbBackup[storeName] || []).forEach(item => s.put(item));
+        }
+        await new Promise<void>((resolve) => {
+          rbTx.oncomplete = () => resolve();
+          rbTx.onerror = () => resolve();
+        });
+      } catch (rbErr) {
+        console.error('IndexedDB rollback failed:', rbErr);
+      }
+    };
+
+    // Filter valid transactions
     const validTransactions: Transaction[] = [];
-
-    // Atomic Multi-Store IndexedDB Transaction: all-or-nothing
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(storesToLock, 'readwrite');
-      tx.onerror = () => reject(tx.error);
-      tx.oncomplete = () => resolve();
-
-      // 1. Transactions Store
-      if (data.transactions && Array.isArray(data.transactions)) {
-        const store = tx.objectStore('transactions');
-        store.clear();
-        data.transactions.forEach((t: Transaction) => {
-          if (t && t.id && typeof t.amount === 'number' && t.amount > 0 && t.date) {
-            const cleanTx: Transaction = {
-              ...t,
-              note: String(t.note || '').substring(0, 500),
-            };
-            store.put(cleanTx);
-            validTransactions.push(cleanTx);
-          }
-        });
-      }
-
-      // 2. Categories Store
-      if (data.categories && Array.isArray(data.categories)) {
-        const store = tx.objectStore('categories');
-        store.clear();
-        data.categories.forEach((c: Category) => {
-          if (c.id && c.name) store.put(c);
-        });
-      }
-
-      // 3. Trips Store
-      if (data.trips && Array.isArray(data.trips)) {
-        const store = tx.objectStore('trips');
-        store.clear();
-        data.trips.forEach((t: Trip) => {
-          if (t.id && t.name) store.put(t);
-        });
-      }
-
-      // 4. SMS Templates Store
-      if (data.smsTemplates && Array.isArray(data.smsTemplates)) {
-        const store = tx.objectStore('smsTemplates');
-        store.clear();
-        data.smsTemplates.forEach((st: SmsTemplate) => {
-          if (st.id && st.name) store.put(st);
-        });
-      }
-
-      // 5. Subscriptions Store
-      if (data.subscriptions && Array.isArray(data.subscriptions)) {
-        const store = tx.objectStore('subscriptions');
-        store.clear();
-        data.subscriptions.forEach((sub: Subscription) => {
-          if (sub.id && sub.name) store.put(sub);
-        });
-      }
-
-      // 6. User Profile Store
-      if (data.profile && typeof data.profile === 'object' && data.profile.username) {
-        const restoredProfile = { ...data.profile, isUnlocked: false };
-        const store = tx.objectStore('userProfile');
-        store.clear();
-        store.put(restoredProfile);
-      }
-    });
-
+    if (data.transactions && Array.isArray(data.transactions)) {
+      data.transactions.forEach((t: Transaction) => {
+        if (t && t.id && typeof t.amount === 'number' && t.amount > 0 && t.date) {
+          validTransactions.push({
+            ...t,
+            note: String(t.note || '').substring(0, 500),
+          });
+        }
+      });
+    }
     const droppedTransactions = Array.isArray(data.transactions)
       ? Math.max(0, data.transactions.length - validTransactions.length)
       : 0;
 
-    let storageError = false;
-    // Sync localStorage strictly AFTER atomic database transaction succeeds
+    // --- Phase 1: Write and verify required localStorage metadata and credentials ---
     try {
-      if (data.transactions && Array.isArray(data.transactions)) {
-        if (droppedTransactions > 0) {
-          console.warn(`[Import] Filtered ${droppedTransactions} invalid transaction records from backup payload.`);
-        }
-        localStorage.setItem('fa_transactions', JSON.stringify(validTransactions));
-      }
       if (data.categories && Array.isArray(data.categories)) {
         localStorage.setItem('fa_categories', JSON.stringify(data.categories));
       }
@@ -567,12 +554,6 @@ export async function importFullDataBackup(jsonString: string): Promise<ImportBa
       }
       if (data.userTagRules && Array.isArray(data.userTagRules)) {
         localStorage.setItem('fa_user_tag_rules', JSON.stringify(data.userTagRules));
-        try {
-          loadUserRulesIntoTrie();
-          syncRulesToWorker(data.userTagRules);
-        } catch (e) {
-          console.warn('Rules trie sync failed on import:', e);
-        }
       }
       if (data.customKnowledgeRules && Array.isArray(data.customKnowledgeRules)) {
         localStorage.setItem('fa_custom_knowledge_rules', JSON.stringify(data.customKnowledgeRules));
@@ -604,14 +585,110 @@ export async function importFullDataBackup(jsonString: string): Promise<ImportBa
         localStorage.setItem('fa_pwd_vault_recovery_escrow', data.pwdVaultRecoveryEscrow);
       }
     } catch (storageErr) {
-      console.warn('Database restored to IndexedDB, but localStorage mirror update hit a quota/storage error:', storageErr);
-      storageError = true;
+      console.error('LocalStorage write failed during backup import, rolling back:', storageErr);
+      await rollbackAll();
+      return {
+        success: false,
+        droppedTransactions: 0,
+        storageError: true,
+        errorMessage: 'Storage quota exceeded while writing profile or security credentials. Import aborted and existing database safely preserved.'
+      };
+    }
+
+    // --- Phase 2: Atomic IndexedDB Transaction ---
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(storesToLock, 'readwrite');
+        tx.onerror = () => reject(tx.error);
+        tx.oncomplete = () => resolve();
+
+        // 1. Transactions Store
+        const txStore = tx.objectStore('transactions');
+        txStore.clear();
+        validTransactions.forEach(t => txStore.put(t));
+
+        // 2. Categories Store
+        if (data.categories && Array.isArray(data.categories)) {
+          const store = tx.objectStore('categories');
+          store.clear();
+          data.categories.forEach((c: Category) => {
+            if (c.id && c.name) store.put(c);
+          });
+        }
+
+        // 3. Trips Store
+        if (data.trips && Array.isArray(data.trips)) {
+          const store = tx.objectStore('trips');
+          store.clear();
+          data.trips.forEach((t: Trip) => {
+            if (t.id && t.name) store.put(t);
+          });
+        }
+
+        // 4. SMS Templates Store
+        if (data.smsTemplates && Array.isArray(data.smsTemplates)) {
+          const store = tx.objectStore('smsTemplates');
+          store.clear();
+          data.smsTemplates.forEach((st: SmsTemplate) => {
+            if (st.id && st.name) store.put(st);
+          });
+        }
+
+        // 5. Subscriptions Store
+        if (data.subscriptions && Array.isArray(data.subscriptions)) {
+          const store = tx.objectStore('subscriptions');
+          store.clear();
+          data.subscriptions.forEach((sub: Subscription) => {
+            if (sub.id && sub.name) store.put(sub);
+          });
+        }
+
+        // 6. User Profile Store
+        if (data.profile && typeof data.profile === 'object' && data.profile.username) {
+          const restoredProfile = { ...data.profile, isUnlocked: false };
+          const store = tx.objectStore('userProfile');
+          store.clear();
+          store.put(restoredProfile);
+        }
+      });
+    } catch (idbErr) {
+      console.error('IndexedDB transaction failed during backup import, rolling back:', idbErr);
+      await rollbackAll();
+      return {
+        success: false,
+        droppedTransactions: 0,
+        storageError: false,
+        errorMessage: 'Database write error. Import aborted and existing state safely restored.'
+      };
+    }
+
+    // --- Phase 3: Legacy transaction mirror update (non-blocking fallback) ---
+    try {
+      if (data.transactions && Array.isArray(data.transactions)) {
+        localStorage.setItem('fa_transactions', JSON.stringify(validTransactions));
+      }
+    } catch {
+      // If transactions mirror exceeds localStorage 5MB quota, clear mirror key so stale data isn't loaded
+      // (IndexedDB is already the authoritative store with all validTransactions)
+      try {
+        localStorage.removeItem('fa_transactions');
+      } catch {}
+    }
+
+    // Sync NLP rules trie
+    if (data.userTagRules && Array.isArray(data.userTagRules)) {
+      try {
+        loadUserRulesIntoTrie();
+        syncRulesToWorker(data.userTagRules);
+      } catch (e) {
+        console.warn('Rules trie sync failed on import:', e);
+      }
     }
 
     return {
       success: true,
       droppedTransactions,
-      storageError
+      storageError: false
     };
   } catch (err: any) {
     console.error('Failed to import backup atomically:', err);
