@@ -40,9 +40,11 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
+  const [isSeeking, setIsSeeking] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
 
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHoveredRef = useRef(false);
   const isTouchingRef = useRef(false);
   const railRef = useRef<HTMLDivElement>(null);
@@ -349,11 +351,11 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       clearTimeout(hideTimerRef.current);
     }
     hideTimerRef.current = setTimeout(() => {
-      if (!isHoveredRef.current && !isTouchingRef.current) {
+      if (!isHoveredRef.current && !isTouchingRef.current && !isSeeking) {
         setIsVisible(false);
       }
     }, 1800);
-  }, []);
+  }, [isSeeking]);
 
   // Viewport tracking & continuous scroll progress (0.0 to 1.0)
   const updateScrollState = useCallback(() => {
@@ -398,10 +400,78 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     };
   }, [triggerVisibilityOnScroll, updateScrollState]);
 
+  // Fast seek math: instantly scrolls the page according to screen clientY
+  const updateSeekScroll = useCallback(
+    (clientY: number) => {
+      if (!railRef.current) return;
+      const rect = railRef.current.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+      const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      const targetScrollY = ratio * maxScroll;
+
+      // Instant seeking update
+      window.scrollTo(0, targetScrollY);
+
+      // Update nearest waypoint for feedback
+      if (waypoints.length > 0) {
+        const closestIndex = Math.round(ratio * (waypoints.length - 1));
+        const targetNode = waypoints[closestIndex];
+        if (targetNode) {
+          setHoveredNodeId(targetNode.id);
+        }
+      }
+    },
+    [waypoints]
+  );
+
+  // Global document pointer listeners while seeking is active
+  useEffect(() => {
+    if (!isSeeking) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      updateSeekScroll(e.clientY);
+    };
+
+    const handleGlobalMouseUp = () => {
+      setIsSeeking(false);
+      triggerVisibilityOnScroll();
+      setTimeout(() => {
+        setHoveredNodeId(null);
+      }, 600);
+    };
+
+    const handleGlobalTouchMove = (e: TouchEvent) => {
+      if (e.touches[0]) {
+        updateSeekScroll(e.touches[0].clientY);
+      }
+    };
+
+    const handleGlobalTouchEnd = () => {
+      setIsSeeking(false);
+      triggerVisibilityOnScroll();
+      setTimeout(() => {
+        setHoveredNodeId(null);
+      }, 600);
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    window.addEventListener('touchmove', handleGlobalTouchMove, { passive: true });
+    window.addEventListener('touchend', handleGlobalTouchEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('touchmove', handleGlobalTouchMove);
+      window.removeEventListener('touchend', handleGlobalTouchEnd);
+    };
+  }, [isSeeking, updateSeekScroll, triggerVisibilityOnScroll]);
+
   // Click anywhere on track to scroll to that exact proportion of the page
   const handleTrackClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!railRef.current) return;
+      if (!railRef.current || isSeeking) return;
       const rect = railRef.current.getBoundingClientRect();
       const clickY = e.clientY - rect.top;
       const ratio = Math.max(0, Math.min(1, clickY / rect.height));
@@ -414,13 +484,13 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
         behavior: 'smooth',
       });
     },
-    []
+    [isSeeking]
   );
 
   // Touch & Drag handler for mobile scrubber tracking
   const handleTouchMove = useCallback(
     (e: React.TouchEvent) => {
-      if (!railRef.current || waypoints.length === 0) return;
+      if (!railRef.current || waypoints.length === 0 || isSeeking) return;
       const touch = e.touches[0];
       const rect = railRef.current.getBoundingClientRect();
       const clampedY = Math.max(0, Math.min(rect.height, touch.clientY - rect.top));
@@ -444,7 +514,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
         }
       }
     },
-    [waypoints, hoveredNodeId]
+    [waypoints, hoveredNodeId, isSeeking]
   );
 
   const handleTouchStart = useCallback(
@@ -462,14 +532,18 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     isTouchingRef.current = false;
     setIsInteracting(false);
 
-    if (hoveredNodeId) {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+
+    if (hoveredNodeId && !isSeeking) {
       setTimeout(() => {
         setHoveredNodeId(null);
       }, 700);
     }
 
     triggerVisibilityOnScroll();
-  }, [hoveredNodeId, triggerVisibilityOnScroll]);
+  }, [hoveredNodeId, isSeeking, triggerVisibilityOnScroll]);
 
   // Desktop mouse enter/leave container
   const handleMouseEnterContainer = useCallback(() => {
@@ -480,9 +554,63 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
 
   const handleMouseLeaveContainer = useCallback(() => {
     isHoveredRef.current = false;
-    setHoveredNodeId(null);
+    if (!isSeeking) {
+      setHoveredNodeId(null);
+    }
     triggerVisibilityOnScroll();
-  }, [triggerVisibilityOnScroll]);
+  }, [isSeeking, triggerVisibilityOnScroll]);
+
+  // Handlers specifically for the active moving bar (Runner thumb)
+  const handleRunnerMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setIsSeeking(true);
+      triggerVisibilityOnScroll();
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try {
+          navigator.vibrate(12);
+        } catch {}
+      }
+    },
+    [triggerVisibilityOnScroll]
+  );
+
+  const handleRunnerDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setIsSeeking(true);
+      triggerVisibilityOnScroll();
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try {
+          navigator.vibrate(16);
+        } catch {}
+      }
+    },
+    [triggerVisibilityOnScroll]
+  );
+
+  const handleRunnerTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      e.stopPropagation();
+      triggerVisibilityOnScroll();
+      // Long-press detection (~220ms) activates seeking
+      longPressTimerRef.current = setTimeout(() => {
+        setIsSeeking(true);
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try {
+            navigator.vibrate(16);
+          } catch {}
+        }
+      }, 220);
+    },
+    [triggerVisibilityOnScroll]
+  );
+
+  const handleRunnerTouchEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+  }, []);
 
   if (waypoints.length <= 1) {
     return null;
@@ -492,7 +620,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   const focusedNode = waypoints.find(w => w.id === (hoveredNodeId || (isInteracting ? activeNodeId : null)));
   const focusedIndex = focusedNode ? waypoints.indexOf(focusedNode) : -1;
   const focusedPercent =
-    focusedIndex >= 0 ? (focusedIndex / (waypoints.length - 1)) * 100 : 0;
+    focusedIndex >= 0 ? (focusedIndex / (waypoints.length - 1)) * 100 : scrollProgress * 100;
 
   // Background ruler tick indices: 21 evenly distributed lines along the full scrollbar height
   const tickCount = 21;
@@ -512,26 +640,26 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       aria-label="Timeline Waypoint Scrubber"
       onMouseEnter={handleMouseEnterContainer}
       onMouseLeave={handleMouseLeaveContainer}
-      className={`fixed right-1.5 sm:right-6 top-1/2 -translate-y-1/2 z-40 select-none transition-all duration-300 ease-out ${
-        isVisible
+      className={`fixed right-0.5 sm:right-2 top-1/2 -translate-y-1/2 z-40 select-none transition-all duration-300 ease-out ${
+        isVisible || isSeeking
           ? 'opacity-100 translate-x-0 pointer-events-auto'
           : 'opacity-0 translate-x-3 pointer-events-none'
       }`}
     >
-      {/* Floating Ruler Track directly over the page (No capsule encasing, no border) */}
+      {/* Floating Ruler Track directly over the page, pinned right against the edge */}
       <div
         ref={railRef}
         onClick={handleTrackClick}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="relative w-5 sm:w-9 h-[125px] sm:h-[210px] flex items-center justify-center cursor-pointer"
+        className="relative w-4 sm:w-8 h-[125px] sm:h-[210px] flex items-center justify-center cursor-pointer"
       >
         {/* Ruler Markings Track (Shorter lines evenly distributed across 0% to 100% of page) */}
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between items-center py-1">
           {rulerTicks.map(idx => {
             const isCenterTick = idx === Math.floor(tickCount / 2);
-            // "if there is only two nodes, then there should be one single longer line in the center"
+            // Single longer line in the center if there are only 2 nodes
             const isCenterLongLine = isOnlyTwoNodes && isCenterTick;
 
             return (
@@ -539,25 +667,34 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
                 key={idx}
                 className={`rounded-full transition-all duration-150 ${
                   isCenterLongLine
-                    ? 'w-2.5 sm:w-4.5 h-[1.5px] bg-ink/60 dark:bg-white/50 shadow-xs'
-                    : 'w-1.5 sm:w-2.5 h-[1.5px] bg-ink/30 dark:bg-white/20 shadow-2xs'
+                    ? 'w-2 sm:w-3.5 h-[1.5px] bg-ink/60 dark:bg-white/50 shadow-xs'
+                    : 'w-1 sm:w-2 h-[1.5px] bg-ink/30 dark:bg-white/20 shadow-2xs'
                 }`}
               />
             );
           })}
         </div>
 
-        {/* Dynamic Active Scroll Runner (Smoothly glides from 0% to 100% with scroll) */}
+        {/* Dynamic Active Moving Bar (Seekable thumb: double-click / long-press / drag to seek fast) */}
         <div
           style={{ top: `${scrollProgress * 100}%` }}
-          className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-75"
+          onMouseDown={handleRunnerMouseDown}
+          onDoubleClick={handleRunnerDoubleClick}
+          onTouchStart={handleRunnerTouchStart}
+          onTouchEnd={handleRunnerTouchEnd}
+          title="Drag, double-click or long-press to fast seek through timeline"
+          className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto cursor-grab active:cursor-grabbing p-1.5 z-30 transition-transform duration-75"
         >
           <div
-            className={`w-2.5 sm:w-4.5 h-[2px] sm:h-[2.5px] rounded-full opacity-90 ${runnerColorClass}`}
+            className={`rounded-full transition-all duration-150 ${
+              isSeeking
+                ? 'w-3 sm:w-6 h-[3.5px] sm:h-[4.5px] ring-2 ring-white/60 scale-125'
+                : 'w-2 sm:w-4 h-[2px] sm:h-[2.5px] opacity-90'
+            } ${runnerColorClass}`}
           />
         </div>
 
-        {/* The Colored Waypoint Nodes (Thick and slightly long lines of color) */}
+        {/* The Colored Waypoint Nodes (Slightly smaller in width, distinct colors) */}
         <div className="relative w-full h-full pointer-events-none">
           {waypoints.map((node, index) => {
             const isTop = node.colorType === 'cyan';
@@ -565,34 +702,34 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
 
             const isActive = activeNodeId === node.id;
             const isHovered = hoveredNodeId === node.id;
-            const isAnyHovered = hoveredNodeId !== null;
+            const isAnyHovered = hoveredNodeId !== null || isSeeking;
 
             // Percentage down the rail (0% to 100%)
             const topPercent = (index / (waypoints.length - 1)) * 100;
 
-            // Color classes: Top is Pastel Cyan, Bottom is Pastel Yellow, Middle are Pastel Leaf Green
+            // Color classes
             let nodeBg = 'bg-emerald-300';
-            let glowShadow = 'shadow-[0_0_12px_rgba(74,222,128,0.95)] ring-1 ring-emerald-300/40';
+            let glowShadow = 'shadow-[0_0_10px_rgba(74,222,128,0.95)] ring-1 ring-emerald-300/40';
 
             if (isTop) {
               nodeBg = 'bg-cyan-300';
-              glowShadow = 'shadow-[0_0_12px_rgba(56,189,248,0.95)] ring-1 ring-cyan-300/40';
+              glowShadow = 'shadow-[0_0_10px_rgba(56,189,248,0.95)] ring-1 ring-cyan-300/40';
             } else if (isChart) {
               nodeBg = 'bg-amber-300';
-              glowShadow = 'shadow-[0_0_12px_rgba(253,224,71,0.95)] ring-1 ring-amber-300/40';
+              glowShadow = 'shadow-[0_0_10px_rgba(253,224,71,0.95)] ring-1 ring-amber-300/40';
             }
 
-            // Size: Thinner on mobile (phones), standard width on desktop (laptops)
-            let sizeClass = 'w-3.5 sm:w-6 h-[3px] sm:h-[4px]';
+            // Size: Refined, slightly smaller in width
+            let sizeClass = 'w-2.5 sm:w-4.5 h-[2.5px] sm:h-[3.5px]';
             let opacityClass = 'opacity-90';
 
             if (isHovered) {
-              sizeClass = 'w-4.5 sm:w-7 h-[4px] sm:h-[5px]';
+              sizeClass = 'w-3.5 sm:w-6 h-[3.5px] sm:h-[4.5px]';
               opacityClass = 'opacity-100 z-30 scale-110';
             } else if (isAnyHovered) {
               opacityClass = 'opacity-20 scale-90';
             } else if (isActive) {
-              sizeClass = 'w-4 sm:w-6.5 h-[3.5px] sm:h-[4.5px]';
+              sizeClass = 'w-3 sm:w-5 h-[3px] sm:h-[4px]';
               opacityClass = 'opacity-100 z-20';
             }
 
@@ -605,9 +742,8 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
                   node.scrollTo();
                 }}
                 onMouseEnter={() => setHoveredNodeId(node.id)}
-                className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 pointer-events-auto cursor-pointer flex items-center justify-center p-1.5"
+                className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 pointer-events-auto cursor-pointer flex items-center justify-center p-1"
               >
-                {/* Thick, slightly long line of color with subtle drop shadow for page contrast */}
                 <div
                   className={`rounded-full transition-all duration-200 drop-shadow-sm ${nodeBg} ${sizeClass} ${opacityClass} ${
                     isHovered || isActive ? glowShadow : ''
@@ -618,13 +754,13 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
           })}
         </div>
 
-        {/* Floating Hover Card (Completely unclipped, floating to the left of the active node) */}
+        {/* Floating Hover / Seek Card */}
         {focusedNode && (
           <div
             style={{ top: `${focusedPercent}%` }}
-            className="absolute right-full mr-2.5 -translate-y-1/2 pointer-events-none z-50 animate-in fade-in slide-in-from-right-1 duration-150"
+            className="absolute right-full mr-2 -translate-y-1/2 pointer-events-none z-50 animate-in fade-in slide-in-from-right-1 duration-150"
           >
-            <div className="relative flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-card/95 dark:bg-[#0e0e11]/95 backdrop-blur-2xl border border-hairline/90 dark:border-white/15 shadow-2xl ring-1 ring-white/10 whitespace-nowrap">
+            <div className="relative flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-surface-card/95 dark:bg-[#0e0e11]/95 backdrop-blur-2xl border border-hairline/90 dark:border-white/15 shadow-2xl ring-1 ring-white/10 whitespace-nowrap">
               {/* Badge */}
               <span
                 className={`text-[9px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded-md ${
