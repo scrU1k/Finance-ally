@@ -1,5 +1,7 @@
 import { Transaction, Category, CurrencyCode } from '../types';
 import { formatCurrency, convertCurrencyAmount } from './currency';
+import { isPendingScheduledTx } from '../utils/scheduledUtils';
+import { parseLocalDate } from '../utils/dateUtils';
 import { dispatchSpeculativeRace } from '../workers/workerOrchestrator';
 import { parseCFGQuerySlots } from './cfgParser';
 import { addUserTagRule, getUserRules, deleteUserTagRule, sanitizeKeyword } from './userRuleService';
@@ -71,11 +73,12 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 
 export async function parseAndExecuteLocalQuery(
   query: string,
-  transactions: Transaction[],
+  rawTransactions: Transaction[],
   categories: Category[],
   baseCurrency: CurrencyCode,
   forexRates?: Record<CurrencyCode, number>
 ): Promise<LocalQueryResult> {
+  const transactions = rawTransactions.filter(t => !isPendingScheduledTx(t));
 
   const getTxAmt = (t: Transaction): number => {
     return convertCurrencyAmount(t.amount, t.currency || baseCurrency, baseCurrency, forexRates);
@@ -449,7 +452,7 @@ export async function parseAndExecuteLocalQuery(
         const startOfWeek = new Date(today);
         startOfWeek.setDate(today.getDate() - today.getDay());
         startOfWeek.setHours(0, 0, 0, 0);
-        return transactions.filter(t => new Date(t.date) >= startOfWeek);
+        return transactions.filter(t => parseLocalDate(t.date) >= startOfWeek);
       }
       case 'lastWeek': {
         const startOfLastWeek = new Date(today);
@@ -459,7 +462,7 @@ export async function parseAndExecuteLocalQuery(
         endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
         endOfLastWeek.setHours(23, 59, 59, 999);
         return transactions.filter(t => {
-          const d = new Date(t.date);
+          const d = parseLocalDate(t.date);
           return d >= startOfLastWeek && d <= endOfLastWeek;
         });
       }
@@ -821,7 +824,7 @@ export async function parseAndExecuteLocalQuery(
     let weekendSpend = 0; let weekdaySpend = 0;
     let weekendCount = 0; let weekdayCount = 0;
     txs.forEach(t => {
-      const day = new Date(t.date).getDay();
+      const day = parseLocalDate(t.date).getDay();
       const amt = getTxAmt(t);
       if (day === 0 || day === 6) { weekendSpend += amt; weekendCount++; }
       else { weekdaySpend += amt; weekdayCount++; }
@@ -838,7 +841,7 @@ export async function parseAndExecuteLocalQuery(
   if (q.includes('which day') || q.includes('what day') || (q.includes('day') && (q.includes('most') || q.includes('highest')))) {
     const { txs, label } = detectPeriod();
     const dayTotals: number[] = Array(7).fill(0);
-    txs.forEach(t => { dayTotals[new Date(t.date).getDay()] += getTxAmt(t); });
+    txs.forEach(t => { dayTotals[parseLocalDate(t.date).getDay()] += getTxAmt(t); });
     const maxDay = dayTotals.indexOf(Math.max(...dayTotals));
     return {
       matched: true,
@@ -937,7 +940,7 @@ export async function parseAndExecuteLocalQuery(
     const countMatch = q.match(/last\s+(\d+)/);
     const n = countMatch ? Math.min(parseInt(countMatch[1], 10), 10) : 5;
     const recent = [...transactions]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, n);
     const items = recent.map(t => {
       const cat = categories.find(c => c.id === t.categoryId);
@@ -1016,7 +1019,7 @@ export async function parseAndExecuteLocalQuery(
 
         if (isWhenQuery) {
           const datesList = matches.map(m => {
-            const d = new Date(m.date);
+            const d = parseLocalDate(m.date);
             return `${m.date}${!isNaN(d.getTime()) ? ' (' + DAY_NAMES[d.getDay()] + ')' : ''}${m.time ? ' at ' + m.time : ''}`;
           });
           return {

@@ -8,7 +8,7 @@ import {
 } from '../types';
 import { formatCurrency, convertCurrencyAmount } from './currency';
 import { isPendingScheduledTx } from '../utils/scheduledUtils';
-import { getLocalDateString, getLocalMonthKey } from '../utils/dateUtils';
+import { getLocalDateString, getLocalMonthKey, parseLocalDate } from '../utils/dateUtils';
 
 function getNormalizedAmount(
   t: Transaction,
@@ -89,11 +89,7 @@ function classifyCategory(
 // ─── Dimension Scorers ───────────────────────────────────────────────────────
 
 function getDayOfWeekLocal(dateStr: string): number {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  if (y && m && d) {
-    return new Date(y, m - 1, d).getDay();
-  }
-  return new Date(dateStr).getDay();
+  return parseLocalDate(dateStr).getDay();
 }
 
 function computeDayOfWeekPattern(
@@ -150,7 +146,7 @@ function computeVolatilityScore(
   // Bucket transactions into week-of-month (1-indexed, capped at 4 to prevent phantom week 5)
   const weeklyMap: Record<number, Record<string, number>> = {};
   monthTxs.forEach(t => {
-    const weekNum = Math.min(4, Math.ceil(new Date(t.date).getDate() / 7));
+    const weekNum = Math.min(4, Math.ceil(parseLocalDate(t.date).getDate() / 7));
     if (!weeklyMap[weekNum]) weeklyMap[weekNum] = {};
     const amt = currency ? getNormalizedAmount(t, currency, rates) : t.amount;
     weeklyMap[weekNum][t.categoryId] = (weeklyMap[weekNum][t.categoryId] || 0) + amt;

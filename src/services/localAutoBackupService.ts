@@ -645,8 +645,13 @@ export async function clearAllLocalBackups(): Promise<{ success: boolean; cleare
               }
             }
           }
-        } catch {
-          // Directory may not exist or be accessible, skip
+        } catch (readErr: any) {
+          const errMsg = String(readErr?.message || readErr || '').toLowerCase();
+          const isNotFound = errMsg.includes('does not exist') || errMsg.includes('not found') || errMsg.includes('no such') || errMsg.includes('enoent');
+          if (!isNotFound) {
+            console.warn(`[Auto-Backup] Failed to inspect directory ${loc.path}:`, readErr);
+            failedCount++;
+          }
         }
       }
     } else {

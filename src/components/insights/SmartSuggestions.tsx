@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Transaction } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { generateSmartSpendingSuggestions } from '../../services/insightsEngine';
+import { isPendingScheduledTx } from '../../utils/scheduledUtils';
 import {
   addKnowledgeRule,
   getAllRules,
@@ -26,9 +27,13 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
 
   const [insightTimeframe, setInsightTimeframe] = useState<'week' | 'month' | 'year'>('month');
 
+  const settledTransactions = useMemo(() => {
+    return filteredTransactions.filter(t => !isPendingScheduledTx(t));
+  }, [filteredTransactions]);
+
   const suggestions = useMemo(() => {
-    return generateSmartSpendingSuggestions(filteredTransactions, categories, baseCurrency, insightTimeframe, forexRates);
-  }, [filteredTransactions, categories, baseCurrency, insightTimeframe, forexRates]);
+    return generateSmartSpendingSuggestions(settledTransactions, categories, baseCurrency, insightTimeframe, forexRates);
+  }, [settledTransactions, categories, baseCurrency, insightTimeframe, forexRates]);
 
   // Knowledge Base State
   const [queryInput, setQueryInput] = useState('');
@@ -54,7 +59,7 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
     setIsLoading(true);
 
     // LAYER 1: Check for Direct Local Command / Transaction Query (Instant Math & Rules Engine)
-    const localQueryResult = await parseAndExecuteLocalQuery(input, filteredTransactions, categories, baseCurrency, forexRates);
+    const localQueryResult = await parseAndExecuteLocalQuery(input, settledTransactions, categories, baseCurrency, forexRates);
     if (localQueryResult.matched) {
       setAnswerResult(
         <div className="p-4 bg-brand-purple/10 border border-brand-purple/20 rounded-xl space-y-2 font-sans">
@@ -75,7 +80,7 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
     }
 
     // LAYER 2: Intent-Driven Expert System (Sync, Instant)
-    const expertResult = runExpertSystem(input, filteredTransactions, categories, baseCurrency, forexRates);
+    const expertResult = runExpertSystem(input, settledTransactions, categories, baseCurrency, forexRates);
     if (expertResult.matched) {
       setAnswerResult(
         <div className="p-4 bg-brand-purple/10 border border-brand-purple/20 rounded-xl space-y-2">

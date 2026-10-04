@@ -428,19 +428,42 @@ export async function exportFullDataBackup(): Promise<string> {
   return JSON.stringify(data, null, 2);
 }
 
-export async function importFullDataBackup(jsonString: string): Promise<boolean> {
+export interface ImportBackupResult {
+  success: boolean;
+  droppedTransactions: number;
+  storageError: boolean;
+  errorMessage?: string;
+}
+
+export async function importFullDataBackup(jsonString: string): Promise<ImportBackupResult> {
   try {
     const data = JSON.parse(jsonString);
-    if (!data || typeof data !== 'object') return false;
+    if (!data || typeof data !== 'object') {
+      return { success: false, droppedTransactions: 0, storageError: false, errorMessage: 'Invalid backup JSON payload' };
+    }
 
     // Strict schema & type validation before mutating any storage
-    if (data.transactions && !Array.isArray(data.transactions)) return false;
-    if (data.categories && !Array.isArray(data.categories)) return false;
-    if (data.trips && !Array.isArray(data.trips)) return false;
-    if (data.subscriptions && !Array.isArray(data.subscriptions)) return false;
-    if (data.smsTemplates && !Array.isArray(data.smsTemplates)) return false;
-    if (data.periodNotes && !Array.isArray(data.periodNotes)) return false;
-    if (data.profile && typeof data.profile !== 'object') return false;
+    if (data.transactions && !Array.isArray(data.transactions)) {
+      return { success: false, droppedTransactions: 0, storageError: false, errorMessage: 'Invalid transactions array format' };
+    }
+    if (data.categories && !Array.isArray(data.categories)) {
+      return { success: false, droppedTransactions: 0, storageError: false, errorMessage: 'Invalid categories array format' };
+    }
+    if (data.trips && !Array.isArray(data.trips)) {
+      return { success: false, droppedTransactions: 0, storageError: false, errorMessage: 'Invalid trips array format' };
+    }
+    if (data.subscriptions && !Array.isArray(data.subscriptions)) {
+      return { success: false, droppedTransactions: 0, storageError: false, errorMessage: 'Invalid subscriptions array format' };
+    }
+    if (data.smsTemplates && !Array.isArray(data.smsTemplates)) {
+      return { success: false, droppedTransactions: 0, storageError: false, errorMessage: 'Invalid smsTemplates array format' };
+    }
+    if (data.periodNotes && !Array.isArray(data.periodNotes)) {
+      return { success: false, droppedTransactions: 0, storageError: false, errorMessage: 'Invalid periodNotes array format' };
+    }
+    if (data.profile && typeof data.profile !== 'object') {
+      return { success: false, droppedTransactions: 0, storageError: false, errorMessage: 'Invalid profile object format' };
+    }
 
     const db = await openDatabase();
     const storesToLock = ['transactions', 'categories', 'trips', 'smsTemplates', 'subscriptions', 'userProfile'];
@@ -513,11 +536,16 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
       }
     });
 
+    const droppedTransactions = Array.isArray(data.transactions)
+      ? Math.max(0, data.transactions.length - validTransactions.length)
+      : 0;
+
+    let storageError = false;
     // Sync localStorage strictly AFTER atomic database transaction succeeds
     try {
       if (data.transactions && Array.isArray(data.transactions)) {
-        if (data.transactions.length > validTransactions.length) {
-          console.warn(`[Import] Filtered ${data.transactions.length - validTransactions.length} invalid transaction records from backup payload.`);
+        if (droppedTransactions > 0) {
+          console.warn(`[Import] Filtered ${droppedTransactions} invalid transaction records from backup payload.`);
         }
         localStorage.setItem('fa_transactions', JSON.stringify(validTransactions));
       }
@@ -577,12 +605,22 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
       }
     } catch (storageErr) {
       console.warn('Database restored to IndexedDB, but localStorage mirror update hit a quota/storage error:', storageErr);
+      storageError = true;
     }
 
-    return true;
-  } catch (err) {
+    return {
+      success: true,
+      droppedTransactions,
+      storageError
+    };
+  } catch (err: any) {
     console.error('Failed to import backup atomically:', err);
-    return false;
+    return {
+      success: false,
+      droppedTransactions: 0,
+      storageError: false,
+      errorMessage: err?.message || 'Database import error'
+    };
   }
 }
 

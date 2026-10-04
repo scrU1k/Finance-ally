@@ -119,7 +119,7 @@
   <ul>
     <li>All credentials, usernames, and passwords stored in the dedicated Password Manager Vault are encrypted on-device using <strong>AES-256-GCM</strong> authenticated encryption with keys derived via memory-hard <strong>Argon2id (32 MiB memory, 3 iterations)</strong>.</li>
     <li>Decrypted secrets exist in volatile memory only while unlocked and are never stored in plaintext or transmitted.</li>
-    <li><strong>Unified Global Recovery Key:</strong> A 16-character full Base-62 emergency key (<code>FAK-XXXX-XXXX-XXXX-XXXX</code>) is generated for emergency recovery of forgotten passwords, vault master PINs, or backup PINs. Stored only as an irreversible one-way Argon2id verifier hash on device, this key operates on a zero-knowledge basis and cannot be retrieved by any external party.</li>
+    <li><strong>Unified Global Recovery Key:</strong> A 16-character full Base-62 emergency key (<code>FAK-XXXX-XXXX-XXXX-XXXX</code>) is generated for emergency recovery of forgotten passwords, vault master PINs, or backup PINs. Held in temporary staging on-device strictly until user acknowledgment, the key is permanently purged upon confirmation and retained only as an irreversible one-way Argon2id verifier hash on device, operating on a zero-knowledge basis.</li>
   </ul>
 
   <h3>4. On-Device Intelligence & Processing</h3>

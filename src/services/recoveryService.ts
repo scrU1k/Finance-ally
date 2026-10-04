@@ -125,7 +125,7 @@ export function normalizeRecoveryKey(raw: string): string {
 /**
  * Generates a high-entropy 16-character full Base-62 recovery key with static non-identifying prefix:
  * e.g. FAK-k7B2-9xLm-4PqR-v8Tw
- * This key is shown ONCE to the user and NEVER saved in plaintext or reversible form on the device.
+ * This key is shown ONCE to the user. It is staged in temporary crash-safe storage strictly until confirmed by the user, after which it is immediately purged from device storage.
  */
 export function generateRecoveryKey(_username?: string): string {
   const prefix = 'FAK';

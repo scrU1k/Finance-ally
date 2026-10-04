@@ -398,10 +398,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setVerifyPinError('');
     try {
       const decrypted = await decryptJSONWithRecoveryKey(pendingImportContent, recoveryKey.trim());
-      const ok = await importFullDataBackup(decrypted);
-      if (!ok) {
+      const res = await importFullDataBackup(decrypted);
+      if (!res.success) {
         setVerifyPinLoading(false);
-        setVerifyPinError('Data decrypted but schema validation failed. File may be corrupted or from an incompatible version.');
+        setVerifyPinError(res.errorMessage || 'Data decrypted but schema validation failed. File may be corrupted or from an incompatible version.');
         return;
       }
       const username = user?.username || 'USER';
@@ -411,8 +411,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       setIsRecoveringBackupImport(false);
       setShowVerifyPinModal(false);
       setPendingImportContent(null);
-      setImportStatus('Backup restored and new Backup PIN set! Restarting app...');
-      setTimeout(() => window.location.reload(), 1200);
+      const warningNote = res.droppedTransactions > 0
+        ? ` (${res.droppedTransactions} invalid transactions skipped)`
+        : (res.storageError ? ' (Warning: browser storage quota constrained)' : '');
+      setImportStatus(`Backup restored${warningNote} and new Backup PIN set! Restarting app...`);
+      setTimeout(() => window.location.reload(), warningNote ? 3000 : 1200);
     } catch (err: any) {
       setVerifyPinLoading(false);
       setVerifyPinError(err?.message || 'Failed to restore backup with Recovery Key.');
@@ -671,12 +674,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setShowVerifyPinModal(true);
       } else {
         try {
-          const ok = await importFullDataBackup(content);
-          if (ok) {
-            setImportStatus('Backup restored! Restarting app...');
-            setTimeout(() => window.location.reload(), 1200);
+          const res = await importFullDataBackup(content);
+          if (res.success) {
+            const warningNote = res.droppedTransactions > 0
+              ? ` (${res.droppedTransactions} invalid transactions skipped)`
+              : (res.storageError ? ' (Warning: browser storage quota constrained)' : '');
+            setImportStatus(`Backup restored${warningNote}! Restarting app...`);
+            setTimeout(() => window.location.reload(), warningNote ? 3000 : 1200);
           } else {
-            setImportStatus('Error: Backup file structure is corrupted or invalid.');
+            setImportStatus(res.errorMessage ? `Error: ${res.errorMessage}` : 'Error: Backup file structure is corrupted or invalid.');
             resetSystemPickerBypass();
           }
         } catch {
@@ -695,14 +701,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     if (!pendingImportContent) return;
     try {
       const decrypted = await decryptJSON(pendingImportContent, pin);
-      const ok = await importFullDataBackup(decrypted);
+      const res = await importFullDataBackup(decrypted);
       setVerifyPinLoading(false);
-      if (ok) {
+      if (res.success) {
         setShowVerifyPinModal(false);
-        setImportStatus('Encrypted backup decrypted and restored! Restarting app...');
-        setTimeout(() => window.location.reload(), 1200);
+        const warningNote = res.droppedTransactions > 0
+          ? ` (${res.droppedTransactions} invalid transactions skipped)`
+          : (res.storageError ? ' (Warning: browser storage quota constrained)' : '');
+        setImportStatus(`Encrypted backup decrypted and restored${warningNote}! Restarting app...`);
+        setTimeout(() => window.location.reload(), warningNote ? 3000 : 1200);
       } else {
-        setVerifyPinError('Data decrypted but schema validation failed. File may be corrupted or from an incompatible version.');
+        setVerifyPinError(res.errorMessage || 'Data decrypted but schema validation failed. File may be corrupted or from an incompatible version.');
       }
     } catch (err: any) {
       setVerifyPinLoading(false);
@@ -832,12 +841,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       setPendingImportContent(payload);
       setShowVerifyPinModal(true);
     } else {
-      const ok = await importFullDataBackup(payload);
-      if (ok) {
-        setImportStatus(`Restored from snapshot ${snap.filename}! Restarting app...`);
-        setTimeout(() => window.location.reload(), 1200);
+      const res = await importFullDataBackup(payload);
+      if (res.success) {
+        const warningNote = res.droppedTransactions > 0
+          ? ` (${res.droppedTransactions} invalid transactions skipped)`
+          : (res.storageError ? ' (Warning: browser storage quota constrained)' : '');
+        setImportStatus(`Restored from snapshot ${snap.filename}${warningNote}! Restarting app...`);
+        setTimeout(() => window.location.reload(), warningNote ? 3000 : 1200);
       } else {
-        setImportStatus('Failed to restore snapshot data.');
+        setImportStatus(res.errorMessage ? `Error: ${res.errorMessage}` : 'Failed to restore snapshot data.');
       }
     }
   };
