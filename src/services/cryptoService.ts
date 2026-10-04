@@ -151,13 +151,13 @@ export async function setupExportPin(pin: string, username: string, providedReco
     salt: bufToBase64(salt.buffer as ArrayBuffer)
   };
 
-  // 4. Encrypt Private Key with Recovery Key if provided, or preserve existing recovery escrow
+  // 4. Encrypt Private Key with Recovery Key if provided
   let encryptedPrivateKeyRecovery: EncryptedPrivateKey | undefined = undefined;
 
   if (providedRecoveryKey) {
     const rSalt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
     const rIv = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
-    const rAesKey = await deriveKeyPbkdf2(providedRecoveryKey, rSalt);
+    const rAesKey = await deriveKeyPbkdf2(providedRecoveryKey.trim(), rSalt);
     
     const rEncryptedPrivateKeyBuf = await crypto.subtle.encrypt(
       { name: 'AES-GCM', iv: rIv },
@@ -170,17 +170,6 @@ export async function setupExportPin(pin: string, username: string, providedReco
       iv: bufToBase64(rIv.buffer as ArrayBuffer),
       salt: bufToBase64(rSalt.buffer as ArrayBuffer)
     };
-  } else {
-    // Preserve existing recovery escrow if present from previous setup
-    try {
-      const raw = localStorage.getItem(PIN_KEY);
-      if (raw) {
-        const existing: StoredHybridKeys = JSON.parse(raw);
-        if (existing.encryptedPrivateKeyRecovery) {
-          encryptedPrivateKeyRecovery = existing.encryptedPrivateKeyRecovery;
-        }
-      }
-    } catch {}
   }
 
   // 5. Save to localStorage with v: 4 (Argon2id)
@@ -195,7 +184,18 @@ export async function setupExportPin(pin: string, username: string, providedReco
   return providedRecoveryKey || '';
 }
 
-export async function changeExportPin(oldPin: string, newPin: string): Promise<boolean> {
+export function hasExportPinRecoveryEscrow(): boolean {
+  try {
+    const raw = localStorage.getItem(PIN_KEY);
+    if (!raw) return false;
+    const stored: StoredHybridKeys = JSON.parse(raw);
+    return !!stored.encryptedPrivateKeyRecovery;
+  } catch {
+    return false;
+  }
+}
+
+export async function changeExportPin(oldPin: string, newPin: string, recoveryKey?: string): Promise<boolean> {
   const raw = localStorage.getItem(PIN_KEY);
   if (!raw) throw new Error('No existing PIN configuration found.');
   const stored: StoredHybridKeys = JSON.parse(raw);
@@ -227,6 +227,23 @@ export async function changeExportPin(oldPin: string, newPin: string): Promise<b
     iv: bufToBase64(newIv.buffer as ArrayBuffer),
     salt: bufToBase64(newSalt.buffer as ArrayBuffer)
   };
+
+  // If recovery key provided, re-encrypt private key with recovery key too
+  if (recoveryKey) {
+    const rSalt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) as Uint8Array<ArrayBuffer>;
+    const rIv = crypto.getRandomValues(new Uint8Array(IV_LENGTH)) as Uint8Array<ArrayBuffer>;
+    const rAesKey = await deriveKeyPbkdf2(recoveryKey.trim(), rSalt);
+    const rEncryptedPrivateKeyBuf = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: rIv },
+      rAesKey,
+      privateKeyPkcs8
+    );
+    stored.encryptedPrivateKeyRecovery = {
+      ciphertext: bufToBase64(rEncryptedPrivateKeyBuf),
+      iv: bufToBase64(rIv.buffer as ArrayBuffer),
+      salt: bufToBase64(rSalt.buffer as ArrayBuffer)
+    };
+  }
   
   // Ensure upgraded to v4 if it was v3
   stored.v = 4;

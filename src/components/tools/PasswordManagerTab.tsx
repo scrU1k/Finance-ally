@@ -793,10 +793,14 @@ export const PasswordManagerTab: React.FC = () => {
         return;
       }
       const trimmedRecKey = formRecoveryKey.trim();
+      if (hasGlobalRecoveryKey() && !trimmedRecKey) {
+        setFormError('Global Recovery Key is required to create recovery escrow for your vault.');
+        return;
+      }
       if (trimmedRecKey) {
         const isKeyValid = await verifyGlobalRecoveryKey(trimmedRecKey);
         if (!isKeyValid) {
-          setFormError('Invalid Global Recovery Key. Please verify or leave blank.');
+          setFormError('Invalid Global Recovery Key. Please check and re-enter.');
           return;
         }
       }
@@ -1841,14 +1845,17 @@ export const PasswordManagerTab: React.FC = () => {
                   </div>
                   <div className="pt-1 space-y-1">
                     <label className="text-[10px] font-mono text-muted-custom flex items-center justify-between">
-                      <span>Global Recovery Key {hasGlobalRecoveryKey() ? '(Recommended for escrow)' : '(Optional)'}</span>
+                      <span>
+                        Global Recovery Key {hasGlobalRecoveryKey() ? '(Required for escrow)' : '(Optional)'}
+                      </span>
                       <span className="text-[9px] text-[#005687] dark:text-[#0088cc]">Enables PIN recovery</span>
                     </label>
                     <input
                       type="text"
                       value={formRecoveryKey}
                       onChange={e => setFormRecoveryKey(e.target.value)}
-                      placeholder="FAK-xxxx-xxxx-xxxx-xxxx (optional)"
+                      placeholder={hasGlobalRecoveryKey() ? 'FAK-xxxx-xxxx-xxxx-xxxx' : 'FAK-xxxx-xxxx-xxxx-xxxx (optional)'}
+                      required={hasGlobalRecoveryKey()}
                       className="w-full px-3 py-1.5 text-xs font-mono bg-surface-card border border-hairline rounded-lg text-ink"
                     />
                   </div>

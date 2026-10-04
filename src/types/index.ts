@@ -179,4 +179,6 @@ export interface PasswordVaultEnvelope {
   version: string;
   checksum: string;
   items: PasswordVaultItem[];
+  verifier?: { cipherText: string; iv: string; salt: string; kdf: 'argon2id' | 'pbkdf2' };
+  escrow?: { ciphertext: string; iv: string; salt: string };
 }

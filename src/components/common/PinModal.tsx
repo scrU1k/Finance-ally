@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Lock, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { hasGlobalRecoveryKey } from '../../services/recoveryService';
 
 interface PinModalProps {
   mode: 'verify' | 'set' | 'change' | 'recover' | 'reset' | 'disable' | 'recover-disable';
@@ -49,6 +50,10 @@ export const PinModal: React.FC<PinModalProps> = ({
       }
       if ((mode === 'set' || mode === 'reset') && pin !== confirmPin) {
         setLocalError(`${term}s do not match. Please re-check.`);
+        return;
+      }
+      if ((mode === 'set' || mode === 'reset') && hasGlobalRecoveryKey() && !recoveryKey.trim()) {
+        setLocalError('Global Recovery Key is required to create recovery escrow for your backup password.');
         return;
       }
       onConfirm(pin, confirmPin, recoveryKey.trim() || undefined);
@@ -191,11 +196,13 @@ export const PinModal: React.FC<PinModalProps> = ({
             </div>
           )}
 
-          {/* Optional Recovery Key input for automatic escrow linking */}
-          {(mode === 'set' || mode === 'change') && (
+          {/* Recovery Key input for automatic escrow linking */}
+          {(mode === 'set' || mode === 'change' || mode === 'reset') && (
             <div className="space-y-1 pt-1">
               <label className="text-[10px] font-mono text-muted-custom uppercase font-bold flex justify-between">
-                <span>Global Recovery Key (Recommended)</span>
+                <span>
+                  Global Recovery Key {hasGlobalRecoveryKey() ? '(Required for escrow)' : '(Recommended)'}
+                </span>
                 <span className="text-brand-blue lowercase font-normal">enables emergency reset</span>
               </label>
               <input
@@ -203,11 +210,14 @@ export const PinModal: React.FC<PinModalProps> = ({
                 value={recoveryKey}
                 onChange={e => setRecoveryKey(e.target.value)}
                 placeholder="FAK-xxxx-xxxx-xxxx-xxxx"
+                required={hasGlobalRecoveryKey()}
                 className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink focus:outline-none focus:border-ink tracking-wider"
                 maxLength={60}
               />
               <p className="text-[9px] font-mono text-muted-custom">
-                Links your recovery key to this backup so you can recover data even if you lose this password.
+                {hasGlobalRecoveryKey()
+                  ? 'Required to link your recovery key to this backup so you can recover data even if you lose this password.'
+                  : 'Links your recovery key to this backup so you can recover data even if you lose this password.'}
               </p>
             </div>
           )}

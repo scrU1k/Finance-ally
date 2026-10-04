@@ -195,7 +195,18 @@ export async function rotateGlobalRecoveryKey(oldKey: string, _username?: string
   const newKey = generateRecoveryKey();
 
   // --- Stage 1: Migrate Vault PIN Escrow ---
-  const rawVaultEscrow = localStorage.getItem('fa_pwd_vault_recovery_escrow');
+  let rawVaultEscrow = localStorage.getItem('fa_pwd_vault_recovery_escrow');
+  let parsedVaultEnvelope: any = null;
+  const rawVaultEnvelope = localStorage.getItem('fa_password_vault_envelope');
+  if (rawVaultEnvelope) {
+    try {
+      parsedVaultEnvelope = JSON.parse(rawVaultEnvelope);
+      if (parsedVaultEnvelope?.escrow && !rawVaultEscrow) {
+        rawVaultEscrow = JSON.stringify(parsedVaultEnvelope.escrow);
+      }
+    } catch {}
+  }
+
   let newVaultEscrow: { ciphertext: string; iv: string; salt: string } | null = null;
   if (rawVaultEscrow) {
     try {
@@ -214,19 +225,19 @@ export async function rotateGlobalRecoveryKey(oldKey: string, _username?: string
   if (rawBackupKeys) {
     try {
       parsedBackupKeys = JSON.parse(rawBackupKeys);
-      const existingRecovery = (parsedBackupKeys as any)?.encryptedPrivateKeyRecovery;
-      if (existingRecovery) {
+    } catch {
+      throw new Error('Stored backup configuration is corrupted. Rotation aborted. Your current key remains valid.');
+    }
+
+    const existingRecovery = (parsedBackupKeys as any)?.encryptedPrivateKeyRecovery;
+    if (existingRecovery) {
+      try {
         const rSalt = base64ToBuf(existingRecovery.salt);
         const rIv = base64ToBuf(existingRecovery.iv);
         const rData = base64ToBuf(existingRecovery.ciphertext);
         const oldRKey = await deriveKeyFromRecovery(oldKey, rSalt);
 
-        let privateKeyPkcs8: ArrayBuffer;
-        try {
-          privateKeyPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: rIv }, oldRKey, rData);
-        } catch {
-          throw new Error('Failed to migrate Backup PIN recovery escrow. Rotation aborted. Your current key remains valid.');
-        }
+        const privateKeyPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: rIv }, oldRKey, rData);
 
         // Re-encrypt with new key using PBKDF2 (same as setupExportPin)
         const newSalt = crypto.getRandomValues(new Uint8Array(16)) as Uint8Array<ArrayBuffer>;
@@ -238,14 +249,14 @@ export async function rotateGlobalRecoveryKey(oldKey: string, _username?: string
           iv: bufToBase64(newIv.buffer as ArrayBuffer),
           salt: bufToBase64(newSalt.buffer as ArrayBuffer),
         };
+      } catch {
+        throw new Error('Failed to migrate Backup PIN recovery escrow. Rotation aborted. Your current key remains valid.');
       }
-    } catch (e: any) {
-      if (e?.message?.includes('Rotation aborted')) throw e;
-      // No existing backup escrow is OK — skip
     }
   }
 
   // --- Commit: All escrows staged successfully — write atomically with rollback protection ---
+  const backupVaultEnvelope = localStorage.getItem('fa_password_vault_envelope');
   const backupVaultEscrow = localStorage.getItem('fa_pwd_vault_recovery_escrow');
   const backupExportPin = localStorage.getItem('fa_export_pin');
   const backupVerifier = localStorage.getItem(VERIFIER_KEY);
@@ -253,6 +264,10 @@ export async function rotateGlobalRecoveryKey(oldKey: string, _username?: string
   try {
     if (newVaultEscrow) {
       localStorage.setItem('fa_pwd_vault_recovery_escrow', JSON.stringify(newVaultEscrow));
+      if (parsedVaultEnvelope) {
+        parsedVaultEnvelope.escrow = newVaultEscrow;
+        localStorage.setItem('fa_password_vault_envelope', JSON.stringify(parsedVaultEnvelope));
+      }
     }
     if (newBackupEscrow && parsedBackupKeys) {
       (parsedBackupKeys as any).encryptedPrivateKeyRecovery = newBackupEscrow;
@@ -261,6 +276,9 @@ export async function rotateGlobalRecoveryKey(oldKey: string, _username?: string
     await setGlobalRecoveryKeyVerifier(newKey);
   } catch (writeErr) {
     // Revert all modified storage keys if any write fails
+    if (backupVaultEnvelope !== null) localStorage.setItem('fa_password_vault_envelope', backupVaultEnvelope);
+    else localStorage.removeItem('fa_password_vault_envelope');
+
     if (backupVaultEscrow !== null) localStorage.setItem('fa_pwd_vault_recovery_escrow', backupVaultEscrow);
     else localStorage.removeItem('fa_pwd_vault_recovery_escrow');
 

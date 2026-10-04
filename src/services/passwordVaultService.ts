@@ -1,6 +1,6 @@
 import { PasswordVaultItem, DecryptedPasswordCard, PasswordVaultEnvelope } from '../types';
 import { deriveKeyArgon2id } from './kdfService';
-import { encryptPayloadWithRecovery, decryptPayloadWithRecovery, verifyGlobalRecoveryKey } from './recoveryService';
+import { encryptPayloadWithRecovery, decryptPayloadWithRecovery, verifyGlobalRecoveryKey, hasGlobalRecoveryKey } from './recoveryService';
 
 const ITEMS_KEY = 'fa_password_vault_items';
 const ENVELOPE_KEY = 'fa_password_vault_envelope';
@@ -133,15 +133,37 @@ export function getStoredPasswordEnvelope(): PasswordVaultEnvelope {
   try {
     const rawEnv = localStorage.getItem(ENVELOPE_KEY);
     if (rawEnv) {
-      return JSON.parse(rawEnv);
+      const parsed: PasswordVaultEnvelope = JSON.parse(rawEnv);
+      if (!parsed.verifier) {
+        const rawVer = localStorage.getItem(VERIFIER_KEY);
+        if (rawVer) {
+          try { parsed.verifier = JSON.parse(rawVer); } catch {}
+        }
+      }
+      if (!parsed.escrow) {
+        const rawEsc = localStorage.getItem(VAULT_RECOVERY_ESCROW_KEY);
+        if (rawEsc) {
+          try { parsed.escrow = JSON.parse(rawEsc); } catch {}
+        }
+      }
+      return parsed;
     }
     // Fallback migration from raw items key
     const rawItems = localStorage.getItem(ITEMS_KEY);
     const items: PasswordVaultItem[] = rawItems ? JSON.parse(rawItems) : [];
+    let verifier: any = undefined;
+    let escrow: any = undefined;
+    const rawVer = localStorage.getItem(VERIFIER_KEY);
+    if (rawVer) { try { verifier = JSON.parse(rawVer); } catch {} }
+    const rawEsc = localStorage.getItem(VAULT_RECOVERY_ESCROW_KEY);
+    if (rawEsc) { try { escrow = JSON.parse(rawEsc); } catch {} }
+
     return {
       version: '2.2',
       checksum: 'uncalculated',
-      items
+      items,
+      verifier,
+      escrow
     };
   } catch {
     return { version: '2.2', checksum: 'none', items: [] };
@@ -149,11 +171,14 @@ export function getStoredPasswordEnvelope(): PasswordVaultEnvelope {
 }
 
 export async function savePasswordEnvelope(items: PasswordVaultItem[]): Promise<void> {
+  const currentEnv = getStoredPasswordEnvelope();
   const checksum = await calculateVaultChecksum(items);
   const envelope: PasswordVaultEnvelope = {
     version: '2.2',
     checksum,
-    items
+    items,
+    verifier: currentEnv.verifier,
+    escrow: currentEnv.escrow
   };
   localStorage.setItem(ENVELOPE_KEY, JSON.stringify(envelope));
   localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
@@ -173,6 +198,8 @@ export async function verifyVaultIntegrity(): Promise<boolean> {
 // ─── MASTER PIN & FAILED ATTEMPT THROTTLING ───────────────────────────────
 
 export function hasMasterPin(): boolean {
+  const env = getStoredPasswordEnvelope();
+  if (env.verifier) return true;
   return !!localStorage.getItem(VERIFIER_KEY);
 }
 
@@ -215,12 +242,17 @@ export function resetFailedPinAttempts(): void {
 }
 
 export function hasMasterPinRecoveryEscrow(): boolean {
+  const env = getStoredPasswordEnvelope();
+  if (env.escrow) return true;
   return !!localStorage.getItem(VAULT_RECOVERY_ESCROW_KEY);
 }
 
 export async function saveMasterPinRecoveryEscrow(pin: string, recoveryKey: string): Promise<boolean> {
   try {
     const escrow = await encryptPayloadWithRecovery(pin, recoveryKey);
+    const env = getStoredPasswordEnvelope();
+    env.escrow = escrow;
+    localStorage.setItem(ENVELOPE_KEY, JSON.stringify(env));
     localStorage.setItem(VAULT_RECOVERY_ESCROW_KEY, JSON.stringify(escrow));
     return true;
   } catch (err) {
@@ -231,24 +263,52 @@ export async function saveMasterPinRecoveryEscrow(pin: string, recoveryKey: stri
 
 export async function setMasterPin(pin: string, recoveryKey?: string): Promise<boolean> {
   try {
+    if (hasGlobalRecoveryKey() && !recoveryKey) {
+      throw new Error('Global Recovery Key is required to create recovery escrow for your vault.');
+    }
+    if (recoveryKey) {
+      const isKeyValid = await verifyGlobalRecoveryKey(recoveryKey.trim());
+      if (!isKeyValid) {
+        throw new Error('Invalid Global Recovery Key.');
+      }
+    }
+
     const verifier = await encryptPassword(MAGIC_STRING, pin, 'argon2id');
     let escrowPayload: any = null;
     if (recoveryKey) {
-      escrowPayload = await encryptPayloadWithRecovery(pin, recoveryKey);
+      escrowPayload = await encryptPayloadWithRecovery(pin, recoveryKey.trim());
       if (!escrowPayload) {
         throw new Error('Failed to generate master pin recovery escrow');
       }
     }
 
+    const currentEnv = getStoredPasswordEnvelope();
+    const newEnvelope: PasswordVaultEnvelope = {
+      version: '2.2',
+      checksum: currentEnv.checksum || await calculateVaultChecksum(currentEnv.items),
+      items: currentEnv.items,
+      verifier,
+      escrow: escrowPayload || undefined
+    };
+
+    const prevEnvelope = localStorage.getItem(ENVELOPE_KEY);
     const prevVerifier = localStorage.getItem(VERIFIER_KEY);
     const prevEscrow = localStorage.getItem(VAULT_RECOVERY_ESCROW_KEY);
 
     try {
+      // Primary crash-safe atomic write
+      localStorage.setItem(ENVELOPE_KEY, JSON.stringify(newEnvelope));
+      // Mirror legacy keys
       localStorage.setItem(VERIFIER_KEY, JSON.stringify(verifier));
       if (escrowPayload) {
         localStorage.setItem(VAULT_RECOVERY_ESCROW_KEY, JSON.stringify(escrowPayload));
+      } else {
+        localStorage.removeItem(VAULT_RECOVERY_ESCROW_KEY);
       }
     } catch (writeErr) {
+      if (prevEnvelope !== null) localStorage.setItem(ENVELOPE_KEY, prevEnvelope);
+      else localStorage.removeItem(ENVELOPE_KEY);
+
       if (prevVerifier !== null) localStorage.setItem(VERIFIER_KEY, prevVerifier);
       else localStorage.removeItem(VERIFIER_KEY);
 
@@ -262,8 +322,99 @@ export async function setMasterPin(pin: string, recoveryKey?: string): Promise<b
     return true;
   } catch (e) {
     console.error('Failed to set master pin:', e);
-    return false;
+    throw e;
   }
+}
+
+export async function changeVaultMasterPin(
+  oldPin: string,
+  newPin: string,
+  recoveryKey?: string
+): Promise<boolean> {
+  const isOldValid = await verifyMasterPin(oldPin);
+  if (!isOldValid) {
+    throw new Error('Current Master PIN is incorrect.');
+  }
+
+  const hasEscrow = hasMasterPinRecoveryEscrow();
+  const hasGlobalKey = hasGlobalRecoveryKey();
+
+  if ((hasEscrow || hasGlobalKey) && !recoveryKey) {
+    throw new Error(
+      'Global Recovery Key is required to refresh emergency recovery escrow for your new Master PIN.'
+    );
+  }
+
+  if (recoveryKey) {
+    const isKeyValid = await verifyGlobalRecoveryKey(recoveryKey.trim());
+    if (!isKeyValid) {
+      throw new Error('Invalid Global Recovery Key. Please check and re-enter.');
+    }
+  }
+
+  // 1. Decrypt all existing cards in memory with oldPin and re-encrypt with newPin
+  const items = getStoredPasswordItems();
+  const reEncryptedItems: PasswordVaultItem[] = [];
+  for (const item of items) {
+    const card = await decryptCardPayload(item, oldPin);
+    const reEnc = await encryptCardPayload(card, newPin);
+    reEncryptedItems.push(reEnc);
+  }
+
+  // 2. Prepare new verifier and escrow in memory
+  const newVerifier = await encryptPassword(MAGIC_STRING, newPin, 'argon2id');
+  let newEscrowPayload: any = null;
+  if (recoveryKey) {
+    newEscrowPayload = await encryptPayloadWithRecovery(newPin, recoveryKey.trim());
+    if (!newEscrowPayload) {
+      throw new Error('Failed to generate recovery escrow for new Master PIN.');
+    }
+  }
+
+  // 3. Stage complete new envelope in memory
+  const checksum = await calculateVaultChecksum(reEncryptedItems);
+  const envelope: PasswordVaultEnvelope = {
+    version: '2.2',
+    checksum,
+    items: reEncryptedItems,
+    verifier: newVerifier,
+    escrow: newEscrowPayload || undefined
+  };
+
+  // 4. Capture existing snapshots for rollback
+  const backupEnvelope = localStorage.getItem(ENVELOPE_KEY);
+  const backupItems = localStorage.getItem(ITEMS_KEY);
+  const backupVerifier = localStorage.getItem(VERIFIER_KEY);
+  const backupEscrow = localStorage.getItem(VAULT_RECOVERY_ESCROW_KEY);
+
+  // 5. Commit atomically: primary envelope first
+  try {
+    localStorage.setItem(ENVELOPE_KEY, JSON.stringify(envelope));
+    localStorage.setItem(ITEMS_KEY, JSON.stringify(reEncryptedItems));
+    localStorage.setItem(VERIFIER_KEY, JSON.stringify(newVerifier));
+    if (newEscrowPayload) {
+      localStorage.setItem(VAULT_RECOVERY_ESCROW_KEY, JSON.stringify(newEscrowPayload));
+    } else {
+      localStorage.removeItem(VAULT_RECOVERY_ESCROW_KEY);
+    }
+  } catch (writeErr) {
+    if (backupEnvelope !== null) localStorage.setItem(ENVELOPE_KEY, backupEnvelope);
+    else localStorage.removeItem(ENVELOPE_KEY);
+
+    if (backupItems !== null) localStorage.setItem(ITEMS_KEY, backupItems);
+    else localStorage.removeItem(ITEMS_KEY);
+
+    if (backupVerifier !== null) localStorage.setItem(VERIFIER_KEY, backupVerifier);
+    else localStorage.removeItem(VERIFIER_KEY);
+
+    if (backupEscrow !== null) localStorage.setItem(VAULT_RECOVERY_ESCROW_KEY, backupEscrow);
+    else localStorage.removeItem(VAULT_RECOVERY_ESCROW_KEY);
+
+    throw new Error('Master PIN change failed due to storage error. Vault rolled back safely.');
+  }
+
+  resetFailedPinAttempts();
+  return true;
 }
 
 export async function recoverVaultMasterPin(recoveryKey: string, newPin: string): Promise<boolean> {
@@ -273,7 +424,8 @@ export async function recoverVaultMasterPin(recoveryKey: string, newPin: string)
   }
 
   const items = getStoredPasswordItems();
-  const rawEscrow = localStorage.getItem(VAULT_RECOVERY_ESCROW_KEY);
+  const env = getStoredPasswordEnvelope();
+  const rawEscrow = env.escrow ? JSON.stringify(env.escrow) : localStorage.getItem(VAULT_RECOVERY_ESCROW_KEY);
 
   if (!rawEscrow) {
     if (items.length > 0) {
@@ -293,7 +445,7 @@ export async function recoverVaultMasterPin(recoveryKey: string, newPin: string)
   // Decode the old PIN from escrow
   let oldPin: string;
   try {
-    const escrow = JSON.parse(rawEscrow);
+    const escrow = typeof rawEscrow === 'string' ? JSON.parse(rawEscrow) : rawEscrow;
     oldPin = await decryptPayloadWithRecovery(escrow, recoveryKey);
   } catch {
     throw new Error('Recovery escrow could not be decrypted. The recovery key may not match the one used to create it.');
@@ -324,18 +476,20 @@ export async function recoverVaultMasterPin(recoveryKey: string, newPin: string)
 
   // Stage all payload objects in memory before writing to storage
   const checksum = await calculateVaultChecksum(staged);
+  const newVerifier = await encryptPassword(MAGIC_STRING, newPin, 'argon2id');
+  const newEscrow = await encryptPayloadWithRecovery(newPin, recoveryKey);
+
   const envelope: PasswordVaultEnvelope = {
     version: '2.2',
     checksum,
-    items: staged
+    items: staged,
+    verifier: newVerifier,
+    escrow: newEscrow
   };
+
   const envelopeStr = JSON.stringify(envelope);
   const itemsStr = JSON.stringify(staged);
-
-  const newVerifier = await encryptPassword(MAGIC_STRING, newPin, 'argon2id');
   const verifierStr = JSON.stringify(newVerifier);
-
-  const newEscrow = await encryptPayloadWithRecovery(newPin, recoveryKey);
   const escrowStr = JSON.stringify(newEscrow);
 
   // Snapshot existing storage values for atomic rollback
@@ -377,9 +531,13 @@ export async function verifyMasterPin(pin: string): Promise<boolean> {
   }
 
   try {
-    const raw = localStorage.getItem(VERIFIER_KEY);
-    if (!raw) return false;
-    const parsed = JSON.parse(raw);
+    const env = getStoredPasswordEnvelope();
+    let parsed: any = env.verifier;
+    if (!parsed) {
+      const raw = localStorage.getItem(VERIFIER_KEY);
+      if (!raw) return false;
+      parsed = JSON.parse(raw);
+    }
     const { cipherText, iv, salt } = parsed;
     const kdf = parsed.kdf || 'argon2id';
     const decrypted = await decryptPassword(cipherText, iv, salt, pin, kdf);
@@ -392,6 +550,8 @@ export async function verifyMasterPin(pin: string): Promise<boolean> {
         try {
           const newVerifier = await encryptPassword(MAGIC_STRING, pin, 'argon2id');
           localStorage.setItem(VERIFIER_KEY, JSON.stringify(newVerifier));
+          env.verifier = newVerifier;
+          localStorage.setItem(ENVELOPE_KEY, JSON.stringify(env));
         } catch {
           // Non-blocking if upgrade fails
         }
