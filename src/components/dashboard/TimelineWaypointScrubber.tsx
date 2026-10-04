@@ -45,6 +45,8 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
 
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const targetScrollNodeRef = useRef<string | null>(null);
+  const targetScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHoveredRef = useRef(false);
   const isTouchingRef = useRef(false);
   const railRef = useRef<HTMLDivElement>(null);
@@ -362,14 +364,14 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     waypoints.forEach((wp, idx) => {
       if (idx === 0) {
         positions.push(0);
-      } else if (idx === waypoints.length - 1) {
-        positions.push(maxScroll);
       } else {
         const el = wp.getElement();
         if (el) {
           const rect = el.getBoundingClientRect();
           const targetScroll = Math.max(0, Math.min(maxScroll, rect.top + window.pageYOffset - headerOffset));
           positions.push(targetScroll);
+        } else if (idx === waypoints.length - 1) {
+          positions.push(maxScroll);
         } else {
           positions.push((idx / (waypoints.length - 1)) * maxScroll);
         }
@@ -404,10 +406,23 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       return;
     }
 
-    if (scrollY >= maxScroll - 5) {
+    if (scrollY >= maxScroll - 10) {
       setScrollProgress(1);
       setActiveNodeId(waypoints[count - 1].id);
       return;
+    }
+
+    // If user clicked a waypoint node, respect that target during smooth scroll
+    if (targetScrollNodeRef.current) {
+      const targetIdx = waypoints.findIndex(w => w.id === targetScrollNodeRef.current);
+      if (targetIdx >= 0) {
+        const targetPos = positions[targetIdx];
+        if (Math.abs(scrollY - targetPos) < 35) {
+          setScrollProgress(targetIdx / (count - 1));
+          setActiveNodeId(targetScrollNodeRef.current);
+          return;
+        }
+      }
     }
 
     let segIndex = 0;
@@ -425,12 +440,34 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     const tEnd = (segIndex + 1) / (count - 1);
 
     const span = sEnd - sStart;
-    const localRatio = span > 0 ? Math.max(0, Math.min(1, (scrollY - sStart) / span)) : 0;
-    const progress = tStart + localRatio * (tEnd - tStart);
+
+    // Snapping logic: if within 25px of sStart or sEnd, or if span is very small, snap to the nearest node
+    let progress: number;
+    let activeIdx: number;
+
+    if (span <= 35) {
+      if (scrollY >= sStart + span * 0.5) {
+        progress = tEnd;
+        activeIdx = Math.min(count - 1, segIndex + 1);
+      } else {
+        progress = tStart;
+        activeIdx = segIndex;
+      }
+    } else {
+      const localRatio = Math.max(0, Math.min(1, (scrollY - sStart) / span));
+      if (localRatio < 0.12 || Math.abs(scrollY - sStart) < 22) {
+        progress = tStart;
+        activeIdx = segIndex;
+      } else if (localRatio > 0.88 || Math.abs(scrollY - sEnd) < 22) {
+        progress = tEnd;
+        activeIdx = Math.min(count - 1, segIndex + 1);
+      } else {
+        progress = tStart + localRatio * (tEnd - tStart);
+        activeIdx = localRatio >= 0.5 ? Math.min(count - 1, segIndex + 1) : segIndex;
+      }
+    }
 
     setScrollProgress(progress);
-
-    const activeIdx = localRatio >= 0.5 ? Math.min(count - 1, segIndex + 1) : segIndex;
     setActiveNodeId(waypoints[activeIdx].id);
   }, [waypoints, getWaypointScrollPositions]);
 
@@ -445,6 +482,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     return () => {
       window.removeEventListener('scroll', handleScroll);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (targetScrollTimerRef.current) clearTimeout(targetScrollTimerRef.current);
     };
   }, [triggerVisibilityOnScroll, updateScrollState]);
 
@@ -811,6 +849,11 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
                   e.stopPropagation();
                   setActiveNodeId(node.id);
                   setScrollProgress(topPercent / 100);
+                  targetScrollNodeRef.current = node.id;
+                  if (targetScrollTimerRef.current) clearTimeout(targetScrollTimerRef.current);
+                  targetScrollTimerRef.current = setTimeout(() => {
+                    targetScrollNodeRef.current = null;
+                  }, 850);
                   node.scrollTo();
                 }}
                 onMouseEnter={() => setHoveredNodeId(node.id)}

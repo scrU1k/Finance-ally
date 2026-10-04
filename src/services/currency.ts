@@ -16,10 +16,12 @@ export const TOP_CURRENCIES: CurrencyConfig[] = [
 const LOCAL_RATES_KEY = 'finance_ally_forex_rates';
 
 export function getStoredForexRates(): Record<CurrencyCode, number> {
-  const cached = localStorage.getItem(LOCAL_RATES_KEY);
-  if (cached) {
+  if (typeof localStorage !== 'undefined') {
     try {
-      return JSON.parse(cached);
+      const cached = localStorage.getItem(LOCAL_RATES_KEY);
+      if (cached) {
+        return JSON.parse(cached);
+      }
     } catch {
       // fallback
     }
@@ -43,8 +45,12 @@ export async function fetchLiveExchangeRates(): Promise<{ success: boolean; rate
           updatedRates[c.code] = data.rates[c.code];
         }
       });
-      localStorage.setItem(LOCAL_RATES_KEY, JSON.stringify(updatedRates));
-      localStorage.setItem('fa_rates_last_sync', Date.now().toString());
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem(LOCAL_RATES_KEY, JSON.stringify(updatedRates));
+          localStorage.setItem('fa_rates_last_sync', Date.now().toString());
+        } catch {}
+      }
       return { success: true, rates: updatedRates, timestamp: Date.now() };
     }
   } catch {
