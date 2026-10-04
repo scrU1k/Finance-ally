@@ -651,9 +651,18 @@ export async function importFullDataBackup(jsonString: string): Promise<ImportBa
     const validTransactions: Transaction[] = [];
     if (data.transactions && Array.isArray(data.transactions)) {
       data.transactions.forEach((t: Transaction) => {
-        if (t && t.id && typeof t.amount === 'number' && t.amount > 0 && t.date) {
+        if (
+          t &&
+          t.id &&
+          typeof t.amount === 'number' &&
+          Number.isFinite(t.amount) &&
+          t.amount > 0 &&
+          typeof t.date === 'string' &&
+          /^\d{4}-\d{2}-\d{2}/.test(t.date)
+        ) {
           validTransactions.push({
             ...t,
+            date: t.date.substring(0, 10),
             note: String(t.note || '').substring(0, 500),
           });
         }

@@ -73,6 +73,11 @@ export async function dispatchSpeculativeRace(text: string): Promise<Orchestrato
   return new Promise((resolve) => {
     let resolved = false;
 
+    const cleanup = () => {
+      deterministicWorker?.removeEventListener('message', handleDeterministic);
+      semanticWorker?.removeEventListener('message', handleSemantic);
+    };
+
     // Handler for Worker A (Deterministic - CFG/Trie)
     const handleDeterministic = (e: MessageEvent) => {
       if (e.data.id !== messageId) return;
@@ -80,6 +85,7 @@ export async function dispatchSpeculativeRace(text: string): Promise<Orchestrato
       const { success, result } = e.data;
       if (success && result.confidence >= 90 && !resolved) {
         resolved = true;
+        cleanup();
         // Speculative Race Won: Early Abort Worker B
         // (We send an explicit abort message to signal the worker to halt processing)
         semanticWorker!.postMessage({ id: messageId, type: 'abort' });
@@ -99,6 +105,7 @@ export async function dispatchSpeculativeRace(text: string): Promise<Orchestrato
       
       if (!resolved) {
         resolved = true;
+        cleanup();
         const { success, result } = e.data;
         if (success && result.categoryId) {
           resolve({
@@ -127,10 +134,9 @@ export async function dispatchSpeculativeRace(text: string): Promise<Orchestrato
     setTimeout(() => {
       if (!resolved) {
         resolved = true;
+        cleanup();
         resolve({ categoryId: 'cat-others', categoryName: 'Others', confidence: 0, source: 'fallback' });
       }
-      deterministicWorker!.removeEventListener('message', handleDeterministic);
-      semanticWorker!.removeEventListener('message', handleSemantic);
     }, timeoutDuration);
   });
 }

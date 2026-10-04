@@ -150,7 +150,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       if (upcomingTimestamps.length > 0) {
         const nextDueTime = upcomingTimestamps[0];
-        const msUntilDue = Math.max(1000, nextDueTime - now + 1000);
+        // Cap timer to at most 24 hours (86,400,000 ms) to avoid 32-bit signed int overflow in setTimeout (>24.8 days causes immediate trigger & CPU spin)
+        const msUntilDue = Math.min(86400000, Math.max(1000, nextDueTime - now + 1000));
         timerId = setTimeout(runScheduledCheck, msUntilDue);
       }
     };

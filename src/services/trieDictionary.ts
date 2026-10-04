@@ -697,6 +697,11 @@ const EXHAUSTIVE_SLANG_ENTRIES: { phrase: string; meta: TrieNodeMetadata }[] = [
   { phrase: 'transferred', meta: { intent: 'spending' } }
 ];
 
-EXHAUSTIVE_SLANG_ENTRIES.forEach(({ phrase, meta }) => {
-  globalFinancialTrie.insert(phrase, meta);
-});
+export function resetFinancialTrie(): void {
+  globalFinancialTrie.clear();
+  EXHAUSTIVE_SLANG_ENTRIES.forEach(({ phrase, meta }) => {
+    globalFinancialTrie.insert(phrase, meta);
+  });
+}
+
+resetFinancialTrie();

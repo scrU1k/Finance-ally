@@ -59,10 +59,11 @@ export function convertCurrencyAmount(
   to: CurrencyCode,
   rates?: Record<CurrencyCode, number>
 ): number {
+  if (!Number.isFinite(amount)) return 0;
   if (from === to) return amount;
   const currentRates = rates || getStoredForexRates();
-  const rateFromUSD = currentRates[from] || 1;
-  const rateToUSD = currentRates[to] || 1;
+  const rateFromUSD = (currentRates[from] && currentRates[from] > 0) ? currentRates[from] : 1;
+  const rateToUSD = (currentRates[to] && currentRates[to] > 0) ? currentRates[to] : 1;
   // Convert from currency -> USD -> to currency
   const inUSD = amount / rateFromUSD;
   const converted = inUSD * rateToUSD;
@@ -71,12 +72,13 @@ export function convertCurrencyAmount(
 
 export function formatCurrency(amount: number, code: CurrencyCode): string {
   const config = TOP_CURRENCIES.find(c => c.code === code) || TOP_CURRENCIES[0];
+  const safeAmount = Number.isFinite(amount) ? amount : 0;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: code,
     currencyDisplay: 'narrowSymbol',
     maximumFractionDigits: 2,
-  }).format(amount).replace(code, config.symbol);
+  }).format(safeAmount).replace(code, config.symbol);
 }
 
 export function switchAppBaseCurrency(

@@ -18,6 +18,7 @@ import { convertCurrencyAmount, formatCurrency } from '../../services/currency';
 import { PieChart, TrendingUp, Calendar, BarChart3, LineChart } from 'lucide-react';
 import { Transaction } from '../../types';
 import { getLocalDateString, parseLocalDate } from '../../utils/dateUtils';
+import { isPendingScheduledTx } from '../../utils/scheduledUtils';
 
 ChartJS.register(
   ArcElement,
@@ -42,7 +43,11 @@ export const LiveSpendChart: React.FC<LiveSpendChartProps> = ({ transactions: pr
   const { filteredTransactions: contextFilteredTxs, categories, baseCurrency, forexRates, period, topmostVisibleDate } = useFinance();
   
   // Use prop transactions if provided (e.g. from DailyTimeline with search/drilldown filters applied), else context
-  const sourceTxs = propTxs || contextFilteredTxs;
+  // Filter out pending scheduled transactions so future un-settled expenses do not distort charts
+  const sourceTxs = useMemo(() => {
+    const raw = propTxs || contextFilteredTxs;
+    return raw.filter(t => !isPendingScheduledTx(t));
+  }, [propTxs, contextFilteredTxs]);
 
   // Initialize timeframe mode to match FinanceContext period or 'month'
   const initialTimeframe: ChartTimeframeMode = (period === 'day' || period === 'week' || period === 'month' || period === 'year' || period === 'all')

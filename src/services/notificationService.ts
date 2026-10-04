@@ -25,7 +25,9 @@ function markTxAsNotified(id: string) {
   try {
     const set = getNotifiedTxIds();
     set.add(id);
-    localStorage.setItem(NOTIFIED_KEY, JSON.stringify(Array.from(set)));
+    const arr = Array.from(set);
+    const pruned = arr.length > 500 ? arr.slice(arr.length - 500) : arr;
+    localStorage.setItem(NOTIFIED_KEY, JSON.stringify(pruned));
   } catch (e) {
     console.warn('Failed to save notified tx state:', e);
   }

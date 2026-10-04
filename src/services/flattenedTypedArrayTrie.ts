@@ -25,6 +25,12 @@ export class FlattenedInt32Trie {
     // Kept for backward compatibility with existing constructor invocations
   }
 
+  /** Resets the Trie to an empty root state */
+  clear(): void {
+    this.root = new TrieNode();
+    this.maxPhraseLength = 1;
+  }
+
   /** Inserts a word/phrase into the Trie */
   insert(phrase: string, meta?: FlattenedMetadata): void {
     const clean = phrase.toLowerCase().trim();

@@ -1,7 +1,7 @@
 import { Transaction, Category, CurrencyCode } from '../types';
 import { formatCurrency, convertCurrencyAmount } from './currency';
 import { isPendingScheduledTx } from '../utils/scheduledUtils';
-import { parseLocalDate } from '../utils/dateUtils';
+import { parseLocalDate, getLocalDateString } from '../utils/dateUtils';
 import { dispatchSpeculativeRace } from '../workers/workerOrchestrator';
 import { parseCFGQuerySlots } from './cfgParser';
 import { addUserTagRule, getUserRules, deleteUserTagRule, sanitizeKeyword } from './userRuleService';
@@ -509,7 +509,7 @@ export async function parseAndExecuteLocalQuery(
         cutoff.setFullYear(cutoff.getFullYear() - count);
       }
 
-      const cutoffISO = cutoff.toISOString().substring(0, 10);
+      const cutoffISO = getLocalDateString(cutoff);
       const labelStr = `in the past ${count} ${unit}`;
 
       return {

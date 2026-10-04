@@ -32,8 +32,6 @@ const MONTHS = [
   { value: '12', label: 'December' },
 ];
 
-const YEARS = ['2026', '2025', '2024', '2023'];
-
 const LABEL_STYLE: Record<string, { text: string; bg: string; border: string; bar: string }> = {
   Excellent: { text: 'text-brand-mint',   bg: 'bg-brand-mint/10',   border: 'border-brand-mint/30',   bar: '#10B981' },
   Good:      { text: 'text-brand-blue',   bg: 'bg-brand-blue/10',   border: 'border-brand-blue/30',   bar: '#3B82F6' },
@@ -288,6 +286,24 @@ export const EndOfMonthAudit: React.FC = () => {
 
   const currentMonthKey = getLocalMonthKey();
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
+
+  const availableYears = useMemo(() => {
+    const currentY = new Date().getFullYear();
+    const yearSet = new Set<string>([
+      String(currentY + 1),
+      String(currentY),
+      String(currentY - 1),
+      String(currentY - 2),
+      String(currentY - 3),
+    ]);
+    transactions.forEach(t => {
+      if (t.date && t.date.length >= 4) {
+        yearSet.add(t.date.substring(0, 4));
+      }
+    });
+    return Array.from(yearSet).sort((a, b) => parseInt(b, 10) - parseInt(a, 10));
+  }, [transactions]);
+
   const [showGradeExplanation, setShowGradeExplanation] = useState(false);
   const [isMonthModalOpen, setIsMonthModalOpen] = useState(false);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -731,7 +747,7 @@ export const EndOfMonthAudit: React.FC = () => {
               <div className="space-y-1">
                 <label className="text-[10px] font-mono text-muted-custom uppercase font-bold">Year</label>
                 <div className="space-y-1 max-h-48 overflow-y-auto no-scrollbar border border-hairline/60 rounded-xl p-1 bg-surface-soft">
-                  {YEARS.map(y => {
+                  {availableYears.map(y => {
                     const isSel = year === y;
                     return (
                       <button

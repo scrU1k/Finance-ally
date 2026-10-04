@@ -119,7 +119,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
   };
 
   const handleConfirmLog = async (selectedPayment?: string) => {
-    if (!parsedExpense) return;
+    if (!parsedExpense || !Number.isFinite(parsedExpense.amount) || parsedExpense.amount <= 0) return;
     const finalMethod = selectedPayment || paymentMethod;
 
     let targetCatId = parsedExpense.categoryId;

@@ -4,6 +4,7 @@ import { PeriodType } from '../../types';
 import { PeriodNote } from '../../types';
 import { formatCurrency } from '../../services/currency';
 import { loadPeriodNotes, savePeriodNote, deletePeriodNote } from '../../services/db';
+import { getLocalMonthKey } from '../../utils/dateUtils';
 import { Plus, ChevronUp, FileText, X, Edit2, Trash2 } from 'lucide-react';
 
 interface BottomPeriodBarProps {
@@ -21,7 +22,7 @@ export const BottomPeriodBar: React.FC<BottomPeriodBarProps> = ({ onOpenQuickAdd
   const [noteEditContent, setNoteEditContent] = useState('');
   const [isEditingNote, setIsEditingNote] = useState(false);
 
-  const currentMonthKey = new Date().toISOString().substring(0, 7);
+  const currentMonthKey = getLocalMonthKey();
   const currentMonthLabel = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   useEffect(() => {

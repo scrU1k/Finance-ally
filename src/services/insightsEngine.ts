@@ -158,6 +158,9 @@ function computeVolatilityScore(
   }
 
   const totalSpent = monthTxs.reduce((s, t) => s + (currency ? getNormalizedAmount(t, currency, rates) : t.amount), 0);
+  if (totalSpent === 0) {
+    return { score: 100, label: 'Excellent', detail: 'No spending recorded' };
+  }
   const allCatIds = new Set(monthTxs.map(t => t.categoryId));
 
   let weightedCV = 0;

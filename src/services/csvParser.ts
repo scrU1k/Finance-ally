@@ -133,8 +133,12 @@ export function importTransactionsFromCSV(
       const paymentMethod = payIdx !== -1 && columns[payIdx] ? columns[payIdx].trim() : 'CSV Import';
       const time = timeIdx !== -1 && columns[timeIdx] ? columns[timeIdx].trim() : '12:00';
 
+      const txId = typeof crypto?.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `tx-csv-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
       parsedTxs.push({
-        id: crypto.randomUUID(),
+        id: txId,
         amount,
         currency,
         categoryId,

@@ -1,5 +1,4 @@
-/// <reference lib="webworker" />
-import { globalFinancialTrie } from '../services/trieDictionary';
+import { globalFinancialTrie, resetFinancialTrie } from '../services/trieDictionary';
 import { parseCFGQuerySlots } from '../services/cfgParser';
 
 self.onmessage = (e: MessageEvent) => {
@@ -45,6 +44,7 @@ self.onmessage = (e: MessageEvent) => {
         result: slots
       });
     } else if (type === 'sync-rules') {
+      resetFinancialTrie();
       const rules = e.data.rules || [];
       rules.forEach((rule: any) => {
         if (rule && rule.keywords && rule.categoryId) {
