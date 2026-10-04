@@ -26,9 +26,8 @@ import { Capacitor } from '@capacitor/core';
 
 import { SubscriptionPage } from './components/subscriptions/SubscriptionPage';
 import { TripList } from './components/trips/TripList';
-import { EndOfMonthAudit } from './components/audit/EndOfMonthAudit';
+import { UnifiedAuditInsights } from './components/audit/UnifiedAuditInsights';
 import { SplitBillModal } from './components/tools/SplitBillModal';
-import { SmartSuggestions } from './components/insights/SmartSuggestions';
 import { PasswordManagerTab } from './components/tools/PasswordManagerTab';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { CategoryManagerModal } from './components/categories/CategoryManagerModal';
@@ -189,7 +188,6 @@ const MainAppContent: React.FC = () => {
           setIsQuickAddOpen(true);
         }}
         onTitleClick={() => navigateToTab('dashboard')}
-        onOpenSpendInsights={() => navigateToTab('insights')}
       />
 
       {/* Scheduled Payment Live Toast Banner */}
@@ -222,11 +220,8 @@ const MainAppContent: React.FC = () => {
 
           {activeTab === 'subscriptions' && <SubscriptionPage />}
           {activeTab === 'trips' && <TripList setActiveTab={navigateToTab} />}
-          {activeTab === 'audit' && <EndOfMonthAudit />}
-          {activeTab === 'split' && <SplitBillModal />}
-          {activeTab === 'passwords' && <PasswordManagerTab />}
-          {activeTab === 'insights' && (
-            <SmartSuggestions
+          {(activeTab === 'audit' || activeTab === 'insights') && (
+            <UnifiedAuditInsights
               onSelectTransaction={tx => {
                 setEditingTransaction(tx);
                 setIsQuickAddOpen(true);
@@ -234,6 +229,8 @@ const MainAppContent: React.FC = () => {
               }}
             />
           )}
+          {activeTab === 'split' && <SplitBillModal />}
+          {activeTab === 'passwords' && <PasswordManagerTab />}
         </main>
 
         {/* Sticky Bottom Total & Period Selector Toggle Bar */}

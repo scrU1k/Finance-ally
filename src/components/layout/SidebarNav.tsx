@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LayoutDashboard, Plane, PieChart, Users, Lightbulb, CalendarCheck, ChevronDown, Check, KeyRound } from 'lucide-react';
+import { LayoutDashboard, Plane, PieChart, Users, CalendarCheck, ChevronDown, Check, KeyRound } from 'lucide-react';
 
 export type NavTab = 'dashboard' | 'subscriptions' | 'trips' | 'audit' | 'split' | 'insights' | 'passwords';
 
@@ -21,9 +21,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
 
   // Secondary tools dropdown items
   const secondaryTabs: { id: NavTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'audit', label: 'Financial Audit', icon: <PieChart className="w-4 h-4 text-brand-mint shrink-0" /> },
+    { id: 'audit', label: 'Audit & Insights', icon: <PieChart className="w-4 h-4 text-brand-mint shrink-0" /> },
     { id: 'split', label: 'Split Bills', icon: <Users className="w-4 h-4 text-brand-blue shrink-0" /> },
-    { id: 'insights', label: 'Spend Insights', icon: <Lightbulb className="w-4 h-4 text-brand-coral shrink-0" /> },
     { id: 'passwords', label: 'Password Manager', icon: <KeyRound className="w-4 h-4 text-brand-purple shrink-0" /> },
   ];
 
@@ -66,29 +65,36 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
     <nav className="relative mb-3" ref={containerRef}>
       <div className="flex items-center justify-between gap-2">
         
-        {/* Scrollable container for visible tabs */}
-        <div ref={scrollContainerRef} className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
-          {visibleTabs.map(tab => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                ref={isActive ? activeTabRef : null}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  setIsOpen(false);
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono whitespace-nowrap transition-all border cursor-pointer shrink-0 ${
-                  isActive
-                    ? 'border-ink text-ink font-bold shadow-md bg-surface-card/90 backdrop-blur-xl ring-1 ring-white/10 animate-breathe'
-                    : 'bg-surface-card/60 text-body-custom border-hairline hover:border-ink hover:text-ink'
-                }`}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+        {/* Shaded scroll container for visible tabs with gradual theme-attuned gradient fall-off */}
+        <div className="relative flex-1 min-w-0 rounded-full p-1 bg-gradient-to-r from-surface-card/85 via-surface-soft/60 to-surface-card/75 border border-hairline/50 backdrop-blur-xl shadow-2xs">
+          {/* Subtle gradual fall-off gradients on left and right scroll edges */}
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-4 rounded-l-full bg-gradient-to-r from-surface-card/90 to-transparent z-10" />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-4 rounded-r-full bg-gradient-to-l from-surface-card/90 to-transparent z-10" />
+
+          {/* Scrollable container for visible tabs */}
+          <div ref={scrollContainerRef} className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-1 min-w-0">
+            {visibleTabs.map(tab => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  ref={isActive ? activeTabRef : null}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setIsOpen(false);
+                  }}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-mono whitespace-nowrap transition-all border cursor-pointer shrink-0 ${
+                    isActive
+                      ? 'border-ink text-ink font-bold shadow-md bg-surface-card backdrop-blur-xl ring-1 ring-white/10 animate-breathe'
+                      : 'bg-transparent text-body-custom border-transparent hover:border-hairline hover:bg-surface-card/50 hover:text-ink'
+                  }`}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Circular Glassmorphic Chevron FAB Dropdown Button */}

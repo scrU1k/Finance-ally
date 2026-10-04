@@ -1,8 +1,7 @@
 import React from 'react';
-import { Settings, Lock, Plane, Tag, Lightbulb } from 'lucide-react';
+import { Settings, Lock, Plane, Tag } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
-import { TOP_CURRENCIES } from '../../services/currency';
 import logoImg from '../../assets/logo.png';
 
 interface HeaderProps {
@@ -10,14 +9,11 @@ interface HeaderProps {
   onOpenCategories: () => void;
   onOpenQuickAdd?: () => void;
   onTitleClick?: () => void;
-  onOpenSpendInsights?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories, onTitleClick, onOpenSpendInsights }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories, onTitleClick }) => {
   const { logout } = useAuth();
-  const { baseCurrency, activeTripVault, setActiveTripVault } = useFinance();
-
-  const currencyConfig = TOP_CURRENCIES.find(c => c.code === baseCurrency) || TOP_CURRENCIES[0];
+  const { activeTripVault, setActiveTripVault } = useFinance();
 
   return (
     <header className="sticky top-0 z-30 bg-canvas/90 backdrop-blur-md border-b border-hairline px-3 sm:px-6 py-2.5 transition-colors max-w-full overflow-hidden">
@@ -58,17 +54,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories
             <Tag className="w-4 h-4" />
           </button>
 
-          {/* Base Currency Selector Pill (Flag replaced with Spend Insight Lightbulb icon) */}
-          <div className="flex items-center gap-1.5 bg-surface-card border border-hairline px-2 py-1 rounded-full text-xs font-mono text-ink">
-            <button
-              onClick={onOpenSpendInsights}
-              className="hover:opacity-80 transition-opacity p-0.5 cursor-pointer flex items-center justify-center text-brand-coral"
-              title="Go directly to Spend Insights"
-            >
-              <Lightbulb className="w-3.5 h-3.5 text-brand-coral fill-brand-coral/30" />
-            </button>
-            <span className="font-semibold">{currencyConfig.code}</span>
-          </div>
 
           {/* Settings */}
           <button

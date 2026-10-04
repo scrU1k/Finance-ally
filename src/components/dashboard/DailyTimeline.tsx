@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useFinance } from '../../context/FinanceContext';
-import { Transaction, TimelineViewMode, PeriodNote } from '../../types';
+import { Transaction, TimelineViewMode, PeriodNote, CurrencyCode } from '../../types';
 import { TransactionCard } from './TransactionCard';
 import { TransactionDetailModal } from './TransactionDetailModal';
 import { LiveSpendChart } from './LiveSpendChart';
@@ -425,10 +425,21 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
         return sum + convertCurrencyAmount(t.amount, t.currency, baseCurrency, forexRates);
       }, 0);
 
+      // Compute distinct currency totals for this day
+      const currencyMap = new Map<CurrencyCode, number>();
+      dayTxs.forEach(t => {
+        currencyMap.set(t.currency, (currencyMap.get(t.currency) || 0) + t.amount);
+      });
+      const currencyTotals = Array.from(currencyMap.entries()).map(([currency, amount]) => ({
+        currency,
+        amount,
+      }));
+
       return {
         date,
         transactions: dayTxs,
         dayTotal: dayTotalInBaseCurrency,
+        currencyTotals,
       };
     });
   }, [processedTransactions, baseCurrency, forexRates]);
@@ -1059,9 +1070,15 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
                           {formatDayHeader(group.date)}
                         </span>
                       </div>
-                      <span className="text-muted-custom whitespace-nowrap ml-2">
-                        Spend: <span className="text-ink font-bold">{formatCurrency(group.dayTotal, baseCurrency)}</span>
-                      </span>
+                      <div className="flex items-center gap-2 whitespace-nowrap ml-2 font-mono text-xs font-bold text-ink">
+                        {group.currencyTotals && group.currencyTotals.length > 0 ? (
+                          group.currencyTotals.map(({ currency, amount }) => (
+                            <span key={currency}>{formatCurrency(amount, currency)}</span>
+                          ))
+                        ) : (
+                          <span>{formatCurrency(group.dayTotal, baseCurrency)}</span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Day Transactions List (Hidden if collapsed) */}
