@@ -48,7 +48,7 @@ export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({
               {noticeText ? (
                 noticeText
               ) : (
-                <>This key is <strong className="text-brand-coral">generated in-memory and held in an ephemeral session strictly until confirmed</strong>. It is <strong className="text-brand-coral">NEVER stored in persistent device storage</strong>. If you ever forget your App Password, Password Vault PIN, or Backup PIN, this key is the <strong className="text-brand-coral">ONLY way</strong> to recover your account and encrypted data.</>
+                <>This key is <strong className="text-brand-coral">generated strictly in volatile component memory while displayed</strong>. It is <strong className="text-brand-coral">NEVER written to browser storage (neither localStorage nor sessionStorage)</strong>. If you ever forget your App Password, Password Vault PIN, or Backup PIN, this key is the <strong className="text-brand-coral">ONLY way</strong> to recover your account and encrypted data.</>
               )}
             </p>
           </div>
@@ -82,7 +82,7 @@ export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({
               <Check className="w-3 h-3 text-white absolute pointer-events-none opacity-0 peer-checked:opacity-100" />
             </div>
             <span className="text-[11px] font-mono text-muted-custom group-hover:text-ink transition-colors leading-relaxed">
-              I have written down or saved this Recovery Key in a password manager. I understand that it is never stored on disk and cannot be recovered if dismissed.
+              I have written down or saved this Recovery Key in a password manager. I understand that it is never saved to browser storage and cannot be recovered if dismissed.
             </span>
           </label>
         </div>

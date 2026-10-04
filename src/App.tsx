@@ -85,27 +85,19 @@ const MainAppContent: React.FC = () => {
         setPendingRotatedKey(unconfirmedRotatedKey);
       }
 
-      // Purge any legacy plaintext keys from persistent storage
+      // Purge any legacy plaintext keys from persistent or session storage
       localStorage.removeItem('fa_v3_recovery_pending_key');
+      try {
+        sessionStorage.removeItem('fa_v3_recovery_pending_key');
+        sessionStorage.removeItem('fa_rotated_recovery_key_temp');
+      } catch {}
 
       const alreadyOnboarded = localStorage.getItem(V3_RECOVERY_ONBOARDED_KEY);
       if (!alreadyOnboarded) {
-        let pendingFirstLaunchKey: string | null = null;
-        try {
-          pendingFirstLaunchKey = sessionStorage.getItem('fa_v3_recovery_pending_key');
-        } catch {}
-
-        if (pendingFirstLaunchKey) {
-          setV3RecoveryKey(pendingFirstLaunchKey);
-        } else {
-          const username = user?.username || 'USER';
-          initializeGlobalRecoveryKey(username).then(key => {
-            try {
-              sessionStorage.setItem('fa_v3_recovery_pending_key', key);
-            } catch {}
-            setV3RecoveryKey(key);
-          });
-        }
+        const username = user?.username || 'USER';
+        initializeGlobalRecoveryKey(username).then(key => {
+          setV3RecoveryKey(key);
+        });
       }
 
       return () => {
@@ -282,12 +274,9 @@ const MainAppContent: React.FC = () => {
             recoveryKey={v3RecoveryKey}
             title="Welcome to Finance-Ally v3.0"
             subtitle="Global Security Recovery Key"
-            noticeText="A new emergency recovery system has been added in v3.0 so you can recover your App Password, Password Vault PIN, or Backup PIN if you ever forget them. This key is generated in-memory and held in an ephemeral session strictly until confirmed below; it is NEVER written to persistent device storage. Save it safely!"
+            noticeText="A new emergency recovery system has been added in v3.0 so you can recover your App Password, Password Vault PIN, or Backup PIN if you ever forget them. This key is generated strictly in-memory and is NEVER written to browser storage (neither localStorage nor sessionStorage). Save it safely!"
             onDismiss={() => {
               localStorage.setItem(V3_RECOVERY_ONBOARDED_KEY, 'true');
-              try {
-                sessionStorage.removeItem('fa_v3_recovery_pending_key');
-              } catch {}
               setV3RecoveryKey(null);
             }}
           />

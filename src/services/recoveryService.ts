@@ -41,13 +41,10 @@ export function rollbackPendingRecoveryRotation(): void {
 }
 
 /**
- * Retrieves unconfirmed recovery key awaiting user delivery/acknowledgement within the active session.
- * Never reads from persistent disk storage.
+ * Pending rotated recovery key lookup: returns null because recovery keys are held strictly
+ * in volatile React component memory and never exposed to any Web Storage API.
  */
 export function getPendingRecoveryKey(): string | null {
-  try {
-    return sessionStorage.getItem('fa_rotated_recovery_key_temp');
-  } catch {}
   return null;
 }
 
@@ -57,7 +54,6 @@ export function getPendingRecoveryKey(): string | null {
 export function finalizeRecoveryKeyRotation(): void {
   try {
     localStorage.removeItem(RECOVERY_JOURNAL_KEY);
-    sessionStorage.removeItem('fa_rotated_recovery_key_temp');
   } catch {}
 }
 
@@ -75,7 +71,6 @@ export function checkAndRecoverStaleRotationJournal(): boolean {
     if (journal?.state === 'in_progress') {
       console.warn('Finance-Ally Recovery: Found unfinalized rotation journal from previous session. Rolling back to previous recovery key state.');
       rollbackPendingRecoveryRotation();
-      sessionStorage.removeItem('fa_rotated_recovery_key_temp');
       return true;
     }
   } catch (err) {
@@ -88,6 +83,9 @@ export function checkAndRecoverStaleRotationJournal(): boolean {
 try {
   checkAndRecoverStaleRotationJournal();
   localStorage.removeItem('fa_global_recovery_escrow_key');
+  localStorage.removeItem('fa_v3_recovery_pending_key');
+  sessionStorage.removeItem('fa_rotated_recovery_key_temp');
+  sessionStorage.removeItem('fa_v3_recovery_pending_key');
 } catch {}
 
 // Helper: buffer to base64 with chunking (stack safe)
@@ -367,12 +365,8 @@ export async function rotateGlobalRecoveryKey(oldKey: string, _username?: string
       localStorage.setItem('fa_export_pin', JSON.stringify(parsedBackupKeys));
     }
     await setGlobalRecoveryKeyVerifier(newKey);
-
-    // Stage in session-scoped storage strictly for page-refresh resilience during modal interaction
-    // The plaintext key is NEVER written to persistent disk storage (localStorage)
-    try {
-      sessionStorage.setItem('fa_rotated_recovery_key_temp', newKey);
-    } catch {}
+    // The plaintext key is returned directly in memory to the caller.
+    // It is NEVER written to browser storage (localStorage or sessionStorage).
   } catch {
     // Revert all modified storage keys if any write fails
     rollbackPendingRecoveryRotation();

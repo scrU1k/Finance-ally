@@ -428,6 +428,102 @@ export async function exportFullDataBackup(): Promise<string> {
   return JSON.stringify(data, null, 2);
 }
 
+const IMPORT_JOURNAL_DB_NAME = 'FinanceAlly_Import_Journal';
+
+async function openImportJournalDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IMPORT_JOURNAL_DB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = (e.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains('journal')) {
+        db.createObjectStore('journal', { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function clearImportJournal(): Promise<void> {
+  try {
+    const jDb = await openImportJournalDatabase();
+    await new Promise<void>((resolve) => {
+      const tx = jDb.transaction('journal', 'readwrite');
+      tx.objectStore('journal').delete('active_import');
+      tx.oncomplete = () => { jDb.close(); resolve(); };
+      tx.onerror = () => { jDb.close(); resolve(); };
+    });
+  } catch {}
+}
+
+export async function checkAndRecoverStaleImportJournal(): Promise<boolean> {
+  try {
+    const jDb = await openImportJournalDatabase();
+    const entry = await new Promise<any>((resolve) => {
+      const tx = jDb.transaction('journal', 'readonly');
+      const req = tx.objectStore('journal').get('active_import');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    });
+
+    if (!entry || entry.state !== 'in_progress') {
+      jDb.close();
+      return false;
+    }
+
+    console.warn('[Import Crash Guard] Interrupted import detected on startup. Performing rollback to pre-import snapshot...');
+
+    // 1. Roll back localStorage
+    if (entry.previousLocalStorage) {
+      for (const [key, val] of Object.entries(entry.previousLocalStorage)) {
+        if (val !== null && typeof val === 'string') {
+          localStorage.setItem(key, val);
+        } else {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+
+    // 2. Roll back IndexedDB stores
+    if (entry.existingDbBackup) {
+      const mainDb = await openDatabase();
+      const storesToLock = ['transactions', 'categories', 'trips', 'smsTemplates', 'subscriptions', 'userProfile'];
+      await new Promise<void>((resolve) => {
+        const tx = mainDb.transaction(storesToLock, 'readwrite');
+        for (const storeName of storesToLock) {
+          const s = tx.objectStore(storeName);
+          s.clear();
+          const items = entry.existingDbBackup[storeName] || [];
+          items.forEach((item: any) => s.put(item));
+        }
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+      mainDb.close();
+    }
+
+    // Clear journal once restored
+    const cTx = jDb.transaction('journal', 'readwrite');
+    cTx.objectStore('journal').delete('active_import');
+    await new Promise<void>((resolve) => {
+      cTx.oncomplete = () => resolve();
+      cTx.onerror = () => resolve();
+    });
+    jDb.close();
+
+    console.info('[Import Crash Guard] Rollback complete. App restored to pre-import consistent state.');
+    return true;
+  } catch (err) {
+    console.error('[Import Crash Guard] Failed to recover stale import journal:', err);
+    return false;
+  }
+}
+
+// Check and recover interrupted import on startup
+try {
+  checkAndRecoverStaleImportJournal().catch(() => {});
+} catch {}
+
 export interface ImportBackupResult {
   success: boolean;
   droppedTransactions: number;
@@ -468,36 +564,68 @@ export async function importFullDataBackup(jsonString: string): Promise<ImportBa
     const db = await openDatabase();
     const storesToLock = ['transactions', 'categories', 'trips', 'smsTemplates', 'subscriptions', 'userProfile'];
 
-    // --- Phase 0: Take snapshot of existing state for atomic rollback ---
+    // --- Phase 0: Take strict snapshot of existing state for atomic rollback ---
     const keysToProtect = [
       'fa_transactions', 'fa_categories', 'fa_trips', 'fa_period_notes', 'fa_user_profile',
       'fa_export_pin', 'fa_user_tag_rules', 'fa_custom_knowledge_rules',
       'fa_password_vault_envelope', 'fa_password_vault_items',
       'fa_pwd_vault_verifier', 'fa_global_recovery_verifier', 'fa_pwd_vault_recovery_escrow'
     ];
-    const previousLocalStorage = new Map<string, string | null>();
+    const previousLocalStorage: Record<string, string | null> = {};
     for (const key of keysToProtect) {
-      previousLocalStorage.set(key, localStorage.getItem(key));
+      previousLocalStorage[key] = localStorage.getItem(key);
     }
 
     const existingDbBackup: Record<string, any[]> = {};
     for (const storeName of storesToLock) {
-      existingDbBackup[storeName] = await new Promise<any[]>((resolve) => {
-        try {
+      try {
+        existingDbBackup[storeName] = await new Promise<any[]>((resolve, reject) => {
           const rTx = db.transaction(storeName, 'readonly');
+          rTx.onerror = () => reject(rTx.error || new Error(`Transaction error reading ${storeName}`));
           const rStore = rTx.objectStore(storeName);
           const req = rStore.getAll();
           req.onsuccess = () => resolve(req.result || []);
-          req.onerror = () => resolve([]);
-        } catch {
-          resolve([]);
-        }
+          req.onerror = () => reject(req.error || new Error(`Failed to read store ${storeName}`));
+        });
+      } catch (readErr) {
+        console.error(`Pre-import snapshot failed for store ${storeName}:`, readErr);
+        return {
+          success: false,
+          droppedTransactions: 0,
+          storageError: false,
+          errorMessage: `Pre-import snapshot failed for store "${storeName}". Existing database unchanged.`
+        };
+      }
+    }
+
+    // Persist durable crash-safe rollback journal to IndexedDB before modifying any live state
+    try {
+      const jDb = await openImportJournalDatabase();
+      await new Promise<void>((resolve, reject) => {
+        const tx = jDb.transaction('journal', 'readwrite');
+        tx.onerror = () => reject(tx.error);
+        tx.oncomplete = () => { jDb.close(); resolve(); };
+        tx.objectStore('journal').put({
+          id: 'active_import',
+          state: 'in_progress',
+          timestamp: Date.now(),
+          previousLocalStorage,
+          existingDbBackup
+        });
       });
+    } catch (jErr) {
+      console.error('Failed to write durable import journal, aborting import for safety:', jErr);
+      return {
+        success: false,
+        droppedTransactions: 0,
+        storageError: false,
+        errorMessage: 'Unable to establish crash-safe rollback journal. Import aborted to prevent data loss.'
+      };
     }
 
     const rollbackAll = async () => {
       // Revert localStorage
-      for (const [key, val] of previousLocalStorage) {
+      for (const [key, val] of Object.entries(previousLocalStorage)) {
         if (val !== null) localStorage.setItem(key, val);
         else localStorage.removeItem(key);
       }
@@ -516,6 +644,7 @@ export async function importFullDataBackup(jsonString: string): Promise<ImportBa
       } catch (rbErr) {
         console.error('IndexedDB rollback failed:', rbErr);
       }
+      await clearImportJournal();
     };
 
     // Filter valid transactions
@@ -685,6 +814,9 @@ export async function importFullDataBackup(jsonString: string): Promise<ImportBa
       }
     }
 
+    // Success: Disarm and clear durable crash journal
+    await clearImportJournal();
+
     return {
       success: true,
       droppedTransactions,
@@ -692,6 +824,7 @@ export async function importFullDataBackup(jsonString: string): Promise<ImportBa
     };
   } catch (err: any) {
     console.error('Failed to import backup atomically:', err);
+    await clearImportJournal();
     return {
       success: false,
       droppedTransactions: 0,
