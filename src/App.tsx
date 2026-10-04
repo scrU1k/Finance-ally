@@ -32,7 +32,7 @@ import { SettingsModal } from './components/settings/SettingsModal';
 import { CategoryManagerModal } from './components/categories/CategoryManagerModal';
 import { RecoveryKeyModal } from './components/common/RecoveryKeyModal';
 import { BackupErrorModal } from './components/common/BackupErrorModal';
-import { initializeGlobalRecoveryKey } from './services/recoveryService';
+import { initializeGlobalRecoveryKey, checkAndRecoverStaleRotationJournal } from './services/recoveryService';
 
 const V3_RECOVERY_ONBOARDED_KEY = 'fa_v3_recovery_onboarded';
 
@@ -61,6 +61,7 @@ const MainAppContent: React.FC = () => {
     }
 
     if (!needsOnboarding && isUnlocked) {
+      checkAndRecoverStaleRotationJournal();
       checkAndPerformLocalAutoBackup();
       syncSnapshotsFromFilesystem().catch(() => {});
 

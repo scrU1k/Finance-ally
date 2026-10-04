@@ -17,6 +17,7 @@ import {
   deleteLocalSnapshot,
   syncSnapshotsFromFilesystem,
   getRetentionLimit,
+  clearAllLocalBackups,
   LocalAutoBackupConfig,
   LocalSnapshotMetadata
 } from '../../services/localAutoBackupService';
@@ -68,6 +69,7 @@ import {
   Key,
   AlertTriangle,
   FileText,
+  Trash2,
   Sun,
   Moon,
   Monitor
@@ -429,6 +431,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [localSnapshots, setLocalSnapshotsState] = useState<LocalSnapshotMetadata[]>(getLocalSnapshots());
   const [localBackupMsg, setLocalBackupMsg] = useState('');
   const [localBackupLoading, setLocalBackupLoading] = useState(false);
+  const [showClearAllBackupsConfirm, setShowClearAllBackupsConfirm] = useState(false);
+  const [isClearingBackups, setIsClearingBackups] = useState(false);
 
   // Diagnostic Log Exporter State
   const [isExportingDiagnostics, setIsExportingDiagnostics] = useState(false);
@@ -843,6 +847,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setLocalBackupMsg('Snapshot removed.');
   };
 
+  const handleClearAllLocalBackups = async () => {
+    setIsClearingBackups(true);
+    try {
+      const res = await clearAllLocalBackups();
+      setLocalSnapshotsState([]);
+      setLocalBackupMsg(res.message);
+      setShowClearAllBackupsConfirm(false);
+    } catch (err: any) {
+      setLocalBackupMsg(`Failed to purge backups: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setIsClearingBackups(false);
+    }
+  };
+
   const handleDisablePin = () => {
     setPinActionError('');
     setShowSetPinModal('disable');
@@ -851,7 +869,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const palettes = [
     {
       id: 'default' as const,
-      name: 'Default',
+      name: 'Obsidian',
       desc: 'Obsidian & Warm Sand',
       swatch: appearanceMode === 'light' ? '#fafaf7' : appearanceMode === 'dark' ? '#0e0e0c' : 'linear-gradient(135deg, #0e0e0c 50%, #fafaf7 50%)',
       accent: appearanceMode === 'light' ? '#0f766e' : '#2dd4bf',
@@ -865,14 +883,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     },
     {
       id: 'emerald' as const,
-      name: 'Emerald Mint',
+      name: 'Emerald',
       desc: 'Matte Eucalyptus & Deep Pine',
       swatch: appearanceMode === 'light' ? '#f1f5f2' : appearanceMode === 'dark' ? '#131a16' : 'linear-gradient(135deg, #131a16 50%, #f1f5f2 50%)',
       accent: appearanceMode === 'light' ? '#4a9478' : '#8fd5ba',
     },
     {
       id: 'sunset' as const,
-      name: 'Sunset Copper',
+      name: 'Copper',
       desc: 'Matte Terracotta & Warm Bronze',
       swatch: appearanceMode === 'light' ? '#f8f3ef' : appearanceMode === 'dark' ? '#1a1513' : 'linear-gradient(135deg, #1a1513 50%, #f8f3ef 50%)',
       accent: appearanceMode === 'light' ? '#be5a41' : '#e07960',
@@ -1348,6 +1366,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   />
                 </button>
               </div>
+            </div>
+
+            {/* LOCALIZED DIAGNOSTIC EXPORTER */}
+            <div className="space-y-3 bg-surface-soft p-5 rounded-2xl border border-hairline shadow-sm">
+              <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-brand-purple shrink-0" />
+                  <h3 className="text-xs font-mono font-bold text-ink uppercase">Diagnostic & Crash Logs</h3>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full border border-hairline bg-surface-card text-[10px] font-mono font-bold text-muted-custom">
+                  OFFLINE
+                </span>
+              </div>
+
+              <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
+                Export diagnostic metadata and recent error logs directly to your device storage (Documents/Finance-Ally/Logs). No personal financial data, transactions, or passwords are ever included.
+              </p>
+
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={handleExportDiagnostics}
+                  disabled={isExportingDiagnostics}
+                  className="w-full bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer font-bold active:scale-95 shadow-sm disabled:opacity-50"
+                >
+                  <FileText className="w-3.5 h-3.5 text-brand-purple shrink-0" />
+                  <span>{isExportingDiagnostics ? 'Exporting...' : 'Export Diagnostic Logs'}</span>
+                </button>
+              </div>
+
+              {diagnosticExportMessage && (
+                <div className="p-2.5 bg-brand-mint/10 border border-brand-mint/30 rounded-lg text-[11px] font-mono text-brand-mint flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 shrink-0" />
+                  <span>{diagnosticExportMessage}</span>
+                </div>
+              )}
             </div>
 
           </div>
@@ -2268,42 +2322,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* LOCALIZED DIAGNOSTIC EXPORTER */}
-            <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
-              <div className="flex items-center justify-between border-b border-hairline/60 pb-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-brand-purple shrink-0" />
-                  <h3 className="text-xs font-mono font-bold text-ink uppercase">Diagnostic & Crash Logs</h3>
-                </div>
-                <span className="px-2.5 py-0.5 rounded-full border border-hairline bg-surface-card text-[10px] font-mono font-bold text-muted-custom">
-                  OFFLINE
-                </span>
-              </div>
-
-              <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
-                Export diagnostic metadata and recent error logs directly to your device storage (Documents/Finance-Ally/Logs). No personal financial data, transactions, or passwords are ever included.
-              </p>
-
-              <div className="pt-1">
+              {/* Purge All Local Backups Button */}
+              <div className="pt-3 border-t border-hairline/60">
                 <button
                   type="button"
-                  onClick={handleExportDiagnostics}
-                  disabled={isExportingDiagnostics}
-                  className="w-full bg-surface-card hover:border-ink border border-hairline text-ink font-mono text-xs py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer font-bold active:scale-95 shadow-sm disabled:opacity-50"
+                  onClick={() => setShowClearAllBackupsConfirm(true)}
+                  className="w-full border border-brand-coral/40 text-brand-coral hover:bg-brand-coral/10 font-mono text-xs py-2.5 px-3 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-2 shadow-sm"
                 >
-                  <FileText className="w-3.5 h-3.5 text-brand-purple shrink-0" />
-                  <span>{isExportingDiagnostics ? 'Exporting...' : 'Export Diagnostic Logs'}</span>
+                  <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>Clear All Local Backups</span>
                 </button>
+                <p className="text-[10px] font-mono text-muted-custom mt-1 text-center">
+                  Purges all offline snapshot and backup files from /Finance-Ally storage.
+                </p>
               </div>
-
-              {diagnosticExportMessage && (
-                <div className="p-2.5 bg-brand-mint/10 border border-brand-mint/30 rounded-lg text-[11px] font-mono text-brand-mint flex items-center gap-2">
-                  <Check className="w-3.5 h-3.5 shrink-0" />
-                  <span>{diagnosticExportMessage}</span>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -2651,13 +2684,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
 
               <div className="space-y-3">
-                <p className="text-xs font-mono text-ink leading-relaxed">
-                  Generating a new recovery key will migrate your existing password vault and backup escrows to the new key and invalidate the old one.
-                </p>
-                <div className="bg-surface-soft border border-hairline rounded-xl p-3">
-                  <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
-                    💡 <em>Note: Your current transactions, password cards, and backups remain safe. Entering your current key ensures all recovery escrows remain unbroken.</em>
-                  </p>
+                <div className="bg-surface-soft border border-hairline rounded-xl p-3 space-y-2 text-[11px] font-mono leading-relaxed">
+                  <div className="flex items-start gap-2 text-ink">
+                    <span className="text-brand-coral font-bold">•</span>
+                    <span>Re-encrypts your password vault & backup escrows with the new key.</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-muted-custom">
+                    <span className="text-amber-500 font-bold">•</span>
+                    <span>Pre-existing exported backup files retain their original key or password.</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-muted-custom">
+                    <span className="text-amber-500 font-bold">•</span>
+                    <span>If credentials were compromised, tap <strong>Clear All Local Backups</strong> under Backups to purge older files.</span>
+                  </div>
                 </div>
 
                 <div className="space-y-1 pt-1">
@@ -2714,6 +2753,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   className="flex-1 py-2 rounded-xl border border-brand-coral bg-brand-coral/10 hover:bg-brand-coral text-brand-coral hover:text-white text-xs font-mono font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
                 >
                   {rotateLoading ? 'Migrating...' : 'Migrate & Rotate'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showClearAllBackupsConfirm && (
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-sm bg-surface-card/95 backdrop-blur-2xl border border-brand-coral/40 rounded-2xl p-5 shadow-2xl space-y-4 ring-1 ring-white/10 animate-in zoom-in-95 duration-150">
+              <div className="flex items-center gap-3 border-b border-hairline pb-3">
+                <div className="w-9 h-9 rounded-full bg-brand-coral/20 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-4 h-4 text-brand-coral" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-mono font-bold text-ink">Purge Local Backups?</h3>
+                  <p className="text-[11px] font-mono text-brand-coral font-bold">Irreversible Action</p>
+                </div>
+              </div>
+              <p className="text-xs font-mono text-ink leading-relaxed">
+                This will permanently delete all snapshot files and offline backups stored under <code className="text-brand-coral font-bold">/Finance-Ally/Snapshots</code> and <code className="text-brand-coral font-bold">/Finance-Ally/Backups</code> on your device.
+              </p>
+              <div className="flex gap-2 pt-2 border-t border-hairline">
+                <button
+                  type="button"
+                  disabled={isClearingBackups}
+                  onClick={() => setShowClearAllBackupsConfirm(false)}
+                  className="flex-1 py-2 rounded-xl border border-hairline text-muted-custom text-xs font-mono font-bold hover:border-ink hover:text-ink transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isClearingBackups}
+                  onClick={handleClearAllLocalBackups}
+                  className="flex-1 py-2 rounded-xl border border-brand-coral bg-brand-coral text-white text-xs font-mono font-bold hover:bg-brand-coral/90 transition-all cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  {isClearingBackups ? 'Clearing...' : 'Purge All'}
                 </button>
               </div>
             </div>

@@ -1,9 +1,55 @@
 import { hashPasswordArgon2id } from './kdfService';
 
 const VERIFIER_KEY = 'fa_global_recovery_verifier';
+export const RECOVERY_JOURNAL_KEY = 'fa_recovery_rotation_journal';
 
-// Clean up any legacy escrow key storage if it ever existed
+export interface RecoveryRotationJournal {
+  state: 'in_progress';
+  timestamp: number;
+  backupVaultEnvelope: string | null;
+  backupVaultEscrow: string | null;
+  backupExportPin: string | null;
+  backupVerifier: string | null;
+}
+
+/**
+ * Crash-safe recovery journal resolver.
+ * If a process was terminated mid-rotation before the user received the new key,
+ * this restores the prior known-good escrows and verifier so the user's held key remains valid.
+ */
+export function checkAndRecoverStaleRotationJournal(): boolean {
+  try {
+    const raw = localStorage.getItem(RECOVERY_JOURNAL_KEY);
+    if (!raw) return false;
+
+    const journal: RecoveryRotationJournal = JSON.parse(raw);
+    if (journal?.state === 'in_progress') {
+      console.warn('Finance-Ally Recovery: Found unfinalized rotation journal. Rolling back to previous recovery key state.');
+
+      if (journal.backupVaultEnvelope !== null) localStorage.setItem('fa_password_vault_envelope', journal.backupVaultEnvelope);
+      else localStorage.removeItem('fa_password_vault_envelope');
+
+      if (journal.backupVaultEscrow !== null) localStorage.setItem('fa_pwd_vault_recovery_escrow', journal.backupVaultEscrow);
+      else localStorage.removeItem('fa_pwd_vault_recovery_escrow');
+
+      if (journal.backupExportPin !== null) localStorage.setItem('fa_export_pin', journal.backupExportPin);
+      else localStorage.removeItem('fa_export_pin');
+
+      if (journal.backupVerifier !== null) localStorage.setItem(VERIFIER_KEY, journal.backupVerifier);
+      else localStorage.removeItem(VERIFIER_KEY);
+
+      localStorage.removeItem(RECOVERY_JOURNAL_KEY);
+      return true;
+    }
+  } catch (err) {
+    console.error('Failed to resolve recovery rotation journal:', err);
+  }
+  return false;
+}
+
+// Clean up any unfinalized rotation journal or legacy keys on load
 try {
+  checkAndRecoverStaleRotationJournal();
   localStorage.removeItem('fa_global_recovery_escrow_key');
 } catch {}
 
@@ -255,11 +301,21 @@ export async function rotateGlobalRecoveryKey(oldKey: string, _username?: string
     }
   }
 
-  // --- Commit: All escrows staged successfully — write atomically with rollback protection ---
+  // --- Commit: Record durable journal BEFORE modifying any live keys ---
   const backupVaultEnvelope = localStorage.getItem('fa_password_vault_envelope');
   const backupVaultEscrow = localStorage.getItem('fa_pwd_vault_recovery_escrow');
   const backupExportPin = localStorage.getItem('fa_export_pin');
   const backupVerifier = localStorage.getItem(VERIFIER_KEY);
+
+  const journal: RecoveryRotationJournal = {
+    state: 'in_progress',
+    timestamp: Date.now(),
+    backupVaultEnvelope,
+    backupVaultEscrow,
+    backupExportPin,
+    backupVerifier,
+  };
+  localStorage.setItem(RECOVERY_JOURNAL_KEY, JSON.stringify(journal));
 
   try {
     if (newVaultEscrow) {
@@ -274,20 +330,12 @@ export async function rotateGlobalRecoveryKey(oldKey: string, _username?: string
       localStorage.setItem('fa_export_pin', JSON.stringify(parsedBackupKeys));
     }
     await setGlobalRecoveryKeyVerifier(newKey);
-  } catch (writeErr) {
+
+    // Finalize commit: remove durable journal only after all storage writes succeed
+    localStorage.removeItem(RECOVERY_JOURNAL_KEY);
+  } catch {
     // Revert all modified storage keys if any write fails
-    if (backupVaultEnvelope !== null) localStorage.setItem('fa_password_vault_envelope', backupVaultEnvelope);
-    else localStorage.removeItem('fa_password_vault_envelope');
-
-    if (backupVaultEscrow !== null) localStorage.setItem('fa_pwd_vault_recovery_escrow', backupVaultEscrow);
-    else localStorage.removeItem('fa_pwd_vault_recovery_escrow');
-
-    if (backupExportPin !== null) localStorage.setItem('fa_export_pin', backupExportPin);
-    else localStorage.removeItem('fa_export_pin');
-
-    if (backupVerifier !== null) localStorage.setItem(VERIFIER_KEY, backupVerifier);
-    else localStorage.removeItem(VERIFIER_KEY);
-
+    checkAndRecoverStaleRotationJournal();
     throw new Error('Key rotation commit failed due to storage error. All escrows rolled back safely.');
   }
 

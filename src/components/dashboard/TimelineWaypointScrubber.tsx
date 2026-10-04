@@ -628,12 +628,12 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   const isOnlyTwoNodes = waypoints.length === 2;
 
   // Current active runner indicator color based on scrollProgress
-  const runnerColorClass =
+  const runnerColor =
     scrollProgress < 0.2
-      ? 'bg-cyan-300 shadow-[0_0_8px_rgba(56,189,248,0.95)]'
+      ? 'var(--brand-blue)'
       : scrollProgress > 0.8
-      ? 'bg-amber-300 shadow-[0_0_8px_rgba(253,224,71,0.95)]'
-      : 'bg-emerald-300 shadow-[0_0_8px_rgba(74,222,128,0.95)]';
+      ? 'var(--brand-yellow)'
+      : 'var(--brand-mint)';
 
   return (
     <div
@@ -667,8 +667,8 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
                 key={idx}
                 className={`rounded-full transition-all duration-150 ${
                   isCenterLongLine
-                    ? 'w-2 sm:w-3.5 h-[1.5px] bg-ink/60 dark:bg-white/50 shadow-xs'
-                    : 'w-1 sm:w-2 h-[1.5px] bg-ink/30 dark:bg-white/20 shadow-2xs'
+                    ? 'w-2 sm:w-3.5 h-[1.5px] bg-ink/40'
+                    : 'w-1 sm:w-2 h-[1.5px] bg-ink/20'
                 }`}
               />
             );
@@ -686,15 +686,21 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
           className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto cursor-grab active:cursor-grabbing p-1.5 z-30 transition-transform duration-75"
         >
           <div
+            style={{
+              backgroundColor: runnerColor,
+              boxShadow: isSeeking
+                ? `0 0 8px ${runnerColor}`
+                : `0 0 3px ${runnerColor}`,
+            }}
             className={`rounded-full transition-all duration-150 ${
               isSeeking
-                ? 'w-3 sm:w-6 h-[3.5px] sm:h-[4.5px] ring-2 ring-white/60 scale-125'
+                ? 'w-3 sm:w-6 h-[3.5px] sm:h-[4.5px] ring-2 ring-white/50 scale-125'
                 : 'w-2 sm:w-4 h-[2px] sm:h-[2.5px] opacity-90'
-            } ${runnerColorClass}`}
+            }`}
           />
         </div>
 
-        {/* The Colored Waypoint Nodes (Slightly smaller in width, distinct colors) */}
+        {/* The Colored Waypoint Nodes (Slightly smaller in width, theme-attuned colors) */}
         <div className="relative w-full h-full pointer-events-none">
           {waypoints.map((node, index) => {
             const isTop = node.colorType === 'cyan';
@@ -707,29 +713,24 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
             // Percentage down the rail (0% to 100%)
             const topPercent = (index / (waypoints.length - 1)) * 100;
 
-            // Color classes
-            let nodeBg = 'bg-emerald-300';
-            let glowShadow = 'shadow-[0_0_10px_rgba(74,222,128,0.95)] ring-1 ring-emerald-300/40';
-
-            if (isTop) {
-              nodeBg = 'bg-cyan-300';
-              glowShadow = 'shadow-[0_0_10px_rgba(56,189,248,0.95)] ring-1 ring-cyan-300/40';
-            } else if (isChart) {
-              nodeBg = 'bg-amber-300';
-              glowShadow = 'shadow-[0_0_10px_rgba(253,224,71,0.95)] ring-1 ring-amber-300/40';
-            }
+            // Theme-attuned node color
+            const nodeColor = isTop
+              ? 'var(--brand-blue)'
+              : isChart
+              ? 'var(--brand-yellow)'
+              : 'var(--brand-mint)';
 
             // Size: Refined, slightly smaller in width
-            let sizeClass = 'w-2.5 sm:w-4.5 h-[2.5px] sm:h-[3.5px]';
-            let opacityClass = 'opacity-90';
+            let sizeClass = 'w-2 sm:w-3.5 h-[2px] sm:h-[3px]';
+            let opacityClass = 'opacity-85';
 
             if (isHovered) {
-              sizeClass = 'w-3.5 sm:w-6 h-[3.5px] sm:h-[4.5px]';
+              sizeClass = 'w-3.5 sm:w-5.5 h-[3px] sm:h-[4px]';
               opacityClass = 'opacity-100 z-30 scale-110';
             } else if (isAnyHovered) {
               opacityClass = 'opacity-20 scale-90';
             } else if (isActive) {
-              sizeClass = 'w-3 sm:w-5 h-[3px] sm:h-[4px]';
+              sizeClass = 'w-2.5 sm:w-4.5 h-[2.5px] sm:h-[3.5px]';
               opacityClass = 'opacity-100 z-20';
             }
 
@@ -745,9 +746,11 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
                 className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 pointer-events-auto cursor-pointer flex items-center justify-center p-1"
               >
                 <div
-                  className={`rounded-full transition-all duration-200 drop-shadow-sm ${nodeBg} ${sizeClass} ${opacityClass} ${
-                    isHovered || isActive ? glowShadow : ''
-                  }`}
+                  style={{
+                    backgroundColor: nodeColor,
+                    boxShadow: isHovered || isActive ? `0 0 8px ${nodeColor}` : undefined,
+                  }}
+                  className={`rounded-full transition-all duration-200 ${sizeClass} ${opacityClass}`}
                 />
               </div>
             );
@@ -760,34 +763,50 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
             style={{ top: `${focusedPercent}%` }}
             className="absolute right-full mr-2 -translate-y-1/2 pointer-events-none z-50 animate-in fade-in slide-in-from-right-1 duration-150"
           >
-            <div className="relative flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-surface-card/95 dark:bg-[#0e0e11]/95 backdrop-blur-2xl border border-hairline/90 dark:border-white/15 shadow-2xl ring-1 ring-white/10 whitespace-nowrap">
+            <div className="relative flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-surface-card/95 backdrop-blur-2xl border border-hairline shadow-2xl ring-1 ring-hairline/60 whitespace-nowrap">
               {/* Badge */}
               <span
-                className={`text-[9px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded-md ${
-                  focusedNode.colorType === 'cyan'
-                    ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30'
-                    : focusedNode.colorType === 'yellow'
-                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
-                    : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                }`}
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${
+                    focusedNode.colorType === 'cyan'
+                      ? 'var(--brand-blue)'
+                      : focusedNode.colorType === 'yellow'
+                      ? 'var(--brand-yellow)'
+                      : 'var(--brand-mint)'
+                  } 16%, transparent)`,
+                  color:
+                    focusedNode.colorType === 'cyan'
+                      ? 'var(--brand-blue)'
+                      : focusedNode.colorType === 'yellow'
+                      ? 'var(--brand-yellow)'
+                      : 'var(--brand-mint)',
+                  borderColor: `color-mix(in srgb, ${
+                    focusedNode.colorType === 'cyan'
+                      ? 'var(--brand-blue)'
+                      : focusedNode.colorType === 'yellow'
+                      ? 'var(--brand-yellow)'
+                      : 'var(--brand-mint)'
+                  } 35%, transparent)`,
+                }}
+                className="text-[9px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded-md border"
               >
                 {focusedNode.badge}
               </span>
 
               {/* Title & Date */}
               <div className="flex flex-col text-left">
-                <span className="text-xs font-mono font-bold text-ink dark:text-white leading-tight">
+                <span className="text-xs font-mono font-bold text-ink leading-tight">
                   {focusedNode.label}
                 </span>
                 {focusedNode.subLabel && (
-                  <span className="text-[10px] font-mono text-muted-custom dark:text-zinc-400 leading-tight">
+                  <span className="text-[10px] font-mono text-muted-custom leading-tight">
                     {focusedNode.subLabel}
                   </span>
                 )}
               </div>
 
               {/* Right Arrow indicator pointing directly at the node line */}
-              <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-0 h-0 border-y-[5px] border-y-transparent border-l-[6px] border-l-surface-card/95 dark:border-l-[#0e0e11]/95" />
+              <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-0 h-0 border-y-[5px] border-y-transparent border-l-[6px] border-l-surface-card" />
             </div>
           </div>
         )}

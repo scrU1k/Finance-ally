@@ -578,3 +578,89 @@ export async function deleteLocalSnapshot(snapshotId: string): Promise<LocalSnap
   saveSnapshotsList(updatedList);
   return updatedList;
 }
+
+/**
+ * Permanently deletes all local snapshots and backup files from native device storage and localStorage cache.
+ */
+export async function clearAllLocalBackups(): Promise<{ success: boolean; clearedCount: number; message: string }> {
+  try {
+    const list = getLocalSnapshots();
+    const count = list.length;
+
+    // 1. Remove all cached snapshot payloads from localStorage
+    list.forEach(s => {
+      try {
+        localStorage.removeItem(`fa_snap_data_${s.id}`);
+      } catch {}
+    });
+
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('fa_snap_data_')) {
+        localStorage.removeItem(key);
+      }
+    }
+
+    // 2. Clear native filesystem files if on mobile / native
+    if (Capacitor.isNativePlatform()) {
+      // Clear Snapshots folder
+      try {
+        const snapDir = await Filesystem.readdir({
+          path: 'Finance-Ally/Snapshots',
+          directory: Directory.Documents,
+        });
+        for (const file of snapDir.files) {
+          try {
+            await Filesystem.deleteFile({
+              path: `Finance-Ally/Snapshots/${file.name}`,
+              directory: Directory.Documents,
+            });
+          } catch {}
+        }
+      } catch {}
+
+      // Clear Backups folder
+      try {
+        const backupDir = await Filesystem.readdir({
+          path: 'Finance-Ally/Backups',
+          directory: Directory.Documents,
+        });
+        for (const file of backupDir.files) {
+          try {
+            await Filesystem.deleteFile({
+              path: `Finance-Ally/Backups/${file.name}`,
+              directory: Directory.Documents,
+            });
+          } catch {}
+        }
+      } catch {}
+
+      // Clear any cached snapshots in Directory.Cache
+      for (const s of list) {
+        try {
+          await Filesystem.deleteFile({
+            path: s.filename,
+            directory: Directory.Cache,
+          });
+        } catch {}
+      }
+    }
+
+    // 3. Clear stored snapshots list in localStorage
+    saveSnapshotsList([]);
+
+    return {
+      success: true,
+      clearedCount: count,
+      message: 'All local snapshots and backup files permanently cleared.',
+    };
+  } catch (err: any) {
+    console.error('Failed to clear all local backups:', err);
+    return {
+      success: false,
+      clearedCount: 0,
+      message: `Failed to clear all backups: ${err?.message || String(err)}`,
+    };
+  }
+}
+
