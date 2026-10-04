@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { BulkEditModal } from './BulkEditModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
+import { TimelineWaypointScrubber } from './TimelineWaypointScrubber';
 
 interface DailyTimelineProps {
   onOpenQuickAdd?: () => void;
@@ -169,6 +170,15 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
 
   useEffect(() => {
     loadPeriodNotes().then(notes => setPeriodNotes(notes));
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.add('scrubber-active');
+    document.documentElement.classList.add('scrubber-active');
+    return () => {
+      document.body.classList.remove('scrubber-active');
+      document.documentElement.classList.remove('scrubber-active');
+    };
   }, []);
 
   useEffect(() => {
@@ -1595,6 +1605,18 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
         onCloseControlled={() => setShowMultiLogDatePickerModal(false)}
         title="Select Multi-Log Date"
         subtitle="All expenses will be logged to the selected date"
+      />
+
+      {/* Anime-Style Floating Timeline Waypoint Scrubber */}
+      <TimelineWaypointScrubber
+        periodMode={periodMode}
+        visibleMonthsLimit={visibleMonthsLimit}
+        groupedByDate={visibleGroupedByDate}
+        groupedByWeek={visibleGroupedByWeek}
+        groupedByMonth={visibleGroupedByMonth}
+        groupedByYear={visibleGroupedByYear}
+        chartRef={chartRef}
+        groupRefs={groupRefs}
       />
     </div>
   );
