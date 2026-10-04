@@ -1384,7 +1384,20 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
 
       {/* Visual Charts Overview */}
       {showCharts && (
-        <div ref={chartRef} id="spending-trend-chart" className="animate-in fade-in duration-200 mt-6">
+        <div
+          ref={chartRef}
+          id="spending-trend-chart"
+          className="animate-in fade-in duration-200 mt-16 sm:mt-24 pt-8 border-t border-hairline/60 space-y-4"
+        >
+          <div className="flex items-center gap-2.5 px-1">
+            <div className="w-8 h-8 rounded-xl bg-brand-yellow/15 border border-brand-yellow/30 text-brand-yellow flex items-center justify-center font-bold">
+              <BarChart2 className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-mono font-bold text-ink">Charts & Analytics</h3>
+              <p className="text-[11px] font-mono text-muted-custom">Visual spend overview & category breakdown</p>
+            </div>
+          </div>
           <LiveSpendChart transactions={processedTransactions} />
         </div>
       )}
@@ -1606,6 +1619,9 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
         title="Select Multi-Log Date"
         subtitle="All expenses will be logged to the selected date"
       />
+
+      {/* Generous bottom scroll clearance allowing earliest waypoints and chart to snap cleanly */}
+      <div className="h-64 sm:h-96 w-full pointer-events-none" aria-hidden="true" />
 
       {/* Anime-Style Floating Timeline Waypoint Scrubber */}
       <TimelineWaypointScrubber

@@ -11,6 +11,8 @@ import { BottomPeriodBar } from './components/layout/BottomPeriodBar';
 import { DailyTimeline } from './components/dashboard/DailyTimeline';
 import { TransactionModal } from './components/dashboard/TransactionModal';
 import { ScheduledPaymentToastBanner } from './components/common/ScheduledPaymentToastBanner';
+import { SplashScreen } from './components/common/SplashScreen';
+import { checkAndRecoverStaleImportJournal } from './services/db';
 import { Transaction } from './types';
 import {
   checkAndPerformLocalAutoBackup,
@@ -309,18 +311,26 @@ const MainAppContent: React.FC = () => {
     );
   };
 
-import { SplashScreen } from './components/common/SplashScreen';
-
 export function App() {
+  const [isReady, setIsReady] = useState(false);
+
+  React.useEffect(() => {
+    checkAndRecoverStaleImportJournal().finally(() => {
+      setIsReady(true);
+    });
+  }, []);
+
   return (
     <ThemeProvider>
       <ErrorBoundary>
-        <AuthProvider>
-          <FinanceProvider>
-            <SplashScreen />
-            <MainAppContent />
-          </FinanceProvider>
-        </AuthProvider>
+        <SplashScreen />
+        {isReady && (
+          <AuthProvider>
+            <FinanceProvider>
+              <MainAppContent />
+            </FinanceProvider>
+          </AuthProvider>
+        )}
       </ErrorBoundary>
     </ThemeProvider>
   );

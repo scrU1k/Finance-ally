@@ -106,18 +106,16 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       // When visibleMonthsLimit === 1: First day of the week (Mondays)
       // When visibleMonthsLimit > 1: Switches to first day of the month
       if (visibleMonthsLimit === 1) {
-        const weeklyMap = new Map<string, { targetDate: string; isMonday: boolean }>();
+        const weeklyMap = new Map<string, { targetDate: string }>();
 
         for (const group of groupedByDate) {
-          const { monStr, weekNo } = getWeekDateBounds(group.date);
+          const { weekNo } = getWeekDateBounds(group.date);
           const year = group.date.substring(0, 4);
           const weekKey = `${year}-W${weekNo}`;
 
           if (!weeklyMap.has(weekKey)) {
-            const hasExactMonday = groupedByDate.some(g => g.date === monStr);
             weeklyMap.set(weekKey, {
-              targetDate: hasExactMonday ? monStr : group.date,
-              isMonday: hasExactMonday,
+              targetDate: group.date,
             });
           }
         }
@@ -148,12 +146,8 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
         const uniqueMonthKeys = Array.from(new Set(groupedByDate.map(g => g.date.substring(0, 7))));
 
         uniqueMonthKeys.forEach(monthKey => {
-          const firstOfMonthDate = `${monthKey}-01`;
           const monthGroups = groupedByDate.filter(g => g.date.startsWith(monthKey));
-          const targetGroup =
-            monthGroups.find(g => g.date === firstOfMonthDate) ||
-            monthGroups[monthGroups.length - 1] ||
-            monthGroups[0];
+          const targetGroup = monthGroups[0];
 
           if (!targetGroup) return;
           if (targetGroup.date === topDate && items.length > 0) return;
@@ -357,34 +351,88 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     }, 1800);
   }, [isSeeking]);
 
-  // Viewport tracking & continuous scroll progress (0.0 to 1.0)
+  // Compute target scroll positions of each waypoint for piecewise alignment
+  const getWaypointScrollPositions = useCallback(() => {
+    const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    if (waypoints.length <= 1) return [0];
+
+    const positions: number[] = [];
+    const headerOffset = 90;
+
+    waypoints.forEach((wp, idx) => {
+      if (idx === 0) {
+        positions.push(0);
+      } else if (idx === waypoints.length - 1) {
+        positions.push(maxScroll);
+      } else {
+        const el = wp.getElement();
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const targetScroll = Math.max(0, Math.min(maxScroll, rect.top + window.pageYOffset - headerOffset));
+          positions.push(targetScroll);
+        } else {
+          positions.push((idx / (waypoints.length - 1)) * maxScroll);
+        }
+      }
+    });
+
+    for (let i = 1; i < positions.length; i++) {
+      if (positions[i] < positions[i - 1]) {
+        positions[i] = positions[i - 1];
+      }
+    }
+
+    return positions;
+  }, [waypoints]);
+
+  // Viewport tracking & continuous scroll progress aligned to waypoint milestones
   const updateScrollState = useCallback(() => {
     const scrollY = window.scrollY;
     const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-    const progress = Math.max(0, Math.min(1, scrollY / maxScroll));
-    setScrollProgress(progress);
 
-    // Determine active waypoint based on scroll progress
-    if (waypoints.length > 0) {
-      if (progress <= 0.05) {
-        setActiveNodeId(waypoints[0].id);
-      } else if (progress >= 0.95) {
-        setActiveNodeId(waypoints[waypoints.length - 1].id);
+    if (waypoints.length <= 1) {
+      setScrollProgress(0);
+      return;
+    }
+
+    const count = waypoints.length;
+    const positions = getWaypointScrollPositions();
+
+    if (scrollY <= 5) {
+      setScrollProgress(0);
+      setActiveNodeId(waypoints[0].id);
+      return;
+    }
+
+    if (scrollY >= maxScroll - 5) {
+      setScrollProgress(1);
+      setActiveNodeId(waypoints[count - 1].id);
+      return;
+    }
+
+    let segIndex = 0;
+    for (let i = 0; i < count - 1; i++) {
+      if (scrollY >= positions[i]) {
+        segIndex = i;
       } else {
-        let closest = waypoints[0];
-        let minDiff = 1;
-        waypoints.forEach((wp, idx) => {
-          const wpProgress = idx / (waypoints.length - 1);
-          const diff = Math.abs(progress - wpProgress);
-          if (diff < minDiff) {
-            minDiff = diff;
-            closest = wp;
-          }
-        });
-        setActiveNodeId(closest.id);
+        break;
       }
     }
-  }, [waypoints]);
+
+    const sStart = positions[segIndex];
+    const sEnd = positions[segIndex + 1];
+    const tStart = segIndex / (count - 1);
+    const tEnd = (segIndex + 1) / (count - 1);
+
+    const span = sEnd - sStart;
+    const localRatio = span > 0 ? Math.max(0, Math.min(1, (scrollY - sStart) / span)) : 0;
+    const progress = tStart + localRatio * (tEnd - tStart);
+
+    setScrollProgress(progress);
+
+    const activeIdx = localRatio >= 0.5 ? Math.min(count - 1, segIndex + 1) : segIndex;
+    setActiveNodeId(waypoints[activeIdx].id);
+  }, [waypoints, getWaypointScrollPositions]);
 
   // Global scroll listener
   useEffect(() => {
@@ -400,28 +448,33 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     };
   }, [triggerVisibilityOnScroll, updateScrollState]);
 
-  // Fast seek math: instantly scrolls the page according to screen clientY
+  // Fast seek math: smoothly scrolls the page according to screen clientY
   const updateSeekScroll = useCallback(
     (clientY: number) => {
-      if (!railRef.current) return;
+      if (!railRef.current || waypoints.length <= 1) return;
       const rect = railRef.current.getBoundingClientRect();
       const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
-      const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      const targetScrollY = ratio * maxScroll;
 
-      // Instant seeking update
+      const count = waypoints.length;
+      const positions = getWaypointScrollPositions();
+
+      const floatIndex = ratio * (count - 1);
+      const segIndex = Math.min(count - 2, Math.floor(floatIndex));
+      const localRatio = floatIndex - segIndex;
+
+      const sStart = positions[segIndex];
+      const sEnd = positions[segIndex + 1];
+      const targetScrollY = sStart + localRatio * (sEnd - sStart);
+
       window.scrollTo(0, targetScrollY);
 
-      // Update nearest waypoint for feedback
-      if (waypoints.length > 0) {
-        const closestIndex = Math.round(ratio * (waypoints.length - 1));
-        const targetNode = waypoints[closestIndex];
-        if (targetNode) {
-          setHoveredNodeId(targetNode.id);
-        }
+      const closestIndex = Math.round(floatIndex);
+      const targetNode = waypoints[closestIndex];
+      if (targetNode) {
+        setHoveredNodeId(targetNode.id);
       }
     },
-    [waypoints]
+    [waypoints, getWaypointScrollPositions]
   );
 
   // Global document pointer listeners while seeking is active
@@ -471,38 +524,54 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   // Click anywhere on track to scroll to that exact proportion of the page
   const handleTrackClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!railRef.current || isSeeking) return;
+      if (!railRef.current || isSeeking || waypoints.length <= 1) return;
       const rect = railRef.current.getBoundingClientRect();
       const clickY = e.clientY - rect.top;
       const ratio = Math.max(0, Math.min(1, clickY / rect.height));
 
-      const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      const targetScrollY = ratio * maxScroll;
+      const count = waypoints.length;
+      const positions = getWaypointScrollPositions();
+
+      const floatIndex = ratio * (count - 1);
+      const segIndex = Math.min(count - 2, Math.floor(floatIndex));
+      const localRatio = floatIndex - segIndex;
+
+      const sStart = positions[segIndex];
+      const sEnd = positions[segIndex + 1];
+      const targetScrollY = sStart + localRatio * (sEnd - sStart);
 
       window.scrollTo({
         top: targetScrollY,
         behavior: 'smooth',
       });
     },
-    [isSeeking]
+    [isSeeking, waypoints, getWaypointScrollPositions]
   );
 
   // Touch & Drag handler for mobile scrubber tracking
   const handleTouchMove = useCallback(
     (e: React.TouchEvent) => {
-      if (!railRef.current || waypoints.length === 0 || isSeeking) return;
+      if (!railRef.current || waypoints.length <= 1 || isSeeking) return;
       const touch = e.touches[0];
       const rect = railRef.current.getBoundingClientRect();
       const clampedY = Math.max(0, Math.min(rect.height, touch.clientY - rect.top));
       const ratio = clampedY / rect.height;
 
-      const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      const targetScrollY = ratio * maxScroll;
+      const count = waypoints.length;
+      const positions = getWaypointScrollPositions();
+
+      const floatIndex = ratio * (count - 1);
+      const segIndex = Math.min(count - 2, Math.floor(floatIndex));
+      const localRatio = floatIndex - segIndex;
+
+      const sStart = positions[segIndex];
+      const sEnd = positions[segIndex + 1];
+      const targetScrollY = sStart + localRatio * (sEnd - sStart);
 
       window.scrollTo({ top: targetScrollY });
 
       // Closest node for hover card display
-      const closestIndex = Math.round(ratio * (waypoints.length - 1));
+      const closestIndex = Math.round(floatIndex);
       const targetNode = waypoints[closestIndex];
 
       if (targetNode && targetNode.id !== hoveredNodeId) {
@@ -514,7 +583,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
         }
       }
     },
-    [waypoints, hoveredNodeId, isSeeking]
+    [waypoints, hoveredNodeId, isSeeking, getWaypointScrollPositions]
   );
 
   const handleTouchStart = useCallback(
@@ -740,6 +809,8 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
                 style={{ top: `${topPercent}%` }}
                 onClick={e => {
                   e.stopPropagation();
+                  setActiveNodeId(node.id);
+                  setScrollProgress(topPercent / 100);
                   node.scrollTo();
                 }}
                 onMouseEnter={() => setHoveredNodeId(node.id)}

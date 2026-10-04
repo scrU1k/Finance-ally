@@ -519,10 +519,7 @@ export async function checkAndRecoverStaleImportJournal(): Promise<boolean> {
   }
 }
 
-// Check and recover interrupted import on startup
-try {
-  checkAndRecoverStaleImportJournal().catch(() => {});
-} catch {}
+// Note: checkAndRecoverStaleImportJournal() is explicitly awaited by the App startup gate before data contexts mount
 
 export interface ImportBackupResult {
   success: boolean;
