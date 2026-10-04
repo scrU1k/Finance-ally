@@ -1,4 +1,5 @@
 import { Transaction, Category, CurrencyCode } from '../types';
+import { getLocalDateString } from '../utils/dateUtils';
 
 function sanitizeCSVCell(str: string): string {
   if (!str) return '""';
@@ -78,7 +79,7 @@ export function importTransactionsFromCSV(
       }
 
       // Strict date parsing - do not silently falsify invalid dates to today
-      let date = new Date().toISOString().split('T')[0];
+      let date = getLocalDateString();
       if (dateIdx !== -1 && columns[dateIdx]) {
         const rawDate = columns[dateIdx].trim();
         if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate) && !isNaN(Date.parse(rawDate))) {
@@ -86,7 +87,7 @@ export function importTransactionsFromCSV(
         } else {
           const parsedD = new Date(rawDate);
           if (!isNaN(parsedD.getTime())) {
-            date = parsedD.toISOString().split('T')[0];
+            date = getLocalDateString(parsedD);
           } else {
             errors.push(`Row ${rowIdx}: Invalid date "${rawDate}"`);
             continue;

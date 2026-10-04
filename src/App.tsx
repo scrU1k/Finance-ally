@@ -32,13 +32,19 @@ import { SettingsModal } from './components/settings/SettingsModal';
 import { CategoryManagerModal } from './components/categories/CategoryManagerModal';
 import { RecoveryKeyModal } from './components/common/RecoveryKeyModal';
 import { BackupErrorModal } from './components/common/BackupErrorModal';
-import { initializeGlobalRecoveryKey, checkAndRecoverStaleRotationJournal } from './services/recoveryService';
+import {
+  initializeGlobalRecoveryKey,
+  checkAndRecoverStaleRotationJournal,
+  getPendingRecoveryKey,
+  finalizeRecoveryKeyRotation
+} from './services/recoveryService';
 
 const V3_RECOVERY_ONBOARDED_KEY = 'fa_v3_recovery_onboarded';
 
 const MainAppContent: React.FC = () => {
   const { user, needsOnboarding, isUnlocked } = useAuth();
   const [v3RecoveryKey, setV3RecoveryKey] = useState<string | null>(null);
+  const [pendingRotatedKey, setPendingRotatedKey] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<LastBackupError | null>(null);
   
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -74,12 +80,23 @@ const MainAppContent: React.FC = () => {
         setBackupError(err);
       });
 
+      const unconfirmedRotatedKey = getPendingRecoveryKey();
+      if (unconfirmedRotatedKey) {
+        setPendingRotatedKey(unconfirmedRotatedKey);
+      }
+
       const alreadyOnboarded = localStorage.getItem(V3_RECOVERY_ONBOARDED_KEY);
       if (!alreadyOnboarded) {
-        const username = user?.username || 'USER';
-        initializeGlobalRecoveryKey(username).then(key => {
-          setV3RecoveryKey(key);
-        });
+        const pendingFirstLaunchKey = localStorage.getItem('fa_v3_recovery_pending_key');
+        if (pendingFirstLaunchKey) {
+          setV3RecoveryKey(pendingFirstLaunchKey);
+        } else {
+          const username = user?.username || 'USER';
+          initializeGlobalRecoveryKey(username).then(key => {
+            localStorage.setItem('fa_v3_recovery_pending_key', key);
+            setV3RecoveryKey(key);
+          });
+        }
       }
 
       return () => {
@@ -259,7 +276,22 @@ const MainAppContent: React.FC = () => {
             noticeText="A new emergency recovery system has been added in v3.0 so you can recover your App Password, Password Vault PIN, or Backup PIN if you ever forget them. This key is shown ONCE and NEVER stored on this device. Save it safely!"
             onDismiss={() => {
               localStorage.setItem(V3_RECOVERY_ONBOARDED_KEY, 'true');
+              localStorage.removeItem('fa_v3_recovery_pending_key');
               setV3RecoveryKey(null);
+            }}
+          />
+        )}
+
+        {/* Unconfirmed Rotated Global Recovery Key Modal (Resumed after restart) */}
+        {pendingRotatedKey && (
+          <RecoveryKeyModal
+            recoveryKey={pendingRotatedKey}
+            title="New Global Recovery Key"
+            subtitle="Rotated Security Key"
+            noticeText="Your Recovery Key was recently rotated. Please record this new key securely. This key is shown ONCE and NEVER stored in plaintext on this device."
+            onDismiss={() => {
+              finalizeRecoveryKeyRotation();
+              setPendingRotatedKey(null);
             }}
           />
         )}

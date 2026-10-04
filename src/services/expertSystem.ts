@@ -1,7 +1,9 @@
 import { Transaction, Category, CurrencyCode } from '../types';
 import { computeFinancialProfile, computeProjections } from './statisticalProfiler';
-import { formatCurrency } from './currency';
+import { formatCurrency, convertCurrencyAmount } from './currency';
 import { getCustomRules } from './localKnowledgeBase';
+import { isPendingScheduledTx } from '../utils/scheduledUtils';
+import { parseLocalDate } from '../utils/dateUtils';
 
 export interface ExpertAnswer {
   matched: boolean;
@@ -19,18 +21,24 @@ interface Intent {
     entities: Record<string, number | string>,
     transactions: Transaction[],
     categories: Category[],
-    currency: CurrencyCode
+    currency: CurrencyCode,
+    forexRates?: Record<CurrencyCode, number>
   ) => ExpertAnswer;
 }
 
-function evaluateCustomRules(transactions: Transaction[], categories: Category[], currency: CurrencyCode): string[] {
+function evaluateCustomRules(
+  transactions: Transaction[],
+  categories: Category[],
+  currency: CurrencyCode,
+  forexRates?: Record<CurrencyCode, number>
+): string[] {
   const customRules = getCustomRules();
   if (customRules.length === 0) return [];
 
   const fmt = (n: number) => formatCurrency(n, currency);
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const currentMonthTxs = transactions.filter(t => t.date.startsWith(currentMonthKey));
+  const currentMonthTxs = transactions.filter(t => t.date.startsWith(currentMonthKey) && !isPendingScheduledTx(t));
 
   const results: string[] = [];
 
@@ -43,7 +51,9 @@ function evaluateCustomRules(transactions: Transaction[], categories: Category[]
       const matchedCat = categories.find(c => c.name.toLowerCase().includes(catSearch));
 
       if (matchedCat) {
-        const catSpent = currentMonthTxs.filter(t => t.categoryId === matchedCat.id).reduce((s,t) => s + t.amount, 0);
+        const catSpent = currentMonthTxs
+          .filter(t => t.categoryId === matchedCat.id)
+          .reduce((s, t) => s + convertCurrencyAmount(t.amount, t.currency || currency, currency, forexRates), 0);
         if (catSpent <= capAmount) {
           results.push(`✅ Rule "${text}": Spent ${fmt(catSpent)} / ${fmt(capAmount)} (Compliant!)`);
         } else {
@@ -116,15 +126,18 @@ const INTENTS: Intent[] = [
       /am i managing (?:money|finances) (?:well|good)/i,
       /how do i look financially/i,
     ],
-    handler: (_, transactions, categories, currency) => {
+    handler: (_, transactions, categories, currency, forexRates) => {
       const fmt = (n: number) => formatCurrency(n, currency);
-      const profile = computeFinancialProfile(transactions);
-      const projection = computeProjections(transactions, profile, currency);
+      const profile = computeFinancialProfile(transactions, currency, forexRates);
+      const projection = computeProjections(transactions, profile, currency, forexRates);
 
       const now = new Date();
       const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const currentMonthTxs = transactions.filter(t => t.date.startsWith(currentMonthKey));
-      const currentSpent = currentMonthTxs.reduce((sum, t) => sum + t.amount, 0);
+      const currentMonthTxs = transactions.filter(t => t.date.startsWith(currentMonthKey) && !isPendingScheduledTx(t));
+      const currentSpent = currentMonthTxs.reduce(
+        (sum, t) => sum + convertCurrencyAmount(t.amount, t.currency || currency, currency, forexRates),
+        0
+      );
 
       if (currentMonthTxs.length < 3) {
         return {
@@ -159,7 +172,10 @@ const INTENTS: Intent[] = [
 
       // 2. Category Breakdown
       const catMap: Record<string, number> = {};
-      currentMonthTxs.forEach(t => { catMap[t.categoryId] = (catMap[t.categoryId] || 0) + t.amount; });
+      currentMonthTxs.forEach(t => {
+        const amt = convertCurrencyAmount(t.amount, t.currency || currency, currency, forexRates);
+        catMap[t.categoryId] = (catMap[t.categoryId] || 0) + amt;
+      });
       const sortedCats = Object.entries(catMap).sort((a,b) => b[1] - a[1]);
       const topCatObj = categories.find(c => c.id === sortedCats[0]?.[0]);
       const topCatName = topCatObj ? topCatObj.name : 'Expenses';
@@ -168,7 +184,7 @@ const INTENTS: Intent[] = [
       const catSection = `• Top Category: ${topCatName} — ${fmt(topCatSpent)} (${topCatPct}% of monthly total)`;
 
       // 3. Custom & Pre-built Rules Audit
-      const customRuleEvaluations = evaluateCustomRules(transactions, categories, currency);
+      const customRuleEvaluations = evaluateCustomRules(transactions, categories, currency, forexRates);
 
       score = Math.min(98, Math.max(35, score));
       if (score >= 85) statusLabel = 'Excellent';
@@ -294,12 +310,12 @@ const INTENTS: Intent[] = [
       const amount = extractAmount(q);
       return amount ? { purchaseAmount: amount } : null;
     },
-    handler: (entities, transactions, categories, currency) => {
+    handler: (entities, transactions, categories, currency, forexRates) => {
       const purchaseAmount = entities.purchaseAmount as number;
       const fmt = (n: number) => formatCurrency(n, currency);
 
-      const profile = computeFinancialProfile(transactions);
-      const projection = computeProjections(transactions, profile, currency);
+      const profile = computeFinancialProfile(transactions, currency, forexRates);
+      const projection = computeProjections(transactions, profile, currency, forexRates);
 
       if (!projection) {
         return {
@@ -356,9 +372,9 @@ const INTENTS: Intent[] = [
       /how much to save/i,
       /saving too little/i,
     ],
-    handler: (_, transactions, __, currency) => {
+    handler: (_, transactions, __, currency, forexRates) => {
       const fmt = (n: number) => formatCurrency(n, currency);
-      const profile = computeFinancialProfile(transactions);
+      const profile = computeFinancialProfile(transactions, currency, forexRates);
 
       if (profile.dataMonthsCount < 1 || profile.avgMonthlySpend === 0) {
         return {
@@ -412,11 +428,11 @@ const INTENTS: Intent[] = [
       /which day do i spend most/i,
       /highest spend day/i,
     ],
-    handler: (_, transactions, categories, currency) => {
+    handler: (_, transactions, categories, currency, forexRates) => {
       const fmt = (n: number) => formatCurrency(n, currency);
       const now = new Date();
       const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const monthTxs = transactions.filter(t => t.date.startsWith(currentMonthKey));
+      const monthTxs = transactions.filter(t => t.date.startsWith(currentMonthKey) && !isPendingScheduledTx(t));
 
       if (monthTxs.length < 5) {
         return {
@@ -432,8 +448,9 @@ const INTENTS: Intent[] = [
       const dowCount = [0,0,0,0,0,0,0];
 
       monthTxs.forEach(t => {
-        const dow = new Date(t.date).getDay();
-        dowSpend[dow] += t.amount;
+        const dow = parseLocalDate(t.date).getDay();
+        const amt = convertCurrencyAmount(t.amount, t.currency || currency, currency, forexRates);
+        dowSpend[dow] += amt;
         dowCount[dow] += 1;
       });
 
@@ -443,9 +460,12 @@ const INTENTS: Intent[] = [
       const maxIdx = dowAvg.indexOf(Math.max(...dowAvg));
       const multiplier = wdAvg > 0 ? (dowAvg[maxIdx] / wdAvg).toFixed(1) : '0';
 
-      const dayTxs = monthTxs.filter(t => new Date(t.date).getDay() === maxIdx);
+      const dayTxs = monthTxs.filter(t => parseLocalDate(t.date).getDay() === maxIdx);
       const catMap: Record<string, number> = {};
-      dayTxs.forEach(t => { catMap[t.categoryId] = (catMap[t.categoryId] || 0) + t.amount; });
+      dayTxs.forEach(t => {
+        const amt = convertCurrencyAmount(t.amount, t.currency || currency, currency, forexRates);
+        catMap[t.categoryId] = (catMap[t.categoryId] || 0) + amt;
+      });
       const topCatId = Object.entries(catMap).sort((a,b) => b[1]-a[1])[0]?.[0];
       const topCatName = categories.find(c => c.id === topCatId)?.name ?? 'General';
 
@@ -463,7 +483,8 @@ export function runExpertSystem(
   query: string,
   transactions: Transaction[],
   categories: Category[],
-  currency: CurrencyCode
+  currency: CurrencyCode,
+  forexRates?: Record<CurrencyCode, number>
 ): ExpertAnswer {
   const q = query.toLowerCase().trim();
 
@@ -478,7 +499,8 @@ export function runExpertSystem(
       entities ?? {},
       transactions,
       categories,
-      currency
+      currency,
+      forexRates
     );
   }
 

@@ -75,7 +75,7 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ onSelectTran
     }
 
     // LAYER 2: Intent-Driven Expert System (Sync, Instant)
-    const expertResult = runExpertSystem(input, filteredTransactions, categories, baseCurrency);
+    const expertResult = runExpertSystem(input, filteredTransactions, categories, baseCurrency, forexRates);
     if (expertResult.matched) {
       setAnswerResult(
         <div className="p-4 bg-brand-purple/10 border border-brand-purple/20 rounded-xl space-y-2">

@@ -420,6 +420,8 @@ export async function exportFullDataBackup(): Promise<string> {
     passwordVaultItems,
     passwordVaultEnvelope,
     passwordVaultVerifier: localStorage.getItem('fa_pwd_vault_verifier') || null,
+    globalRecoveryVerifier: localStorage.getItem('fa_global_recovery_verifier') || null,
+    pwdVaultRecoveryEscrow: localStorage.getItem('fa_pwd_vault_recovery_escrow') || null,
     exportTimestamp: Date.now(),
     appVersion: '3.0.0'
   };
@@ -442,6 +444,7 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
 
     const db = await openDatabase();
     const storesToLock = ['transactions', 'categories', 'trips', 'smsTemplates', 'subscriptions', 'userProfile'];
+    const validTransactions: Transaction[] = [];
 
     // Atomic Multi-Store IndexedDB Transaction: all-or-nothing
     await new Promise<void>((resolve, reject) => {
@@ -454,11 +457,13 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
         const store = tx.objectStore('transactions');
         store.clear();
         data.transactions.forEach((t: Transaction) => {
-          if (t.id && typeof t.amount === 'number' && t.amount > 0 && t.date) {
-            store.put({
+          if (t && t.id && typeof t.amount === 'number' && t.amount > 0 && t.date) {
+            const cleanTx: Transaction = {
               ...t,
               note: String(t.note || '').substring(0, 500),
-            });
+            };
+            store.put(cleanTx);
+            validTransactions.push(cleanTx);
           }
         });
       }
@@ -511,7 +516,10 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
     // Sync localStorage strictly AFTER atomic database transaction succeeds
     try {
       if (data.transactions && Array.isArray(data.transactions)) {
-        localStorage.setItem('fa_transactions', JSON.stringify(data.transactions));
+        if (data.transactions.length > validTransactions.length) {
+          console.warn(`[Import] Filtered ${data.transactions.length - validTransactions.length} invalid transaction records from backup payload.`);
+        }
+        localStorage.setItem('fa_transactions', JSON.stringify(validTransactions));
       }
       if (data.categories && Array.isArray(data.categories)) {
         localStorage.setItem('fa_categories', JSON.stringify(data.categories));
@@ -560,6 +568,12 @@ export async function importFullDataBackup(jsonString: string): Promise<boolean>
 
       if (data.passwordVaultVerifier && typeof data.passwordVaultVerifier === 'string') {
         localStorage.setItem('fa_pwd_vault_verifier', data.passwordVaultVerifier);
+      }
+      if (data.globalRecoveryVerifier && typeof data.globalRecoveryVerifier === 'string') {
+        localStorage.setItem('fa_global_recovery_verifier', data.globalRecoveryVerifier);
+      }
+      if (data.pwdVaultRecoveryEscrow && typeof data.pwdVaultRecoveryEscrow === 'string') {
+        localStorage.setItem('fa_pwd_vault_recovery_escrow', data.pwdVaultRecoveryEscrow);
       }
     } catch (storageErr) {
       console.warn('Database restored to IndexedDB, but localStorage mirror update hit a quota/storage error:', storageErr);

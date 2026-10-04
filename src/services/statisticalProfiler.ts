@@ -1,5 +1,7 @@
 import { Transaction, Category, CurrencyCode } from '../types';
-import { formatCurrency } from './currency';
+import { formatCurrency, convertCurrencyAmount } from './currency';
+import { isPendingScheduledTx } from '../utils/scheduledUtils';
+import { parseLocalDate } from '../utils/dateUtils';
 
 export interface UserFinancialProfile {
   dataMonthsCount: number;
@@ -46,8 +48,13 @@ function getPercentile(sortedArray: number[], percentile: number): number {
 /**
  * Builds the statistical financial profile from user transactions
  */
-export function computeFinancialProfile(transactions: Transaction[]): UserFinancialProfile {
-  if (transactions.length === 0) {
+export function computeFinancialProfile(
+  transactions: Transaction[],
+  baseCurrency: CurrencyCode = 'INR',
+  forexRates?: Record<CurrencyCode, number>
+): UserFinancialProfile {
+  const settledTxs = transactions.filter(t => !isPendingScheduledTx(t));
+  if (settledTxs.length === 0) {
     return {
       dataMonthsCount: 0,
       avgMonthlySpend: 0,
@@ -61,12 +68,13 @@ export function computeFinancialProfile(transactions: Transaction[]): UserFinanc
   const monthMap: Record<string, number> = {};
   const categoryMonthMap: Record<string, Record<string, number>> = {};
 
-  transactions.forEach(t => {
+  settledTxs.forEach(t => {
     const monthKey = t.date.slice(0, 7);
-    monthMap[monthKey] = (monthMap[monthKey] || 0) + t.amount;
+    const amt = convertCurrencyAmount(t.amount, t.currency || baseCurrency, baseCurrency, forexRates);
+    monthMap[monthKey] = (monthMap[monthKey] || 0) + amt;
 
     if (!categoryMonthMap[t.categoryId]) categoryMonthMap[t.categoryId] = {};
-    categoryMonthMap[t.categoryId][monthKey] = (categoryMonthMap[t.categoryId][monthKey] || 0) + t.amount;
+    categoryMonthMap[t.categoryId][monthKey] = (categoryMonthMap[t.categoryId][monthKey] || 0) + amt;
   });
 
   const monthKeys = Object.keys(monthMap);
@@ -114,7 +122,8 @@ export function computeFinancialProfile(transactions: Transaction[]): UserFinanc
 export function computeProjections(
   transactions: Transaction[],
   profile: UserFinancialProfile,
-  baseCurrency: CurrencyCode
+  baseCurrency: CurrencyCode,
+  forexRates?: Record<CurrencyCode, number>
 ): ProjectionResult | null {
   const now = new Date();
   const dayOfMonth = now.getDate();
@@ -122,8 +131,13 @@ export function computeProjections(
   const monthProgress = dayOfMonth / daysInMonth;
 
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const currentMonthTxs = transactions.filter(t => t.date.startsWith(currentMonthKey));
-  const currentSpend = currentMonthTxs.reduce((sum, t) => sum + t.amount, 0);
+  const currentMonthTxs = transactions.filter(
+    t => t.date.startsWith(currentMonthKey) && !isPendingScheduledTx(t)
+  );
+  const currentSpend = currentMonthTxs.reduce(
+    (sum, t) => sum + convertCurrencyAmount(t.amount, t.currency || baseCurrency, baseCurrency, forexRates),
+    0
+  );
 
   if (currentSpend === 0) return null;
 
@@ -167,24 +181,27 @@ export function computeProjections(
 export function detectFrictionPoints(
   transactions: Transaction[],
   categories: Category[],
-  baseCurrency: CurrencyCode
+  baseCurrency: CurrencyCode,
+  forexRates?: Record<CurrencyCode, number>
 ): FrictionPoint[] {
-  const frictionPoints: FrictionPoint[] = [];
-  if (transactions.length < 5) return frictionPoints;
+  const settledTxs = transactions.filter(t => !isPendingScheduledTx(t));
+  if (settledTxs.length < 5) return [];
 
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const currentMonthTxs = transactions.filter(t => t.date.startsWith(currentMonthKey));
+  const currentMonthTxs = settledTxs.filter(t => t.date.startsWith(currentMonthKey));
+  const frictionPoints: FrictionPoint[] = [];
 
   // Fix 3: Extract first word as merchant identifier ("zomato biryani" and "zomato pizza" -> "zomato")
   const merchantMap: Record<string, { count: number; total: number }> = {};
   currentMonthTxs.forEach(t => {
     const noteClean = (t.note || '').trim().toLowerCase();
     const merchantKey = noteClean.split(/\s+/)[0];
+    const amt = convertCurrencyAmount(t.amount, t.currency || baseCurrency, baseCurrency, forexRates);
     if (merchantKey && merchantKey.length >= 3) {
       if (!merchantMap[merchantKey]) merchantMap[merchantKey] = { count: 0, total: 0 };
       merchantMap[merchantKey].count += 1;
-      merchantMap[merchantKey].total += t.amount;
+      merchantMap[merchantKey].total += amt;
     }
   });
 
@@ -211,12 +228,10 @@ export function detectFrictionPoints(
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   currentMonthTxs.forEach(t => {
-    const [y, m, d] = t.date.split('-').map(Number);
-    if (y && m && d) {
-      const dayIdx = new Date(y, m - 1, d).getDay();
-      dayTotals[dayIdx] += t.amount;
-      dayDates[dayIdx].add(t.date);
-    }
+    const dayIdx = parseLocalDate(t.date).getDay();
+    const amt = convertCurrencyAmount(t.amount, t.currency || baseCurrency, baseCurrency, forexRates);
+    dayTotals[dayIdx] += amt;
+    dayDates[dayIdx].add(t.date);
   });
 
   const dayAverages = dayTotals.map((tot, idx) => (dayDates[idx].size > 0 ? tot / dayDates[idx].size : 0));
@@ -240,13 +255,14 @@ export function detectFrictionPoints(
   });
 
   // Fix 2: Category Drift Detection (category growing for 3+ consecutive months)
-  const profile = computeFinancialProfile(transactions);
+  const profile = computeFinancialProfile(settledTxs, baseCurrency, forexRates);
   if (profile.dataMonthsCount >= 3) {
     const categoryMonthMap: Record<string, Record<string, number>> = {};
-    transactions.forEach(t => {
+    settledTxs.forEach(t => {
       const mk = t.date.slice(0, 7);
+      const amt = convertCurrencyAmount(t.amount, t.currency || baseCurrency, baseCurrency, forexRates);
       if (!categoryMonthMap[t.categoryId]) categoryMonthMap[t.categoryId] = {};
-      categoryMonthMap[t.categoryId][mk] = (categoryMonthMap[t.categoryId][mk] || 0) + t.amount;
+      categoryMonthMap[t.categoryId][mk] = (categoryMonthMap[t.categoryId][mk] || 0) + amt;
     });
 
     Object.entries(categoryMonthMap).forEach(([catId, monthData]) => {

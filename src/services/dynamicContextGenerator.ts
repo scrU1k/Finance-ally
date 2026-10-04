@@ -1,6 +1,7 @@
 import { Transaction, Category, CurrencyCode } from '../types';
 import { KnowledgeRule } from './localKnowledgeBase';
-import { formatCurrency } from './currency';
+import { formatCurrency, convertCurrencyAmount } from './currency';
+import { isPendingScheduledTx } from '../utils/scheduledUtils';
 import { 
   computeFinancialProfile, 
   computeProjections, 
@@ -18,7 +19,8 @@ let cacheKey = '';
 export function generateDynamicUsageRules(
   transactions: Transaction[],
   categories: Category[],
-  baseCurrency: CurrencyCode
+  baseCurrency: CurrencyCode,
+  forexRates?: Record<CurrencyCode, number>
 ): KnowledgeRule[] {
   // Fix 6: Memoize with cheap invalidation key
   const today = new Date().toDateString();
@@ -41,11 +43,11 @@ export function generateDynamicUsageRules(
     return rules;
   }
 
-  const profile = computeFinancialProfile(transactions);
+  const profile = computeFinancialProfile(transactions, baseCurrency, forexRates);
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const currentMonthTxs = transactions.filter(t => t.date.startsWith(currentMonthKey));
-  const currentMonthTotal = currentMonthTxs.reduce((sum, t) => sum + t.amount, 0);
+  const currentMonthTxs = transactions.filter(t => !isPendingScheduledTx(t) && t.date.startsWith(currentMonthKey));
+  const currentMonthTotal = currentMonthTxs.reduce((sum, t) => sum + convertCurrencyAmount(t.amount, t.currency || baseCurrency, baseCurrency, forexRates), 0);
 
   // 1. DATA SUFFICIENCY GATE: < 1 Month
   // Fix 5: Ensure scope: 'personal_data' is present on dyn-total-month
@@ -59,7 +61,10 @@ export function generateDynamicUsageRules(
 
   // Top Category Context (2nd Person with Fix 7: MoM Trend Direction)
   const catMap: Record<string, number> = {};
-  currentMonthTxs.forEach(t => { catMap[t.categoryId] = (catMap[t.categoryId] || 0) + t.amount; });
+  currentMonthTxs.forEach(t => {
+    const converted = convertCurrencyAmount(t.amount, t.currency || baseCurrency, baseCurrency, forexRates);
+    catMap[t.categoryId] = (catMap[t.categoryId] || 0) + converted;
+  });
 
   let topCatId = '';
   let topCatAmount = 0;
@@ -105,13 +110,18 @@ export function generateDynamicUsageRules(
 
   // Largest Expense (2nd Person)
   const biggestTx = currentMonthTxs.length > 0 
-    ? currentMonthTxs.reduce((prev, curr) => (prev.amount > curr.amount ? prev : curr))
+    ? currentMonthTxs.reduce((prev, curr) => {
+        const prevAmt = convertCurrencyAmount(prev.amount, prev.currency || baseCurrency, baseCurrency, forexRates);
+        const currAmt = convertCurrencyAmount(curr.amount, curr.currency || baseCurrency, baseCurrency, forexRates);
+        return prevAmt > currAmt ? prev : curr;
+      })
     : undefined;
 
   if (biggestTx) {
+    const biggestConverted = convertCurrencyAmount(biggestTx.amount, biggestTx.currency || baseCurrency, baseCurrency, forexRates);
     rules.push({
       id: 'dyn-biggest-tx',
-      text: `Your largest single expense this month was ${formatCurrency(biggestTx.amount, baseCurrency)}, logged under "${biggestTx.note || 'General'}" on ${biggestTx.date}.`,
+      text: `Your largest single expense this month was ${formatCurrency(biggestConverted, baseCurrency)}, logged under "${biggestTx.note || 'General'}" on ${biggestTx.date}.`,
       isCustom: false,
       timestamp: Date.now(),
       scope: 'personal_data'
@@ -119,7 +129,7 @@ export function generateDynamicUsageRules(
   }
 
   // 2. FORWARD-LOOKING PROJECTIONS
-  const projection = computeProjections(transactions, profile, baseCurrency);
+  const projection = computeProjections(transactions, profile, baseCurrency, forexRates);
   if (projection) {
     rules.push({
       id: 'dyn-projection',
@@ -150,7 +160,7 @@ export function generateDynamicUsageRules(
   }
 
   // 4. FRICTION-POINT OBSERVATIONS (Pattern Mining)
-  const frictionPoints = detectFrictionPoints(transactions, categories, baseCurrency);
+  const frictionPoints = detectFrictionPoints(transactions, categories, baseCurrency, forexRates);
   frictionPoints.slice(0, 2).forEach(fp => {
     rules.push({
       id: fp.id,

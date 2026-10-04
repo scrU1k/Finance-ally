@@ -104,6 +104,7 @@ export interface Subscription {
   currency: CurrencyCode;
   billingCycle: 'monthly' | 'bi-monthly' | 'tri-monthly' | 'annually';
   nextDueDate: string; // YYYY-MM-DD
+  anchorDay?: number; // 1-31, preserves original calendar day across differing month lengths
   dueTime?: string; // HH:mm (e.g. '09:00')
   reminderOffset?: ReminderOffset;
   lastProcessedDate?: string; // YYYY-MM-DD

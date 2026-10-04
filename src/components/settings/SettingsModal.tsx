@@ -40,7 +40,8 @@ import {
 import {
   rotateGlobalRecoveryKey,
   hasGlobalRecoveryKey,
-  verifyGlobalRecoveryKey
+  verifyGlobalRecoveryKey,
+  finalizeRecoveryKeyRotation
 } from '../../services/recoveryService';
 import { exportDiagnosticReportToFile } from '../../services/diagnosticLogger';
 import {
@@ -851,11 +852,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setIsClearingBackups(true);
     try {
       const res = await clearAllLocalBackups();
-      setLocalSnapshotsState([]);
+      setLocalSnapshotsState(getLocalSnapshots());
       setLocalBackupMsg(res.message);
       setShowClearAllBackupsConfirm(false);
     } catch (err: any) {
       setLocalBackupMsg(`Failed to purge backups: ${err?.message || 'Unknown error'}`);
+      setLocalSnapshotsState(getLocalSnapshots());
     } finally {
       setIsClearingBackups(false);
     }
@@ -2772,7 +2774,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </div>
               </div>
               <p className="text-xs font-mono text-ink leading-relaxed">
-                This will permanently delete all snapshot files and offline backups stored under <code className="text-brand-coral font-bold">/Finance-Ally/Snapshots</code> and <code className="text-brand-coral font-bold">/Finance-Ally/Backups</code> on your device.
+                This will delete snapshot files and offline backups stored under <code className="text-brand-coral font-bold">/Finance-Ally/Snapshots</code> and <code className="text-brand-coral font-bold">/Finance-Ally/Backups</code> from app storage.
               </p>
               <div className="flex gap-2 pt-2 border-t border-hairline">
                 <button
@@ -2799,7 +2801,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         {generatedRecoveryKey && (
           <RecoveryKeyModal 
             recoveryKey={generatedRecoveryKey}
-            onDismiss={() => setGeneratedRecoveryKey(null)}
+            onDismiss={() => {
+              finalizeRecoveryKeyRotation();
+              setGeneratedRecoveryKey(null);
+            }}
           />
         )}
 

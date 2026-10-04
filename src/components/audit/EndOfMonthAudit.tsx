@@ -3,7 +3,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
 import { generateEndOfMonthAudit } from '../../services/insightsEngine';
 import { loadSubscriptions, loadPeriodNotes, savePeriodNote, deletePeriodNote } from '../../services/db';
-import { formatCurrency } from '../../services/currency';
+import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 import { getCustomRules } from '../../services/localKnowledgeBase';
 import {
   PieChart, Award, AlertTriangle, CheckCircle, Calendar, HelpCircle,
@@ -11,8 +11,9 @@ import {
 } from 'lucide-react';
 import { saveUserProfile } from '../../services/auth';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
-import { AuditDimensionScore, Subscription, PeriodNote } from '../../types';
-import { getLocalMonthKey } from '../../utils/dateUtils';
+import { AuditDimensionScore, Subscription, PeriodNote, Transaction } from '../../types';
+import { getLocalMonthKey, parseLocalDate } from '../../utils/dateUtils';
+import { isPendingScheduledTx } from '../../utils/scheduledUtils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -90,27 +91,31 @@ const ScoreDimensionCard: React.FC<ScoreDimensionCardProps> = ({ title, icon, sc
 };
 
 const UserRuleComplianceCard: React.FC<{ selectedMonth: string }> = ({ selectedMonth }) => {
-  const { transactions, categories, baseCurrency } = useFinance();
+  const { transactions, categories, baseCurrency, forexRates } = useFinance();
   const customRules = useMemo(() => getCustomRules(), []);
 
   const monthTxs = useMemo(() => {
-    return transactions.filter(t => t.date.startsWith(selectedMonth));
+    return transactions.filter(t => t.date.startsWith(selectedMonth) && !isPendingScheduledTx(t));
   }, [transactions, selectedMonth]);
 
   const fmt = React.useCallback((amt: number) => formatCurrency(amt, baseCurrency), [baseCurrency]);
+  const getTxAmt = React.useCallback(
+    (t: Transaction) => convertCurrencyAmount(t.amount, t.currency || baseCurrency, baseCurrency, forexRates),
+    [baseCurrency, forexRates]
+  );
 
   // Pre-built 109-Rule Evaluators
   const prebuiltAudits = useMemo(() => {
     if (monthTxs.length === 0) return [];
     const results: { id: string; ruleTitle: string; detail: string; status: 'compliant' | 'warning' | 'info'; pct?: number }[] = [];
 
-    const totalSpent = monthTxs.reduce((sum, t) => sum + t.amount, 0);
+    const totalSpent = monthTxs.reduce((sum, t) => sum + getTxAmt(t), 0);
 
     // 1. 50/30/20 Rule (budget-fifty-thirty-twenty-001)
     const wantsCategories = new Set(
       categories.filter(c => /dining|restaurant|food delivery|shopping|entertainment|movie|leisure|travel|hobby/i.test(c.name)).map(c => c.id)
     );
-    const wantsSpent = monthTxs.filter(t => wantsCategories.has(t.categoryId)).reduce((sum, t) => sum + t.amount, 0);
+    const wantsSpent = monthTxs.filter(t => wantsCategories.has(t.categoryId)).reduce((sum, t) => sum + getTxAmt(t), 0);
     const wantsPct = totalSpent > 0 ? Math.round((wantsSpent / totalSpent) * 100) : 0;
 
     results.push({
@@ -128,13 +133,14 @@ const UserRuleComplianceCard: React.FC<{ selectedMonth: string }> = ({ selectedM
     let weekdayDays = 0;
 
     monthTxs.forEach(t => {
-      const d = new Date(t.date).getDay();
+      const d = parseLocalDate(t.date).getDay();
       const isWeekend = d === 0 || d === 6;
+      const amt = getTxAmt(t);
       if (isWeekend) {
-        weekendSpent += t.amount;
+        weekendSpent += amt;
         weekendDays++;
       } else {
-        weekdaySpent += t.amount;
+        weekdaySpent += amt;
         weekdayDays++;
       }
     });
@@ -161,7 +167,7 @@ const UserRuleComplianceCard: React.FC<{ selectedMonth: string }> = ({ selectedM
 
     // 3. Food Delivery Premium (pattern-food-delivery-001)
     const foodCatIds = new Set(categories.filter(c => /food|dining|restaurant|zomato|swiggy/i.test(c.name)).map(c => c.id));
-    const foodSpent = monthTxs.filter(t => foodCatIds.has(t.categoryId)).reduce((sum, t) => sum + t.amount, 0);
+    const foodSpent = monthTxs.filter(t => foodCatIds.has(t.categoryId)).reduce((sum, t) => sum + getTxAmt(t), 0);
     const foodPct = totalSpent > 0 ? Math.round((foodSpent / totalSpent) * 100) : 0;
 
     results.push({
@@ -173,7 +179,7 @@ const UserRuleComplianceCard: React.FC<{ selectedMonth: string }> = ({ selectedM
     });
 
     return results;
-  }, [monthTxs, categories, fmt]);
+  }, [monthTxs, categories, fmt, getTxAmt]);
 
   return (
     <div className="dotgui-card p-5 bg-surface-card space-y-4 border border-hairline rounded-2xl">
@@ -201,7 +207,7 @@ const UserRuleComplianceCard: React.FC<{ selectedMonth: string }> = ({ selectedM
             const matchedCat = categories.find(c => c.name.toLowerCase().includes(catSearch));
 
             if (matchedCat) {
-              const catSpent = monthTxs.filter(t => t.categoryId === matchedCat.id).reduce((s,t) => s + t.amount, 0);
+              const catSpent = monthTxs.filter(t => t.categoryId === matchedCat.id).reduce((s,t) => s + getTxAmt(t), 0);
               const isExceeded = catSpent > capAmount;
               const pct = Math.min(100, Math.round((catSpent / (capAmount || 1)) * 100));
 

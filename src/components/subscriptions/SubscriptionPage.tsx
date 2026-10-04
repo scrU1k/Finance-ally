@@ -71,6 +71,11 @@ export const SubscriptionPage: React.FC = () => {
 
     if (editingSubId) {
       const existingSub = subscriptions.find(s => s.id === editingSubId);
+      const chosenDay = parseInt(nextDueDate.split('-')[2], 10);
+      const effectiveAnchor = (existingSub && existingSub.nextDueDate === nextDueDate && existingSub.anchorDay)
+        ? existingSub.anchorDay
+        : chosenDay;
+
       const updatedSub: Subscription = {
         id: editingSubId,
         name: name.trim(),
@@ -78,6 +83,7 @@ export const SubscriptionPage: React.FC = () => {
         currency,
         billingCycle,
         nextDueDate,
+        anchorDay: effectiveAnchor,
         dueTime,
         reminderOffset,
         categoryId,
@@ -98,6 +104,7 @@ export const SubscriptionPage: React.FC = () => {
       setSubscriptions(prev => prev.map(s => s.id === editingSubId ? updatedSub : s));
       setEditingSubId(null);
     } else {
+      const chosenDay = parseInt(nextDueDate.split('-')[2], 10);
       const newSub: Subscription = {
         id: `sub-${Date.now()}`,
         name: name.trim(),
@@ -105,6 +112,7 @@ export const SubscriptionPage: React.FC = () => {
         currency,
         billingCycle,
         nextDueDate,
+        anchorDay: chosenDay,
         dueTime,
         reminderOffset,
         categoryId,
@@ -137,11 +145,11 @@ export const SubscriptionPage: React.FC = () => {
 
   const [isProcessingDue, setIsProcessingDue] = useState(false);
 
-  const advanceDueDate = (currentDueDateStr: string, cycle: Subscription['billingCycle']): string => {
+  const advanceDueDate = (currentDueDateStr: string, cycle: Subscription['billingCycle'], anchorDay?: number): string => {
     const [curY, curM, curD] = currentDueDateStr.split('-').map(Number);
     let targetY = curY;
     let targetM = curM - 1; // 0-indexed
-    const originalDay = curD;
+    const originalDay = anchorDay || curD;
 
     if (cycle === 'monthly') targetM += 1;
     else if (cycle === 'bi-monthly') targetM += 2;
@@ -195,7 +203,7 @@ export const SubscriptionPage: React.FC = () => {
           );
 
           // Advance next due date
-          const newDateStr = advanceDueDate(sub.nextDueDate, sub.billingCycle);
+          const newDateStr = advanceDueDate(sub.nextDueDate, sub.billingCycle, sub.anchorDay);
           sub = { ...sub, nextDueDate: newDateStr, lastProcessedDate: today };
           await saveSubscription(sub);
           if (sub.reminderOffset && sub.reminderOffset !== 'none') {
