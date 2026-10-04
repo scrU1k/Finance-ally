@@ -562,6 +562,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   // Click anywhere on track to scroll to that exact proportion of the page
   const handleTrackClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      e.stopPropagation();
       if (!railRef.current || isSeeking || waypoints.length <= 1) return;
       const rect = railRef.current.getBoundingClientRect();
       const clickY = e.clientY - rect.top;
@@ -589,6 +590,8 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   // Touch & Drag handler for mobile scrubber tracking
   const handleTouchMove = useCallback(
     (e: React.TouchEvent) => {
+      e.stopPropagation();
+      if (e.cancelable) e.preventDefault();
       if (!railRef.current || waypoints.length <= 1 || isSeeking) return;
       const touch = e.touches[0];
       const rect = railRef.current.getBoundingClientRect();
@@ -626,6 +629,8 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
 
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
+      e.stopPropagation();
+      if (e.cancelable) e.preventDefault();
       isTouchingRef.current = true;
       setIsInteracting(true);
       setIsVisible(true);
@@ -635,7 +640,9 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     [handleTouchMove]
   );
 
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation();
+    if (e.cancelable) e.preventDefault();
     isTouchingRef.current = false;
     setIsInteracting(false);
 
@@ -699,6 +706,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   const handleRunnerTouchStart = useCallback(
     (e: React.TouchEvent) => {
       e.stopPropagation();
+      if (e.cancelable) e.preventDefault();
       triggerVisibilityOnScroll();
       // Long-press detection (~220ms) activates seeking
       longPressTimerRef.current = setTimeout(() => {
@@ -713,7 +721,9 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     [triggerVisibilityOnScroll]
   );
 
-  const handleRunnerTouchEnd = useCallback(() => {
+  const handleRunnerTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation();
+    if (e.cancelable) e.preventDefault();
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
     }
@@ -745,25 +755,27 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   return (
     <div
       aria-label="Timeline Waypoint Scrubber"
+      onClick={e => e.stopPropagation()}
+      onTouchStart={e => e.stopPropagation()}
       onMouseEnter={handleMouseEnterContainer}
       onMouseLeave={handleMouseLeaveContainer}
-      className={`fixed right-0.5 sm:right-2 top-1/2 -translate-y-1/2 z-40 select-none transition-all duration-300 ease-out ${
+      className={`fixed right-1 sm:right-2.5 top-1/2 -translate-y-1/2 z-40 select-none transition-all duration-300 ease-out touch-none ${
         isVisible || isSeeking
           ? 'opacity-100 translate-x-0 pointer-events-auto'
           : 'opacity-0 translate-x-3 pointer-events-none'
       }`}
     >
-      {/* Floating Ruler Track directly over the page, pinned right against the edge */}
+      {/* Floating Ruler Track directly over the page, pinned right against the edge (Doubled width for mobile) */}
       <div
         ref={railRef}
         onClick={handleTrackClick}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="relative w-4 sm:w-8 h-[125px] sm:h-[210px] flex items-center justify-center cursor-pointer"
+        className="relative w-8 sm:w-10 h-[140px] sm:h-[220px] flex items-center justify-center cursor-pointer touch-none"
       >
-        {/* Ruler Markings Track (Shorter lines evenly distributed across 0% to 100% of page) */}
-        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between items-center py-1">
+        {/* Ruler Markings Track (Evenly distributed across 0% to 100% of page) */}
+        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between items-center py-1.5">
           {rulerTicks.map(idx => {
             const isCenterTick = idx === Math.floor(tickCount / 2);
             // Single longer line in the center if there are only 2 nodes
@@ -774,8 +786,8 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
                 key={idx}
                 className={`rounded-full transition-all duration-150 ${
                   isCenterLongLine
-                    ? 'w-2 sm:w-3.5 h-[1.5px] bg-ink/40'
-                    : 'w-1 sm:w-2 h-[1.5px] bg-ink/20'
+                    ? 'w-5 sm:w-7 h-[2px] bg-ink/40'
+                    : 'w-2.5 sm:w-4 h-[1.5px] bg-ink/20'
                 }`}
               />
             );
@@ -790,24 +802,24 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
           onTouchStart={handleRunnerTouchStart}
           onTouchEnd={handleRunnerTouchEnd}
           title="Drag, double-click or long-press to fast seek through timeline"
-          className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto cursor-grab active:cursor-grabbing p-1.5 z-30 transition-transform duration-75"
+          className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto cursor-grab active:cursor-grabbing p-2 z-30 transition-transform duration-75 touch-none"
         >
           <div
             style={{
               backgroundColor: runnerColor,
               boxShadow: isSeeking
-                ? `0 0 8px ${runnerColor}`
-                : `0 0 3px ${runnerColor}`,
+                ? `0 0 10px ${runnerColor}`
+                : `0 0 4px ${runnerColor}`,
             }}
             className={`rounded-full transition-all duration-150 ${
               isSeeking
-                ? 'w-3 sm:w-6 h-[3.5px] sm:h-[4.5px] ring-2 ring-white/50 scale-125'
-                : 'w-2 sm:w-4 h-[2px] sm:h-[2.5px] opacity-90'
+                ? 'w-6 sm:w-8 h-[5px] sm:h-[6px] ring-2 ring-white/60 scale-125'
+                : 'w-4 sm:w-6 h-[3px] sm:h-[3.5px] opacity-95'
             }`}
           />
         </div>
 
-        {/* The Colored Waypoint Nodes (Slightly smaller in width, theme-attuned colors) */}
+        {/* The Colored Waypoint Nodes (Refined, wider bars, theme-attuned colors) */}
         <div className="relative w-full h-full pointer-events-none">
           {waypoints.map((node, index) => {
             const isTop = node.colorType === 'cyan';
@@ -827,17 +839,17 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
               ? 'var(--brand-yellow)'
               : 'var(--brand-mint)';
 
-            // Size: Refined, slightly smaller in width
-            let sizeClass = 'w-2 sm:w-3.5 h-[2px] sm:h-[3px]';
+            // Size: Doubled width for mobile clarity
+            let sizeClass = 'w-4 sm:w-6.5 h-[3px] sm:h-[3.5px]';
             let opacityClass = 'opacity-85';
 
             if (isHovered) {
-              sizeClass = 'w-3.5 sm:w-5.5 h-[3px] sm:h-[4px]';
+              sizeClass = 'w-6.5 sm:w-9 h-[4.5px] sm:h-[5.5px]';
               opacityClass = 'opacity-100 z-30 scale-110';
             } else if (isAnyHovered) {
               opacityClass = 'opacity-20 scale-90';
             } else if (isActive) {
-              sizeClass = 'w-2.5 sm:w-4.5 h-[2.5px] sm:h-[3.5px]';
+              sizeClass = 'w-5 sm:w-7.5 h-[3.5px] sm:h-[4.5px]';
               opacityClass = 'opacity-100 z-20';
             }
 
@@ -857,7 +869,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
                   node.scrollTo();
                 }}
                 onMouseEnter={() => setHoveredNodeId(node.id)}
-                className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 pointer-events-auto cursor-pointer flex items-center justify-center p-1"
+                className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 pointer-events-auto cursor-pointer flex items-center justify-center p-1.5 touch-none"
               >
                 <div
                   style={{

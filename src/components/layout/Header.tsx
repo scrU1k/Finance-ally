@@ -16,7 +16,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenCategories
   const { activeTripVault, setActiveTripVault } = useFinance();
 
   return (
-    <header className="sticky top-0 z-30 bg-canvas/90 backdrop-blur-md border-b border-hairline px-3 sm:px-6 py-2.5 transition-colors max-w-full overflow-hidden">
+    <header 
+      style={{ paddingTop: 'max(0.625rem, env(safe-area-inset-top, 0px))' }}
+      className="sticky top-0 z-30 bg-canvas/90 backdrop-blur-md border-b border-hairline px-3 sm:px-6 pb-2.5 transition-colors max-w-full overflow-hidden"
+    >
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
         
         {/* Brand Logo & Vault Badge */}
