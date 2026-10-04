@@ -3,7 +3,6 @@ import { formatCurrency, convertCurrencyAmount } from './currency';
 import { isPendingScheduledTx } from '../utils/scheduledUtils';
 import { parseLocalDate, getLocalDateString } from '../utils/dateUtils';
 import { dispatchSpeculativeRace } from '../workers/workerOrchestrator';
-import { parseCFGQuerySlots } from './cfgParser';
 import { addUserTagRule, getUserRules, deleteUserTagRule, sanitizeKeyword } from './userRuleService';
 import { getAllRules, deleteKnowledgeRule, addKnowledgeRule } from './localKnowledgeBase';
 

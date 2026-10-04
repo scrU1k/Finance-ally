@@ -35,7 +35,6 @@ import {
   getStoredPasswordItems,
   savePasswordItem,
   updatePasswordItem,
-  deletePasswordItem,
   deleteMultiplePasswordItems,
   savePasswordItemsOrder,
   hasMasterPin,
@@ -92,8 +91,6 @@ export const PasswordManagerTab: React.FC = () => {
 
   // Direct Pointer Drag Tracking (Native-feeling 0ms delay vertical dragging)
   const rearrangeListRef = useRef<HTMLDivElement | null>(null);
-  const isPointerDraggingRef = useRef<boolean>(false);
-  const activeDragIndexRef = useRef<number | null>(null);
   const filterDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // App Style Delete Confirmation Modal State

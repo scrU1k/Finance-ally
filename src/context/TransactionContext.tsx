@@ -38,7 +38,7 @@ const TransactionContext = createContext<TransactionContextType | undefined>(und
 export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, updateUserCurrency } = useAuth();
   const { activeTripVault, includeTripExpensesInTimeline } = useTrips();
-  const { categories, reloadCategories } = useCategories();
+  const { categories } = useCategories();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [period, setPeriod] = useState<PeriodType>('month');

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { UserProfile, CurrencyCode } from '../types';
 import { getStoredUserProfile, createInitialUser, verifyUserPassword, saveUserProfile, changeUserPassword, recoverAppPassword } from '../services/auth';
-import { initializeGlobalRecoveryKey, hasGlobalRecoveryKey } from '../services/recoveryService';
+import { initializeGlobalRecoveryKey } from '../services/recoveryService';
 import { setAccountCreatedAt } from '../services/localAutoBackupService';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';

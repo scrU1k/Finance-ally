@@ -11,8 +11,6 @@
     "verify-embeddings": "tsx scripts/verifyEmbeddings.ts",
     "lint": "oxlint",
     "test": "tsc -b && oxlint",
-    "test:stress": "tsx scripts/runStressTest.ts",
-    "test:crypto": "tsx scripts/testCrypto.ts",
     "preview": "vite preview"
   },
   "dependencies": {
