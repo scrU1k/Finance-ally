@@ -1,5 +1,6 @@
 import { dispatchSpeculativeRace } from '../workers/workerOrchestrator';
 import { CurrencyCode } from '../types';
+import { replaceMathExpressionsInText } from '../utils/mathExpression';
 
 export interface ParsedNaturalExpense {
   amount: number;
@@ -227,7 +228,8 @@ export async function parseNaturalLanguageExpense(
   existingCategories: Array<{ id: string; name: string }> = []
 ): Promise<ParsedNaturalExpense> {
   const MAX_INPUT_LENGTH = 300;
-  const text = (inputText || '').slice(0, MAX_INPUT_LENGTH).trim();
+  let text = (inputText || '').slice(0, MAX_INPUT_LENGTH).trim();
+  text = replaceMathExpressionsInText(text);
   const lower = text.toLowerCase();
 
   // 0. EXPLICIT USER TYPED TAG EXTRACTION
