@@ -916,15 +916,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       return;
     }
 
-    // Always gate behind PIN if one is set — snapshots are plain JSON but
-    // we still verify the user is authorised before overwriting all data.
-    if (hasExportPin()) {
-      setPendingImportContent(payload);
-      setShowVerifyPinModal(true);
-      return;
-    }
-
-    if (snap.isEncrypted) {
+    if (snap.isEncrypted || isEncryptedBackup(payload)) {
       setPendingImportContent(payload);
       setShowVerifyPinModal(true);
     } else {
