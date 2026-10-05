@@ -1066,19 +1066,19 @@ export const PasswordManagerTab: React.FC = () => {
                   </span>
                 )}
               </div>
-              <div className="text-xs font-mono text-muted-custom flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 pt-0.5">
-                <span>{rawItems.length} cards</span>
-                <span className="hidden sm:inline">•</span>
-                <div className="flex items-center gap-1 relative" ref={autoLockDropdownRef}>
-                  <span>Auto-locks in</span>
+              <div className="text-xs font-mono text-muted-custom flex items-center gap-2 pt-0.5 whitespace-nowrap overflow-x-auto no-scrollbar">
+                <span className="shrink-0">{rawItems.length} cards</span>
+                <span className="shrink-0">•</span>
+                <div className="flex items-center gap-1 relative shrink-0" ref={autoLockDropdownRef}>
+                  <span className="shrink-0">Auto-locks in</span>
                   <button
                     type="button"
                     onClick={() => setIsAutoLockDropdownOpen(!isAutoLockDropdownOpen)}
-                    className="inline-flex items-center gap-1 font-bold text-ink hover:text-[#005687] border-b border-dotted border-muted-custom/60 hover:border-[#005687] transition-all cursor-pointer"
+                    className="inline-flex items-center gap-1 font-bold text-ink hover:text-[#005687] border-b border-dotted border-muted-custom/60 hover:border-[#005687] transition-all cursor-pointer shrink-0"
                     title="Change auto-lock timeout"
                   >
                     <span>{autoLockMinutes}min</span>
-                    <ChevronDown className="w-3 h-3 text-muted-custom" />
+                    <ChevronDown className="w-3 h-3 text-muted-custom shrink-0" />
                   </button>
                   {isAutoLockDropdownOpen && (
                     <div className="absolute left-0 top-full mt-1.5 w-24 bg-surface-card/98 backdrop-blur-xl border border-hairline rounded-xl shadow-xl z-50 p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10">
@@ -1111,26 +1111,25 @@ export const PasswordManagerTab: React.FC = () => {
           </div>
 
           {/* Action Buttons Row: More Options, Unlock, <+> Icon */}
-          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center relative" ref={filterDropdownRef}>
             
             {/* 1. More Options Dropdown Button (SlidersHorizontal) */}
-            <div className="relative" ref={filterDropdownRef}>
-              <button
-                type="button"
-                onClick={toggleFilterDropdown}
-                className={`w-9 h-9 rounded-xl border text-ink transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
-                  sortMode !== 'custom'
-                    ? 'bg-[#005687]/15 border-[#005687]/40 text-[#005687] dark:text-[#0088cc]'
-                    : 'bg-surface-soft border-hairline hover:border-[#005687] hover:text-[#005687]'
-                }`}
-                title={`More Options (View: ${cardViewMode.toUpperCase()}, Sort: ${sortMode.toUpperCase()})`}
-                aria-label="More Options"
-              >
-                <SlidersHorizontal className="w-4 h-4 text-[#005687] dark:text-[#0088cc]" />
-              </button>
+            <button
+              type="button"
+              onClick={toggleFilterDropdown}
+              className={`w-9 h-9 rounded-xl border text-ink transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+                sortMode !== 'custom'
+                  ? 'bg-[#005687]/15 border-[#005687]/40 text-[#005687] dark:text-[#0088cc]'
+                  : 'bg-surface-soft border-hairline hover:border-[#005687] hover:text-[#005687]'
+              }`}
+              title={`More Options (View: ${cardViewMode.toUpperCase()}, Sort: ${sortMode.toUpperCase()})`}
+              aria-label="More Options"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-[#005687] dark:text-[#0088cc]" />
+            </button>
 
-              {isFilterDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-surface-card/98 dark:bg-[#181815]/98 backdrop-blur-2xl border border-hairline/80 rounded-2xl shadow-2xl z-50 p-2 space-y-1.5 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10">
+            {isFilterDropdownOpen && (
+              <div className="absolute right-0 top-full mt-2 w-56 max-w-[calc(100vw-2rem)] bg-surface-card/98 dark:bg-[#181815]/98 backdrop-blur-2xl border border-hairline/80 rounded-2xl shadow-2xl z-50 p-2 space-y-1.5 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10">
                   
                   {/* View Mode Toggle: Grid, List, Compact */}
                   <div>
@@ -1353,7 +1352,6 @@ export const PasswordManagerTab: React.FC = () => {
                   </button>
                 </div>
               )}
-            </div>
 
             {/* 2. Unlock / Lock Vault Button */}
             {hasPin && (

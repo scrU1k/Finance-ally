@@ -999,7 +999,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto cursor-pointer animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-hidden cursor-pointer animate-in fade-in duration-200"
     >
       {/* Fixed FAB Exit Button (Desktop Only) */}
       {activeSubPage === 'main' && (
@@ -1017,9 +1017,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       {/* Modal Container */}
       <div
         onClick={e => e.stopPropagation()}
-        className="max-w-2xl w-full bg-surface-card/65 backdrop-blur-2xl saturate-[180%] border border-hairline rounded-3xl shadow-2xl shadow-black/20 relative cursor-default ring-1 ring-white/10 overflow-hidden max-h-[90vh] flex flex-col"
+        className="max-w-2xl w-full bg-surface-card border border-hairline rounded-3xl shadow-2xl shadow-black/30 relative cursor-default ring-1 ring-white/10 overflow-hidden max-h-[90vh] flex flex-col transform-gpu overscroll-contain"
       >
-        <div className="p-6 sm:p-8 space-y-6 overflow-y-auto max-h-[90vh]">
+        <div className="p-6 sm:p-8 space-y-6 overflow-y-auto max-h-[90vh] overscroll-contain transform-gpu [webkit-overflow-scrolling:touch]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-hairline pb-4">
           <div className="flex items-center gap-2 min-w-0 pr-2">
