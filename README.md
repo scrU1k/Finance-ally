@@ -12,16 +12,16 @@ Finance-Ally is a private, beautifully crafted personal finance application desi
 
 - **100% Local-First & Zero Cloud Lock-in**: All your transactions, trip budgets, credentials, and notes remain on your device in sandboxed IndexedDB and encrypted storage. No mandatory account signup, no cloud tracking, no analytics telemetry, and zero third-party data collection.
 - **Unified Global Recovery Key**: Single universal emergency recovery key (`FAK-xxxx-xxxx-xxxx-xxxx`) protects all three security gates (Startup App Lock, Password Vault Master PIN, and Backup PIN). Easily change or recover forgotten PINs/passwords without losing your encrypted password cards or backups.
-- **Stunning Glassmorphic Interface**: Built with frosted glass surfaces, dynamic lighting, fluid micro-interactions, responsive mobile toolbars, and ambient glowing active tabs.
-- **Smart Natural Language Quick Logging**: Type expenses naturally (`450rs coffee 2nd aug 8pm`, `250 petrol tomorrow at 9a`, `1200 dinner at 8pn`) — Finance-Ally automatically parses the amount, date, time, category, and payment method with typo tolerance and calendar day validation.
+- **Stunning Glassmorphic Interface**: Built with frosted glass surfaces, dynamic lighting, fluid micro-interactions, responsive mobile toolbars, hardware-accelerated momentum scrolling, and ambient glowing active tabs.
+- **Smart Natural Language Quick Logging**: Type expenses naturally (`450rs coffee 2nd aug 8pm`, `250 petrol tomorrow at 9a`, `1200 dinner at 8pn`) with built-in arithmetic math evaluation (`250+50 coffee`, `1200*2 rent`, `500/2 groceries`).
 - **Multi-Currency Normalization**: Log transactions in multiple currencies (INR, USD, EUR, GBP, JPY, etc.). Monthly audits, smart suggestions, velocity charts, and natural language queries normalize amounts to your base currency using live or cached forex rates.
 - **Scheduled Payments with Exact Android Alarms**: Set future expenses that stay excluded from your current balance until due. Native Android `AlarmManager` triggers exact heads-up alerts even if the app is closed, and cancels alarms when transactions are updated or removed.
-- **Trip Vaults with Timeline Integration**: Track domestic and international vacation spending in local foreign currencies. Trip expenses appear in your main timeline by default, with a user toggle in Settings if you prefer them isolated to trip vaults.
-- **Argon2id & AES-256-GCM Password Vault**: Store sensitive credentials client-side with a separate Master PIN, double-layer backup encryption, and zero-knowledge escrow recovery.
-- **Automated Local Snapshots**: Automated disaster recovery snapshots (Daily, Weekly, Monthly, or manual) saved to browser storage and the native Android `Documents/Finance-Ally/Snapshots/` directory. Snapshots are encrypted with AES-256-GCM when a Backup PIN is set, or clearly badged as `PLAINTEXT` when unencrypted.
+- **Unified Trips & Split Bills Vault**: Seamlessly track vacation spending in local currencies alongside group bill splitting with custom tax/tip shares and one-tap share summaries in a unified tab.
+- **Password Vault UI Overhaul (Argon2id + AES-256-GCM)**: Multiple layout viewing styles (Compact, Detailed, Card/Grid) with single-line auto-lock timers, mobile overflow constraints, dedicated Master PIN encryption, and zero-knowledge escrow recovery.
+- **Timeline Waypoint Scrubber**: Fast visual scrub bar with ruler milestones, vibration feedback, 2-second auto-dismiss on mobile, and steady long-press stationary hold inspection.
+- **Automated Local Snapshots & Hardened Security**: Disaster recovery snapshots (Daily, Weekly, Monthly, or manual) with AES-256-GCM backup encryption, elevated PBKDF2/Argon2id KDF parameters, and CSV formula injection protection.
 - **Recurring Subscriptions with Multi-Cycle Catch-up**: Manage repeating services and automatically catch up multiple missed payment cycles with exact historical due dates.
 - **Knowledge Assistant & Auto-Tag Rules**: Teach the app custom slang and regional words (`rule - doodh or dudh is Groceries`, `rule - chai is Food & Drinks`). Supports Devanagari script (`दूध`, `पेट्रोल`), accented Latin (`café`), and international characters via an ultra-lightweight, memory-efficient Trie (<250KB RAM footprint).
-- **Split Bills Engine**: Calculate exact per-person shares with custom tax and tip percentages, mark friends as paid or pending, copy formatted summaries, and log your personal share with a single tap.
 - **Month-End Financial Audits**: Actionable letter grades (`A+` to `F`), week-to-week volatility scoring, category concentration metrics, and anomaly detection to keep your spending in check.
 
 ---
@@ -51,6 +51,11 @@ Log expenses effortlessly in seconds using the Quick Log bar.
 **Multi-Currency Auto-Detection**
 - Supports `₹`, `Rs`, `Rupees`, `$`, `USD`, `€`, `EUR`, `£`, `GBP`, `¥`, `JPY`.
 - Interactive category selector lets you adjust auto-detected categories with one tap before saving.
+
+**Inline Math Expressions & Arithmetic Evaluation**
+- Directly perform basic arithmetic when entering amounts: addition (`+`), subtraction (`-`), multiplication (`*`), and division (`/`).
+- Examples: `250+50 coffee` (logs 300), `1200*2 rent` (logs 2400), `500/2 groceries` (logs 250), `350-40 lunch` (logs 310).
+- Safely evaluated on-device through a deterministic token-based arithmetic parser without dynamic code evaluation or injection risks.
 
 ---
 
@@ -91,7 +96,16 @@ Emergency Fallback ("Forgot Password / PIN?"):
 
 - **Startup App Lock**: Optional PIN lock screen guarding the application UI from unauthorized access on shared devices.
 - **Unified Global Recovery Key**: A single emergency recovery key (`FAK-xxxx-xxxx-xxxx-xxxx`) generated during setup allows resetting the App Lock, Vault Master PIN, or Backup PIN if forgotten.
-- **Password Vault (Argon2id + AES-256-GCM)**: Sensitive credentials in the Password Manager are client-side encrypted with a dedicated Master PIN. An encrypted recovery escrow wrapper allows resetting a forgotten Master PIN without losing stored cards.
+- **Password Vault UI Overhaul (Argon2id + AES-256-GCM)**:
+  - Multiple layout viewing styles: **Compact**, **Detailed**, and **Card/Grid** modes.
+  - Sensitive credentials encrypted on-device via Argon2id (32 MiB memory cost, 3 iterations) and AES-256-GCM.
+  - Zero-knowledge recovery escrow wrapper allowing Master PIN reset without losing stored cards.
+  - Single-line auto-lock timer status with quick manual lock and mobile screen overflow constraints.
+- **Security Audit Hardening & Cryptographic Integrity**:
+  - Elevated PBKDF2 iterations to 600,000 for legacy compatibility alongside memory-hard Argon2id.
+  - Strict CSV formula injection neutralization prefixing unsafe symbols (`=`, `+`, `-`, `@`, `\t`, `\r`) with single quotes on export.
+  - Constant-time PIN comparisons to eliminate timing attack vectors.
+  - Decrypted secrets purged immediately from volatile memory on auto-lock, session timeout, or tab blur.
 - **Encrypted Backups & Local Snapshots**:
   - Full database exports can be password-protected as `.json.enc` files via Argon2id (32 MiB memory, 3 iterations) and AES-256-GCM. Backups created with v3.1+ include recovery escrow support for emergency restoration with the Global Recovery Key.
   - Automated disaster recovery snapshots (`Daily`, `Weekly`, `Monthly`, or manual) store up to 5 snapshots in browser storage and native Android `Documents/` storage.
@@ -103,12 +117,16 @@ Emergency Fallback ("Forgot Password / PIN?"):
 
 ---
 
-### 5. Trip Vaults
+### 5. Unified Trips & Split Bills Vault
 
-Keep travel spending separate and organized:
+Keep travel spending and shared expenses organized in a single dedicated tab:
 - **Custom Currency Budgets**: Set dedicated budgets in local foreign currencies (e.g. JPY in Japan, EUR in Europe).
 - **Timeline Integration Toggle**: Trip expenses are included in your main daily timeline by default. Users can toggle **"Trip Expenses in Timeline"** OFF in Settings to isolate trip logs exclusively to the Trip Vault.
 - **Live & Cached Currency Conversions**: Real-time conversion calculates trip totals in your home base currency for comprehensive tracking.
+- **Per-Person Split Calculation**: Easily split bills with friends including custom tip and tax percentages.
+- **Payment Status Tracking**: Tap badges to toggle individual participants between Paid and Pending.
+- **Formatted Share Summaries**: One-tap copy generates a clean text summary ready to share in messaging apps.
+- **Auto-Log Personal Share**: Log your individual share into the daily timeline with a single tap.
 
 ---
 
@@ -122,6 +140,7 @@ Keep travel spending separate and organized:
 ### 7. Interactive Timeline & Multi-Period Views
 
 - **Single-Line Mobile Toolbar**: Icon-only search, chart jump, multi-log, and view modes designed to never wrap or truncate on mobile screens.
+- **Timeline Waypoint Scrubber**: Fixed vertical scrub bar with ruler milestones, dynamic color coding, haptic feedback, 2-second auto-dismiss on mobile, and steady long-press stationary hold inspection.
 - **Collapsible Daily Groups**: Tap the calendar icon or date header to collapse or expand any day's logs into a single compact line showing date and daily spend.
 - **Multi-Period Aggregated Views**:
   - **Day**: Daily timeline logs with Compact, List, or Grid layout options (loads 30 days by default with historical pagination).
@@ -132,16 +151,7 @@ Keep travel spending separate and organized:
 
 ---
 
-### 8. Split Bills Engine
-
-- **Per-Person Split Calculation**: Easily split bills with friends including custom tip and tax percentages.
-- **Payment Status Tracking**: Tap badges to toggle individual participants between Paid and Pending.
-- **Formatted Share Summaries**: One-tap copy generates a clean text summary ready to share in messaging apps.
-- **Auto-Log Personal Share**: Log your individual share into the daily timeline with a single tap.
-
----
-
-### 9. Monthly Financial Audits & Smart Insights
+### 8. Monthly Financial Audits & Smart Insights
 
 - **Financial Health Grade**: Monthly ratings from `A+` to `F` reflecting budget adherence and spending consistency.
 - **Coefficient of Variation (CV) Volatility**: Weighted category volatility scoring with 4-week bucketing to avoid month-boundary skews.
@@ -150,7 +160,7 @@ Keep travel spending separate and organized:
 
 ---
 
-### 10. Knowledge Assistant & Local RAG Vector Engine
+### 9. Knowledge Assistant & Local RAG Vector Engine
 
 - **109 Embedded Financial Rules**: Pre-compiled 384-dimensional unit vector database covering debt avalanche/snowball, emergency funds, SIP investing, credit utilization, and spending psychology.
 - **On-Device ONNX Embeddings**: Runs `Xenova/bge-small-en-v1.5` entirely in the browser using WebAssembly and Web Workers.

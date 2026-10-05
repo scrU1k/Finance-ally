@@ -1,6 +1,6 @@
 # Finance-Ally — Terms of Service
 
-**Version:** 3.0 • October 2026  
+**Version:** 3.1 • October 2026  
 **License:** [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 ---
