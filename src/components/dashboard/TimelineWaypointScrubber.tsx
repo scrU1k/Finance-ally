@@ -353,8 +353,16 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     }, 1800);
   }, [isSeeking]);
 
-  // Compute target scroll positions of each waypoint for piecewise alignment
-  const getWaypointScrollPositions = useCallback(() => {
+  const cachedPositionsRef = useRef<number[]>([]);
+  const lastPositionsComputeRef = useRef<number>(0);
+
+  // Compute target scroll positions of each waypoint for piecewise alignment (cached for 250ms)
+  const getWaypointScrollPositions = useCallback((forceRefresh = false) => {
+    const now = Date.now();
+    if (!forceRefresh && cachedPositionsRef.current.length === waypoints.length && now - lastPositionsComputeRef.current < 250) {
+      return cachedPositionsRef.current;
+    }
+
     const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
     if (waypoints.length <= 1) return [0];
 
@@ -384,6 +392,8 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       }
     }
 
+    cachedPositionsRef.current = positions;
+    lastPositionsComputeRef.current = now;
     return positions;
   }, [waypoints]);
 
@@ -471,16 +481,24 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     setActiveNodeId(waypoints[activeIdx].id);
   }, [waypoints, getWaypointScrollPositions]);
 
-  // Global scroll listener
+  // Global scroll listener with requestAnimationFrame throttle (60/120fps lock)
   useEffect(() => {
+    let rAFId: number | null = null;
+
     const handleScroll = () => {
       triggerVisibilityOnScroll();
-      updateScrollState();
+      if (rAFId === null) {
+        rAFId = window.requestAnimationFrame(() => {
+          updateScrollState();
+          rAFId = null;
+        });
+      }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      if (rAFId !== null) cancelAnimationFrame(rAFId);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       if (targetScrollTimerRef.current) clearTimeout(targetScrollTimerRef.current);
     };

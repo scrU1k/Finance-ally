@@ -233,15 +233,14 @@
 .text-muted-custom { color: var(--muted); }
 .border-hairline { border-color: var(--hairline); }
 
-/* Dotgui Card Base with Backdrop Glass Blur */
+/* Dotgui Card Base (Optimized for 60/120fps hardware rendering) */
 .dotgui-card {
   background-color: var(--surface-card);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--hairline);
   border-radius: 1rem;
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  contain: layout style;
 }
 
 .dotgui-card:hover {

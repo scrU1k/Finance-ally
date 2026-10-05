@@ -156,7 +156,7 @@ export const QuickLogBar: React.FC<QuickLogBarProps> = ({
   const paymentOptions = ['UPI', 'Credit Card', 'Debit Card', 'Cash', 'Net Banking'];
 
   return (
-    <div className="space-y-2 dotgui-glass border border-hairline p-3 sm:p-3.5 rounded-2xl shadow-lg bg-surface-card/90 backdrop-blur-xl">
+    <div className="space-y-2">
 
       {/* Centered Compact Date Pill Button ABOVE Quick Log Text Box when Multi-Log is active */}
       {isMultiLogActive && (

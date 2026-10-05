@@ -6,6 +6,7 @@ import { triggerSystemNotification, scheduleSubscriptionReminder, cancelSubscrip
 import { formatCurrency, TOP_CURRENCIES } from '../../services/currency';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 import { CustomDatePicker } from '../common/CustomDatePicker';
+import { CustomTimePicker } from '../common/CustomTimePicker';
 import { CalendarCheck, Plus, Trash2, RefreshCw, CreditCard, Sparkles, Check, Edit2 } from 'lucide-react';
 import { getLocalDateString } from '../../utils/dateUtils';
 
@@ -444,11 +445,9 @@ export const SubscriptionPage: React.FC = () => {
 
             <div className="space-y-1">
               <label className="text-[11px] font-mono text-muted-custom uppercase font-bold block">Due Time</label>
-              <input
-                type="time"
+              <CustomTimePicker
                 value={dueTime}
-                onChange={e => setDueTime(e.target.value)}
-                className="w-full bg-surface-card border border-hairline rounded-xl px-3 py-2 text-xs font-mono text-ink focus:outline-none focus:border-ink min-h-[38px]"
+                onChange={val => setDueTime(val)}
               />
             </div>
           </div>

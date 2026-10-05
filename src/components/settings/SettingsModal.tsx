@@ -2001,21 +2001,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </span>
               </div>
 
-              <div className="pt-3 border-t border-hairline/60 flex items-center justify-between gap-3">
-                <p className="text-[11px] font-mono text-muted-custom">
+              <div className="pt-3 border-t border-hairline/60 space-y-2.5">
+                <p className="text-[11px] font-mono text-muted-custom leading-relaxed">
                   Keep your 16-character key written down or in a password manager. Need a new one?
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowRotateWarningModal(true);
-                    setRotateAuthPassword('');
-                    setRotateAuthError('');
-                  }}
-                  className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-surface-card border border-brand-yellow text-brand-yellow hover:bg-brand-yellow/10 transition-all cursor-pointer shrink-0"
-                >
-                  {hasGlobalRecoveryKey() ? 'Rotate Recovery Key' : 'Generate Recovery Key'}
-                </button>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRotateWarningModal(true);
+                      setRotateAuthPassword('');
+                      setRotateAuthError('');
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-surface-card border border-brand-yellow text-brand-yellow hover:bg-brand-yellow/10 transition-all cursor-pointer inline-flex items-center gap-1.5 active:scale-95"
+                  >
+                    {hasGlobalRecoveryKey() ? 'Rotate Recovery Key' : 'Generate Recovery Key'}
+                  </button>
+                </div>
               </div>
             </div>
 
