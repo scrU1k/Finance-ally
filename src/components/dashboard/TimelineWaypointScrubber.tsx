@@ -50,6 +50,8 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   const isHoveredRef = useRef(false);
   const isTouchingRef = useRef(false);
   const railRef = useRef<HTMLDivElement>(null);
+  const seekRafRef = useRef<number | null>(null);
+  const pendingScrollYRef = useRef<number | null>(null);
 
   // Helper to scroll smoothly with header offset compensation
   const scrollToElement = useCallback((element: HTMLElement | null) => {
@@ -504,7 +506,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     };
   }, [triggerVisibilityOnScroll, updateScrollState]);
 
-  // Fast seek math: smoothly scrolls the page according to screen clientY
+  // Fast seek math: smoothly scrolls the page according to screen clientY (RAF-throttled to 60/120fps)
   const updateSeekScroll = useCallback(
     (clientY: number) => {
       if (!railRef.current || waypoints.length <= 1) return;
@@ -522,15 +524,31 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       const sEnd = positions[segIndex + 1];
       const targetScrollY = sStart + localRatio * (sEnd - sStart);
 
-      window.scrollTo(0, targetScrollY);
+      pendingScrollYRef.current = targetScrollY;
+      setScrollProgress(ratio);
+
+      if (seekRafRef.current === null) {
+        seekRafRef.current = window.requestAnimationFrame(() => {
+          if (pendingScrollYRef.current !== null) {
+            window.scrollTo(0, pendingScrollYRef.current);
+            pendingScrollYRef.current = null;
+          }
+          seekRafRef.current = null;
+        });
+      }
 
       const closestIndex = Math.round(floatIndex);
       const targetNode = waypoints[closestIndex];
-      if (targetNode) {
+      if (targetNode && targetNode.id !== hoveredNodeId) {
         setHoveredNodeId(targetNode.id);
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try {
+            navigator.vibrate(8);
+          } catch {}
+        }
       }
     },
-    [waypoints, getWaypointScrollPositions]
+    [waypoints, getWaypointScrollPositions, hoveredNodeId]
   );
 
   // Global document pointer listeners while seeking is active
@@ -551,12 +569,14 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     };
 
     const handleGlobalTouchMove = (e: TouchEvent) => {
+      if (e.cancelable) e.preventDefault();
       if (e.touches[0]) {
         updateSeekScroll(e.touches[0].clientY);
       }
     };
 
-    const handleGlobalTouchEnd = () => {
+    const handleGlobalTouchEnd = (e: TouchEvent) => {
+      if (e.cancelable) e.preventDefault();
       setIsSeeking(false);
       triggerVisibilityOnScroll();
       setTimeout(() => {
@@ -566,14 +586,18 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
 
     window.addEventListener('mousemove', handleGlobalMouseMove);
     window.addEventListener('mouseup', handleGlobalMouseUp);
-    window.addEventListener('touchmove', handleGlobalTouchMove, { passive: true });
-    window.addEventListener('touchend', handleGlobalTouchEnd);
+    window.addEventListener('touchmove', handleGlobalTouchMove, { passive: false });
+    window.addEventListener('touchend', handleGlobalTouchEnd, { passive: false });
 
     return () => {
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
       window.removeEventListener('touchmove', handleGlobalTouchMove);
       window.removeEventListener('touchend', handleGlobalTouchEnd);
+      if (seekRafRef.current !== null) {
+        cancelAnimationFrame(seekRafRef.current);
+        seekRafRef.current = null;
+      }
     };
   }, [isSeeking, updateSeekScroll, triggerVisibilityOnScroll]);
 
@@ -725,18 +749,21 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     (e: React.TouchEvent) => {
       e.stopPropagation();
       if (e.cancelable) e.preventDefault();
-      triggerVisibilityOnScroll();
-      // Long-press detection (~220ms) activates seeking
-      longPressTimerRef.current = setTimeout(() => {
-        setIsSeeking(true);
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          try {
-            navigator.vibrate(16);
-          } catch {}
-        }
-      }, 220);
+      isTouchingRef.current = true;
+      setIsSeeking(true);
+      setIsInteracting(true);
+      setIsVisible(true);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try {
+          navigator.vibrate(12);
+        } catch {}
+      }
+      if (e.touches[0]) {
+        updateSeekScroll(e.touches[0].clientY);
+      }
     },
-    [triggerVisibilityOnScroll]
+    [updateSeekScroll]
   );
 
   const handleRunnerTouchEnd = useCallback((e: React.TouchEvent) => {

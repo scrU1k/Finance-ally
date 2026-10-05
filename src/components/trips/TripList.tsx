@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Trip } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { TripModal } from './TripModal';
@@ -6,6 +6,7 @@ import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 import { Plane, Plus, Trash2, Calendar, Edit2, Users } from 'lucide-react';
 import { registerBackHandler } from '../../services/backButtonService';
 import { SplitBillSection } from './SplitBillSection';
+import { TripsWaypointScrubber } from './TripsWaypointScrubber';
 
 import { NavTab } from '../layout/SidebarNav';
 
@@ -17,6 +18,7 @@ export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {
   const { trips, transactions, removeTripItem, activeTripVault, setActiveTripVault, forexRates } = useFinance();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+  const splitSectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     return registerBackHandler('trip-list', 25, () => {
@@ -37,10 +39,10 @@ export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {
         <div>
           <h2 className="text-xl font-display font-bold text-ink flex items-center gap-2">
             <Plane className="w-5 h-5 text-brand-coral" />
-            <span>Trip Manager & Vaults</span>
+            <span>Trips and Bills</span>
           </h2>
           <p className="text-xs font-mono text-muted-custom">
-            Organize travel spendings into dedicated trip vaults & track budgets.
+            Organize travel vaults, budgets, and split shared group expenses.
           </p>
         </div>
 
@@ -190,7 +192,7 @@ export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {
       )}
 
       {/* Unified Split Bills & Group Expenses Section */}
-      <div className="pt-2 border-t border-hairline/80 space-y-4">
+      <div ref={splitSectionRef} className="pt-2 border-t border-hairline/80 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-display font-bold text-ink flex items-center gap-2">
@@ -214,6 +216,9 @@ export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {
           setEditingTrip(null);
         }}
       />
+
+      {/* Floating 2-Node Waypoint Scrubber for Trips & Split Bills */}
+      <TripsWaypointScrubber splitSectionRef={splitSectionRef} />
 
     </div>
   );

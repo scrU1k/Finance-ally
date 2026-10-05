@@ -16,7 +16,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
   const primaryTabs: { id: NavTab; label: string; icon: React.ReactNode }[] = [
     { id: 'dashboard', label: 'Expenditure', icon: <LayoutDashboard className="w-4 h-4 shrink-0" /> },
     { id: 'subscriptions', label: 'Subscriptions', icon: <CalendarCheck className="w-4 h-4 shrink-0" /> },
-    { id: 'trips', label: 'Trips & Split Bills', icon: <Plane className="w-4 h-4 shrink-0" /> },
+    { id: 'trips', label: 'Trips and Bills', icon: <Plane className="w-4 h-4 shrink-0" /> },
   ];
 
   // Secondary tools dropdown items
@@ -61,7 +61,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
   }, [activeTab]);
 
   return (
-    <nav className="relative mb-3" ref={containerRef}>
+    <nav className="relative z-40 mb-3" ref={containerRef}>
       <div className="flex items-center justify-between gap-2">
         
         {/* Shaded scroll container for visible tabs with gradual theme-attuned gradient fall-off */}
