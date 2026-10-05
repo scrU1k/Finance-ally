@@ -38,10 +38,17 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [displayedHoverNodeId, setDisplayedHoverNodeId] = useState<string | null>(null);
+
+  const hoverCardDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const steadyHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const isSteadyHoldRef = useRef(false);
+  const currentSteadyNodeIdRef = useRef<string | null>(null);
+  const nodeHoverStartTimeRef = useRef<number>(0);
 
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -503,8 +510,123 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       if (rAFId !== null) cancelAnimationFrame(rAFId);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       if (targetScrollTimerRef.current) clearTimeout(targetScrollTimerRef.current);
+      if (hoverCardDismissTimerRef.current) clearTimeout(hoverCardDismissTimerRef.current);
+      if (steadyHoldTimerRef.current) clearTimeout(steadyHoldTimerRef.current);
     };
   }, [triggerVisibilityOnScroll, updateScrollState]);
+
+  // Dismiss hover card with optional exit delay for smooth animation
+  const dismissHoverCard = useCallback((delay = 0) => {
+    if (hoverCardDismissTimerRef.current) {
+      clearTimeout(hoverCardDismissTimerRef.current);
+      hoverCardDismissTimerRef.current = null;
+    }
+    if (steadyHoldTimerRef.current) {
+      clearTimeout(steadyHoldTimerRef.current);
+      steadyHoldTimerRef.current = null;
+    }
+    isSteadyHoldRef.current = false;
+    currentSteadyNodeIdRef.current = null;
+    touchStartYRef.current = null;
+
+    if (delay > 0) {
+      hoverCardDismissTimerRef.current = setTimeout(() => {
+        setDisplayedHoverNodeId(null);
+      }, delay);
+    } else {
+      setDisplayedHoverNodeId(null);
+    }
+  }, []);
+
+  // Trigger hover card display with 2-second auto-dismiss unless steadily long-pressed
+  const triggerNodeHover = useCallback(
+    (nodeId: string, clientY?: number) => {
+      const isTouch = clientY !== undefined;
+
+      // Same node already active
+      if (currentSteadyNodeIdRef.current === nodeId) {
+        if (isTouch && touchStartYRef.current !== null) {
+          const deltaY = Math.abs(clientY - touchStartYRef.current);
+          if (deltaY > 10) {
+            // User moved finger > 10px: actively scrolling/scrubbing up or down, NOT steady hold
+            isSteadyHoldRef.current = false;
+            touchStartYRef.current = clientY;
+            if (steadyHoldTimerRef.current) {
+              clearTimeout(steadyHoldTimerRef.current);
+              steadyHoldTimerRef.current = null;
+            }
+
+            // If the 2-second limit has already elapsed, dismiss immediately
+            const elapsed = Date.now() - nodeHoverStartTimeRef.current;
+            if (elapsed >= 2000) {
+              if (displayedHoverNodeId !== null) {
+                setDisplayedHoverNodeId(null);
+              }
+              return;
+            }
+
+            // Finger moved but still within 2s: restart steady hold timer in case user pauses
+            steadyHoldTimerRef.current = setTimeout(() => {
+              isSteadyHoldRef.current = true;
+            }, 300);
+          } else {
+            // Finger stationary on this node (<10px movement)
+            if (displayedHoverNodeId === null) {
+              if (!steadyHoldTimerRef.current) {
+                steadyHoldTimerRef.current = setTimeout(() => {
+                  isSteadyHoldRef.current = true;
+                  nodeHoverStartTimeRef.current = Date.now();
+                  setDisplayedHoverNodeId(nodeId);
+                }, 300);
+              }
+            }
+          }
+        }
+        return;
+      }
+
+      // Switching to a new node or opening for the first time
+      if (hoverCardDismissTimerRef.current) {
+        clearTimeout(hoverCardDismissTimerRef.current);
+        hoverCardDismissTimerRef.current = null;
+      }
+      if (steadyHoldTimerRef.current) {
+        clearTimeout(steadyHoldTimerRef.current);
+        steadyHoldTimerRef.current = null;
+      }
+
+      currentSteadyNodeIdRef.current = nodeId;
+      nodeHoverStartTimeRef.current = Date.now();
+      isSteadyHoldRef.current = false;
+      if (isTouch) {
+        touchStartYRef.current = clientY;
+      }
+
+      setDisplayedHoverNodeId(nodeId);
+
+      // Light haptic feedback when entering a waypoint
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try {
+          navigator.vibrate(8);
+        } catch {}
+      }
+
+      if (isTouch) {
+        // Steady hold detection: if user stays stationary (<10px) for 300ms, mark as steady hold
+        steadyHoldTimerRef.current = setTimeout(() => {
+          isSteadyHoldRef.current = true;
+        }, 300);
+
+        // 2-second auto-dismiss limit: dismisses automatically unless steadily held on the node
+        hoverCardDismissTimerRef.current = setTimeout(() => {
+          if (!isSteadyHoldRef.current) {
+            setDisplayedHoverNodeId(null);
+          }
+        }, 2000);
+      }
+    },
+    [displayedHoverNodeId]
+  );
 
   // Fast seek math: smoothly scrolls the page according to screen clientY (RAF-throttled to 60/120fps)
   const updateSeekScroll = useCallback(
@@ -539,16 +661,11 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
 
       const closestIndex = Math.round(floatIndex);
       const targetNode = waypoints[closestIndex];
-      if (targetNode && targetNode.id !== hoveredNodeId) {
-        setHoveredNodeId(targetNode.id);
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          try {
-            navigator.vibrate(8);
-          } catch {}
-        }
+      if (targetNode) {
+        triggerNodeHover(targetNode.id, clientY);
       }
     },
-    [waypoints, getWaypointScrollPositions, hoveredNodeId]
+    [waypoints, getWaypointScrollPositions, triggerNodeHover]
   );
 
   // Global document pointer listeners while seeking is active
@@ -562,10 +679,9 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
 
     const handleGlobalMouseUp = () => {
       setIsSeeking(false);
+      setIsInteracting(false);
       triggerVisibilityOnScroll();
-      setTimeout(() => {
-        setHoveredNodeId(null);
-      }, 600);
+      dismissHoverCard(300);
     };
 
     const handleGlobalTouchMove = (e: TouchEvent) => {
@@ -578,10 +694,9 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     const handleGlobalTouchEnd = (e: TouchEvent) => {
       if (e.cancelable) e.preventDefault();
       setIsSeeking(false);
+      setIsInteracting(false);
       triggerVisibilityOnScroll();
-      setTimeout(() => {
-        setHoveredNodeId(null);
-      }, 600);
+      dismissHoverCard(300);
     };
 
     window.addEventListener('mousemove', handleGlobalMouseMove);
@@ -599,7 +714,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
         seekRafRef.current = null;
       }
     };
-  }, [isSeeking, updateSeekScroll, triggerVisibilityOnScroll]);
+  }, [isSeeking, updateSeekScroll, triggerVisibilityOnScroll, dismissHoverCard]);
 
   // Click anywhere on track to scroll to that exact proportion of the page
   const handleTrackClick = useCallback(
@@ -657,16 +772,11 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       const closestIndex = Math.round(floatIndex);
       const targetNode = waypoints[closestIndex];
 
-      if (targetNode && targetNode.id !== hoveredNodeId) {
-        setHoveredNodeId(targetNode.id);
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          try {
-            navigator.vibrate(8);
-          } catch {}
-        }
+      if (targetNode) {
+        triggerNodeHover(targetNode.id, touch.clientY);
       }
     },
-    [waypoints, hoveredNodeId, isSeeking, getWaypointScrollPositions]
+    [waypoints, isSeeking, getWaypointScrollPositions, triggerNodeHover]
   );
 
   const handleTouchStart = useCallback(
@@ -692,14 +802,9 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       clearTimeout(longPressTimerRef.current);
     }
 
-    if (hoveredNodeId && !isSeeking) {
-      setTimeout(() => {
-        setHoveredNodeId(null);
-      }, 700);
-    }
-
+    dismissHoverCard(300);
     triggerVisibilityOnScroll();
-  }, [hoveredNodeId, isSeeking, triggerVisibilityOnScroll]);
+  }, [dismissHoverCard, triggerVisibilityOnScroll]);
 
   // Desktop mouse enter/leave container
   const handleMouseEnterContainer = useCallback(() => {
@@ -711,10 +816,10 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   const handleMouseLeaveContainer = useCallback(() => {
     isHoveredRef.current = false;
     if (!isSeeking) {
-      setHoveredNodeId(null);
+      dismissHoverCard(0);
     }
     triggerVisibilityOnScroll();
-  }, [isSeeking, triggerVisibilityOnScroll]);
+  }, [isSeeking, dismissHoverCard, triggerVisibilityOnScroll]);
 
   // Handlers specifically for the active moving bar (Runner thumb)
   const handleRunnerMouseDown = useCallback(
@@ -769,17 +874,20 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   const handleRunnerTouchEnd = useCallback((e: React.TouchEvent) => {
     e.stopPropagation();
     if (e.cancelable) e.preventDefault();
+    isTouchingRef.current = false;
+    setIsInteracting(false);
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
     }
-  }, []);
+    dismissHoverCard(300);
+  }, [dismissHoverCard]);
 
   if (waypoints.length <= 1) {
     return null;
   }
 
   // Find currently focused or hovered node item for rendering hover card
-  const focusedNode = waypoints.find(w => w.id === (hoveredNodeId || (isInteracting ? activeNodeId : null)));
+  const focusedNode = waypoints.find(w => w.id === displayedHoverNodeId);
   const focusedIndex = focusedNode ? waypoints.indexOf(focusedNode) : -1;
   const focusedPercent =
     focusedIndex >= 0 ? (focusedIndex / (waypoints.length - 1)) * 100 : scrollProgress * 100;
@@ -871,8 +979,8 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
             const isChart = node.colorType === 'yellow';
 
             const isActive = activeNodeId === node.id;
-            const isHovered = hoveredNodeId === node.id;
-            const isAnyHovered = hoveredNodeId !== null || isSeeking;
+            const isHovered = displayedHoverNodeId === node.id;
+            const isAnyHovered = displayedHoverNodeId !== null;
 
             // Percentage down the rail (0% to 100%)
             const topPercent = (index / (waypoints.length - 1)) * 100;
@@ -912,8 +1020,22 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
                     targetScrollNodeRef.current = null;
                   }, 850);
                   node.scrollTo();
+                  triggerNodeHover(node.id);
                 }}
-                onMouseEnter={() => setHoveredNodeId(node.id)}
+                onMouseEnter={() => triggerNodeHover(node.id)}
+                onMouseLeave={() => dismissHoverCard(0)}
+                onTouchStart={e => {
+                  e.stopPropagation();
+                  if (e.touches[0]) {
+                    triggerNodeHover(node.id, e.touches[0].clientY);
+                  }
+                }}
+                onTouchEnd={e => {
+                  e.stopPropagation();
+                  if (isSteadyHoldRef.current) {
+                    dismissHoverCard(300);
+                  }
+                }}
                 className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 pointer-events-auto cursor-pointer flex items-center justify-center p-1.5 touch-none"
               >
                 <div
