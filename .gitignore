@@ -31,6 +31,8 @@ dist-ssr
 *.jks
 keystore.properties
 google-services.json
+android/app/release/
+*.apk
 
 # Private technical documentation
 [Tt]echnical_[Rr]eadme.md

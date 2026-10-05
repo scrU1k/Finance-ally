@@ -8,7 +8,6 @@
     "build": "npm run build:db && tsc -b && vite build",
     "build:db": "tsx scripts/buildKnowledgeDB.ts",
     "deploy": "npm run build && gh-pages -d dist",
-    "verify-embeddings": "tsx scripts/verifyEmbeddings.ts",
     "lint": "oxlint",
     "test": "tsc -b && oxlint",
     "preview": "vite preview"
