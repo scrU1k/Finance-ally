@@ -1017,7 +1017,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       {/* Modal Container */}
       <div
         onClick={e => e.stopPropagation()}
-        className="max-w-2xl w-full bg-surface-card border border-hairline rounded-3xl shadow-2xl shadow-black/30 relative cursor-default ring-1 ring-white/10 overflow-hidden max-h-[90vh] flex flex-col transform-gpu overscroll-contain"
+        className="max-w-2xl w-full bg-surface-card/75 backdrop-blur-xl saturate-[180%] border border-hairline rounded-3xl shadow-2xl shadow-black/25 relative cursor-default ring-1 ring-white/10 overflow-hidden max-h-[90vh] flex flex-col transform-gpu overscroll-contain"
       >
         <div className="p-6 sm:p-8 space-y-6 overflow-y-auto max-h-[90vh] overscroll-contain transform-gpu [webkit-overflow-scrolling:touch]">
         {/* Header */}
