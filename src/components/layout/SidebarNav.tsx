@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LayoutDashboard, Plane, PieChart, Users, CalendarCheck, ChevronDown, Check, KeyRound } from 'lucide-react';
+import { LayoutDashboard, Plane, PieChart, CalendarCheck, ChevronDown, Check, KeyRound } from 'lucide-react';
 
-export type NavTab = 'dashboard' | 'subscriptions' | 'trips' | 'audit' | 'split' | 'insights' | 'passwords';
+export type NavTab = 'dashboard' | 'subscriptions' | 'trips' | 'audit' | 'insights' | 'passwords';
 
 interface SidebarNavProps {
   activeTab: NavTab;
@@ -16,13 +16,12 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ activeTab, setActiveTab 
   const primaryTabs: { id: NavTab; label: string; icon: React.ReactNode }[] = [
     { id: 'dashboard', label: 'Expenditure', icon: <LayoutDashboard className="w-4 h-4 shrink-0" /> },
     { id: 'subscriptions', label: 'Subscriptions', icon: <CalendarCheck className="w-4 h-4 shrink-0" /> },
-    { id: 'trips', label: 'Trip Manager (Vault)', icon: <Plane className="w-4 h-4 shrink-0" /> },
+    { id: 'trips', label: 'Trips & Split Bills', icon: <Plane className="w-4 h-4 shrink-0" /> },
   ];
 
   // Secondary tools dropdown items
   const secondaryTabs: { id: NavTab; label: string; icon: React.ReactNode }[] = [
     { id: 'audit', label: 'Audit & Insights', icon: <PieChart className="w-4 h-4 text-brand-mint shrink-0" /> },
-    { id: 'split', label: 'Split Bills', icon: <Users className="w-4 h-4 text-brand-blue shrink-0" /> },
     { id: 'passwords', label: 'Password Manager', icon: <KeyRound className="w-4 h-4 text-brand-purple shrink-0" /> },
   ];
 

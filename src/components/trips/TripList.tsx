@@ -3,8 +3,9 @@ import { Trip } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { TripModal } from './TripModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
-import { Plane, Plus, Trash2, Calendar, Edit2 } from 'lucide-react';
+import { Plane, Plus, Trash2, Calendar, Edit2, Users } from 'lucide-react';
 import { registerBackHandler } from '../../services/backButtonService';
+import { SplitBillSection } from './SplitBillSection';
 
 import { NavTab } from '../layout/SidebarNav';
 
@@ -187,6 +188,23 @@ export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {
           })}
         </div>
       )}
+
+      {/* Unified Split Bills & Group Expenses Section */}
+      <div className="pt-2 border-t border-hairline/80 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-display font-bold text-ink flex items-center gap-2">
+              <Users className="w-5 h-5 text-brand-blue" />
+              <span>Split Bills & Shared Expenses</span>
+            </h3>
+            <p className="text-xs font-mono text-muted-custom">
+              Evenly split group meals, outings, or shared travel costs with friends.
+            </p>
+          </div>
+        </div>
+
+        <SplitBillSection defaultTripId={activeTripVault?.id} />
+      </div>
 
       <TripModal
         isOpen={isModalOpen}
