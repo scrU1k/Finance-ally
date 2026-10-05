@@ -19,6 +19,7 @@ import { CustomSelect } from '../common/CustomSelect';
 import { Subscription, PeriodNote, Transaction } from '../../types';
 import { getLocalMonthKey } from '../../utils/dateUtils';
 import { isPendingScheduledTx } from '../../utils/scheduledUtils';
+import { registerBackHandler } from '../../services/backButtonService';
 import {
   Award,
   AlertTriangle,
@@ -141,6 +142,53 @@ export const UnifiedAuditInsights: React.FC<UnifiedAuditInsightsProps> = ({ onSe
     const worker = getSemanticWorkerSingleton();
     if (worker) attachKBWorkerListener(worker);
   }, []);
+
+  useEffect(() => {
+    return registerBackHandler('unified-audit-insights', 25, () => {
+      if (showRulesOverlay) {
+        setShowRulesOverlay(false);
+        return true;
+      }
+      if (showCommandsModal) {
+        setShowCommandsModal(false);
+        return true;
+      }
+      if (isMonthModalOpen) {
+        setIsMonthModalOpen(false);
+        return true;
+      }
+      if (showGradeExplanation) {
+        setShowGradeExplanation(false);
+        return true;
+      }
+      if (showNoteDrawer) {
+        setShowNoteDrawer(false);
+        return true;
+      }
+      if (showEmailDrawer) {
+        setShowEmailDrawer(false);
+        return true;
+      }
+      if (showRulesDrawer) {
+        setShowRulesDrawer(false);
+        return true;
+      }
+      if (isEditingNote) {
+        setIsEditingNote(false);
+        return true;
+      }
+      return false;
+    });
+  }, [
+    showRulesOverlay,
+    showCommandsModal,
+    isMonthModalOpen,
+    showGradeExplanation,
+    showNoteDrawer,
+    showEmailDrawer,
+    showRulesDrawer,
+    isEditingNote,
+  ]);
 
   useEffect(() => {
     const existing = periodNotes.find(n => n.periodKey === selectedMonth);

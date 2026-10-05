@@ -37,6 +37,7 @@ import {
 import { BulkEditModal } from './BulkEditModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 import { TimelineWaypointScrubber } from './TimelineWaypointScrubber';
+import { registerBackHandler } from '../../services/backButtonService';
 
 interface DailyTimelineProps {
   onOpenQuickAdd?: () => void;
@@ -375,6 +376,49 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
       setIsSelectMode(false);
     }
   }, [selectedTxIds, isSelectMode]);
+
+  useEffect(() => {
+    return registerBackHandler('daily-timeline', 20, () => {
+      if (selectedTxDetail) {
+        setSelectedTxDetail(null);
+        return true;
+      }
+      if (showDeleteConfirmModal) {
+        setShowDeleteConfirmModal(false);
+        return true;
+      }
+      if (isBulkEditOpen) {
+        setIsBulkEditOpen(false);
+        return true;
+      }
+      if (activeNoteModal) {
+        setActiveNoteModal(null);
+        return true;
+      }
+      if (showMultiLogDatePickerModal) {
+        setShowMultiLogDatePickerModal(false);
+        return true;
+      }
+      if (showViewMenu) {
+        setShowViewMenu(false);
+        return true;
+      }
+      if (isSelectMode) {
+        setIsSelectMode(false);
+        setSelectedTxIds([]);
+        return true;
+      }
+      return false;
+    });
+  }, [
+    selectedTxDetail,
+    showDeleteConfirmModal,
+    isBulkEditOpen,
+    activeNoteModal,
+    showMultiLogDatePickerModal,
+    showViewMenu,
+    isSelectMode,
+  ]);
 
   const processedTransactions = useMemo(() => {
     let list = filteredTransactions;

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth, suppressLockForSystemPicker, resetSystemPickerBypass } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
-import { useTheme, ThemeMode, FontFamily } from '../../context/ThemeContext';
+import { useTheme, FontFamily } from '../../context/ThemeContext';
 import { TOP_CURRENCIES, convertCurrencyAmount, formatCurrency } from '../../services/currency';
 import { exportFullDataBackup, importFullDataBackup } from '../../services/db';
 import { exportTransactionsToCSV, importTransactionsFromCSV } from '../../services/csvParser';
@@ -16,7 +16,6 @@ import {
   getSnapshotPayload,
   deleteLocalSnapshot,
   syncSnapshotsFromFilesystem,
-  getRetentionLimit,
   clearAllLocalBackups,
   LocalAutoBackupConfig,
   LocalSnapshotMetadata
@@ -27,7 +26,7 @@ import { CurrencyCode } from '../../types';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
-import { App as CapApp } from '@capacitor/app';
+import { registerBackHandler } from '../../services/backButtonService';
 import {
   hasMasterPin,
   setMasterPin,
@@ -96,7 +95,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     includeTripExpensesInTimeline,
     setIncludeTripExpensesInTimeline,
   } = useFinance();
-  const { theme, appearanceMode, colorPalette, setAppearanceMode, setColorPalette, fontFamily, setFontFamily } = useTheme();
+  const { appearanceMode, colorPalette, setAppearanceMode, setColorPalette, fontFamily, setFontFamily } = useTheme();
 
   // Active Sub-Page Navigation State
   const [activeSubPage, setActiveSubPage] = useState<SettingsSubPage>('main');
@@ -123,25 +122,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       setPrivacyTab('privacy');
     }
   }, [isOpen]);
-
-  // Handle hardware back button inside Settings subpages
-  useEffect(() => {
-    if (!isOpen || activeSubPage === 'main' || !Capacitor.isNativePlatform()) return;
-
-    let listenerHandle: { remove: () => void } | null = null;
-
-    CapApp.addListener('backButton', () => {
-      setActiveSubPage('main');
-    }).then(h => {
-      listenerHandle = h;
-    }).catch(() => {});
-
-    return () => {
-      if (listenerHandle) {
-        listenerHandle.remove();
-      }
-    };
-  }, [isOpen, activeSubPage]);
 
   // Sync missing snapshots from native filesystem when backup tab opens
   useEffect(() => {
@@ -473,6 +453,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [verifyPinLoading, setVerifyPinLoading] = useState(false);
   const [verifyPinError, setVerifyPinError] = useState('');
 
+  // Priority Back Button Handler for Settings Subpages & Confirmation Modals
+  useEffect(() => {
+    if (!isOpen) return;
+
+    return registerBackHandler('settings-modal', 50, () => {
+      if (showSetPinModal) {
+        setShowSetPinModal(null);
+        return true;
+      }
+      if (showVerifyPinModal) {
+        setShowVerifyPinModal(false);
+        setPendingImportContent(null);
+        return true;
+      }
+      if (showClearAllBackupsConfirm) {
+        setShowClearAllBackupsConfirm(false);
+        return true;
+      }
+      if (showRotateWarningModal) {
+        setShowRotateWarningModal(false);
+        setRotateAuthPassword('');
+        setRotateCurrentRecoveryKey('');
+        setRotateAuthError('');
+        return true;
+      }
+      if (generatedRecoveryKey) {
+        finalizeRecoveryKeyRotation();
+        setGeneratedRecoveryKey(null);
+        return true;
+      }
+      if (activeSubPage !== 'main') {
+        setActiveSubPage('main');
+        return true;
+      }
+      return false; // let App close the settings modal
+    });
+  }, [
+    isOpen,
+    activeSubPage,
+    showSetPinModal,
+    showVerifyPinModal,
+    showClearAllBackupsConfirm,
+    showRotateWarningModal,
+    generatedRecoveryKey,
+  ]);
 
   if (!isOpen) return null;
 
@@ -1359,8 +1384,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
             {/* TIMELINE PREFERENCES */}
             <div className="space-y-3 bg-surface-soft p-4 rounded-xl border border-hairline">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
+              <div 
+                className="flex items-center justify-between cursor-pointer select-none"
+                onClick={() => setIncludeTripExpensesInTimeline(!includeTripExpensesInTimeline)}
+              >
+                <div className="space-y-0.5 pr-2">
                   <h3 className="text-xs font-mono font-bold text-ink uppercase flex items-center gap-1.5">
                     <span>Trip Expenses in Timeline</span>
                   </h3>
@@ -1370,16 +1398,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIncludeTripExpensesInTimeline(!includeTripExpensesInTimeline)}
-                  className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
-                    includeTripExpensesInTimeline ? 'bg-brand-mint' : 'bg-surface-card border border-hairline'
+                  role="checkbox"
+                  aria-checked={includeTripExpensesInTimeline}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIncludeTripExpensesInTimeline(!includeTripExpensesInTimeline);
+                  }}
+                  className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all cursor-pointer shrink-0 active:scale-95 ${
+                    includeTripExpensesInTimeline
+                      ? 'bg-brand-mint border-brand-mint text-white shadow-xs'
+                      : 'bg-surface-card border-hairline hover:border-ink/40 text-transparent'
                   }`}
+                  aria-label="Include Trip Expenses in Timeline"
                 >
-                  <div
-                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
-                      includeTripExpensesInTimeline ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
+                  {includeTripExpensesInTimeline && <Check className="w-4 h-4 stroke-[2.5]" />}
                 </button>
               </div>
             </div>

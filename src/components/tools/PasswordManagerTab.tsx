@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { registerBackHandler } from '../../services/backButtonService';
 import {
   KeyRound,
   Plus,
@@ -430,6 +432,62 @@ export const PasswordManagerTab: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isFilterDropdownOpen, isAutoLockDropdownOpen]);
+
+  // Priority Back Button Handler for Password Vault Modals & Dropdowns
+  useEffect(() => {
+    return registerBackHandler('password-manager', 40, () => {
+      if (isDetailModalOpen) {
+        setIsDetailModalOpen(false);
+        setTargetItem(null);
+        setTargetDecryptedCard(null);
+        return true;
+      }
+      if (isAddModalOpen) {
+        setIsAddModalOpen(false);
+        setEditingItem(null);
+        return true;
+      }
+      if (isPinModalOpen) {
+        setIsPinModalOpen(false);
+        return true;
+      }
+      if (isBackupModalOpen) {
+        setIsBackupModalOpen(false);
+        return true;
+      }
+      if (isRearrangeModalOpen) {
+        setIsRearrangeModalOpen(false);
+        return true;
+      }
+      if (isDeleteConfirmModalOpen) {
+        setIsDeleteConfirmModalOpen(false);
+        return true;
+      }
+      if (isFilterDropdownOpen) {
+        setIsFilterDropdownOpen(false);
+        return true;
+      }
+      if (isAutoLockDropdownOpen) {
+        setIsAutoLockDropdownOpen(false);
+        return true;
+      }
+      if (selectedIds.length > 0) {
+        setSelectedIds([]);
+        return true;
+      }
+      return false;
+    });
+  }, [
+    isDetailModalOpen,
+    isAddModalOpen,
+    isPinModalOpen,
+    isBackupModalOpen,
+    isRearrangeModalOpen,
+    isDeleteConfirmModalOpen,
+    isFilterDropdownOpen,
+    isAutoLockDropdownOpen,
+    selectedIds
+  ]);
 
   const refreshItems = async () => {
     const list = getStoredPasswordItems();
@@ -956,7 +1014,7 @@ export const PasswordManagerTab: React.FC = () => {
       )}
 
       {/* Header Banner - Exclusive #005687 Ocean Blue Theme */}
-      <div className="dotgui-card p-4 sm:p-5 bg-surface-card border border-hairline rounded-2xl shadow-sm space-y-3">
+      <div className="dotgui-card relative z-30 p-4 sm:p-5 bg-surface-card border border-hairline rounded-2xl shadow-sm space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           
           {/* Title & Subtext Block */}
@@ -1532,8 +1590,8 @@ export const PasswordManagerTab: React.FC = () => {
       )}
 
       {/* ── MODAL 1: App Style-Matching Delete Confirmation Modal ── */}
-      {isDeleteConfirmModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+      {isDeleteConfirmModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="dotgui-card p-6 max-w-sm w-full bg-surface-card border border-hairline rounded-2xl shadow-2xl space-y-4">
             <div className="flex items-center gap-3 border-b border-hairline pb-3">
               <div className="w-9 h-9 rounded-xl bg-red-500/15 border border-red-500/30 text-red-500 flex items-center justify-center shrink-0 font-mono">
@@ -1570,12 +1628,13 @@ export const PasswordManagerTab: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODAL 2: Re-arrange Overlay Modal (Smooth Scroll & Multi-Mode Reordering) ── */}
-      {isRearrangeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+      {isRearrangeModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="dotgui-card p-5 sm:p-6 max-w-md w-full bg-surface-card border border-hairline rounded-2xl shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
             
             {/* Modal Header with Top-Right Cross X */}
@@ -1697,12 +1756,13 @@ export const PasswordManagerTab: React.FC = () => {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODAL 3: PIN Challenge Modal (With Failed Attempt Lockout Countdown) ── */}
-      {isPinModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+      {isPinModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="dotgui-card p-5 max-w-sm w-full bg-surface-card border border-hairline rounded-2xl shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-hairline pb-3">
               <div className="flex items-center gap-2">
@@ -1858,12 +1918,13 @@ export const PasswordManagerTab: React.FC = () => {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODAL 4: Decrypted Card Details Modal ── */}
-      {isDetailModalOpen && targetItem && targetDecryptedCard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+      {isDetailModalOpen && targetItem && targetDecryptedCard && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="dotgui-card p-5 max-w-sm w-full bg-surface-card border border-hairline rounded-2xl shadow-2xl space-y-4 overflow-hidden">
             
             {/* Modal Header */}
@@ -1960,12 +2021,13 @@ export const PasswordManagerTab: React.FC = () => {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODAL 5: Add / Edit Card Modal ── */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+      {isAddModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="dotgui-card p-6 max-w-md w-full bg-surface-card border border-hairline rounded-2xl shadow-2xl space-y-4">
             
             <div className="flex items-center justify-between border-b border-hairline pb-3">
@@ -2113,12 +2175,13 @@ export const PasswordManagerTab: React.FC = () => {
 
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Vault-Only Backup & Restore Modal (Double-Layer Encrypted) */}
-      {isBackupModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+      {isBackupModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="bg-surface-card border border-hairline rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
             
             {/* Header */}
@@ -2375,7 +2438,8 @@ export const PasswordManagerTab: React.FC = () => {
 
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

@@ -39,6 +39,7 @@ import {
   getPendingRecoveryKey,
   finalizeRecoveryKeyRotation
 } from './services/recoveryService';
+import { executeBackAction } from './services/backButtonService';
 
 const V3_RECOVERY_ONBOARDED_KEY = 'fa_v3_recovery_onboarded';
 
@@ -57,8 +58,28 @@ const MainAppContent: React.FC = () => {
 
   const navigateToTab = (newTab: NavTab) => {
     if (newTab === activeTab) return;
-    setTabHistory(prev => [...prev, newTab]);
+    setTabHistory(prev => (prev[prev.length - 1] === newTab ? prev : [...prev, newTab]));
     setActiveTab(newTab);
+  };
+
+  const stateRef = React.useRef({
+    backupError,
+    isQuickAddOpen,
+    editingTransaction,
+    isCategoryManagerOpen,
+    isSettingsOpen,
+    activeTab,
+    tabHistory,
+  });
+
+  stateRef.current = {
+    backupError,
+    isQuickAddOpen,
+    editingTransaction,
+    isCategoryManagerOpen,
+    isSettingsOpen,
+    activeTab,
+    tabHistory,
   };
 
   React.useEffect(() => {
@@ -114,48 +135,55 @@ const MainAppContent: React.FC = () => {
     let listenerHandle: { remove: () => void } | null = null;
 
     CapApp.addListener('backButton', () => {
-      // 0. If Backup Error modal is open -> close it
-      if (backupError) {
+      // 0. Check Centralized Priority Back Action Stack first (Modals, Sub-pages, Sheets)
+      if (executeBackAction()) {
+        return;
+      }
+
+      const state = stateRef.current;
+
+      // 1. If Backup Error modal is open -> close it
+      if (state.backupError) {
         setBackupError(null);
         return;
       }
 
-      // 1. If QuickAdd or Edit Transaction modal is open -> close it
-      if (isQuickAddOpen || editingTransaction) {
+      // 2. If QuickAdd or Edit Transaction modal is open -> close it
+      if (state.isQuickAddOpen || state.editingTransaction) {
         setIsQuickAddOpen(false);
         setEditingTransaction(null);
         return;
       }
 
-      // 2. If Category Manager modal is open -> close it
-      if (isCategoryManagerOpen) {
+      // 3. If Category Manager modal is open -> close it
+      if (state.isCategoryManagerOpen) {
         setIsCategoryManagerOpen(false);
         return;
       }
 
-      // 3. If Settings modal is open -> close it
-      if (isSettingsOpen) {
+      // 4. If Settings modal is open -> close it
+      if (state.isSettingsOpen) {
         setIsSettingsOpen(false);
         return;
       }
 
-      // 4. If tab history has previous tabs -> go back to previous tab
-      if (tabHistory.length > 1) {
-        const updatedHistory = tabHistory.slice(0, -1);
+      // 5. If tab history has previous tabs -> step back through previously visited tabs
+      if (state.tabHistory.length > 1) {
+        const updatedHistory = state.tabHistory.slice(0, -1);
         const previousTab = updatedHistory[updatedHistory.length - 1];
         setTabHistory(updatedHistory);
         setActiveTab(previousTab);
         return;
       }
 
-      // 5. If activeTab is not dashboard -> return to dashboard
-      if (activeTab !== 'dashboard') {
+      // 6. If activeTab is not dashboard -> return to dashboard
+      if (state.activeTab !== 'dashboard') {
         setActiveTab('dashboard');
         setTabHistory(['dashboard']);
         return;
       }
 
-      // 6. At root dashboard view -> minimize app safely instead of kill/lock
+      // 7. At root dashboard view -> minimize app safely instead of kill/lock
       CapApp.minimizeApp();
     }).then(handle => {
       listenerHandle = handle;
@@ -166,7 +194,7 @@ const MainAppContent: React.FC = () => {
         listenerHandle.remove();
       }
     };
-  }, [isQuickAddOpen, editingTransaction, isCategoryManagerOpen, isSettingsOpen, activeTab, tabHistory]);
+  }, []);
 
   if (needsOnboarding) {
     return <OnboardingCurrency />;

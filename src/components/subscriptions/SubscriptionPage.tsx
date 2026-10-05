@@ -9,6 +9,7 @@ import { CustomDatePicker } from '../common/CustomDatePicker';
 import { CustomTimePicker } from '../common/CustomTimePicker';
 import { CalendarCheck, Plus, Trash2, RefreshCw, CreditCard, Sparkles, Check, Edit2 } from 'lucide-react';
 import { getLocalDateString } from '../../utils/dateUtils';
+import { registerBackHandler } from '../../services/backButtonService';
 
 export const SubscriptionPage: React.FC = () => {
   const { categories, baseCurrency, addTransaction } = useFinance();
@@ -47,6 +48,17 @@ export const SubscriptionPage: React.FC = () => {
         formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
     }
+  }, [showAddForm]);
+
+  useEffect(() => {
+    return registerBackHandler('subscription-page', 25, () => {
+      if (showAddForm) {
+        setShowAddForm(false);
+        setEditingSubId(null);
+        return true;
+      }
+      return false;
+    });
   }, [showAddForm]);
 
   const [editingSubId, setEditingSubId] = useState<string | null>(null);

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trip } from '../../types';
 import { useFinance } from '../../context/FinanceContext';
 import { TripModal } from './TripModal';
 import { formatCurrency, convertCurrencyAmount } from '../../services/currency';
 import { Plane, Plus, Trash2, Calendar, Edit2 } from 'lucide-react';
+import { registerBackHandler } from '../../services/backButtonService';
 
 import { NavTab } from '../layout/SidebarNav';
 
@@ -15,6 +16,17 @@ export const TripList: React.FC<TripListProps> = ({ setActiveTab }) => {
   const { trips, transactions, removeTripItem, activeTripVault, setActiveTripVault, forexRates } = useFinance();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+
+  useEffect(() => {
+    return registerBackHandler('trip-list', 25, () => {
+      if (isModalOpen) {
+        setIsModalOpen(false);
+        setEditingTrip(null);
+        return true;
+      }
+      return false;
+    });
+  }, [isModalOpen]);
 
   return (
     <div className="space-y-6 pb-24 max-w-full overflow-hidden">

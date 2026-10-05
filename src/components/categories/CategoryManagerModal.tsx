@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { Category } from '../../types';
 import { formatCurrency } from '../../services/currency';
 import { X, Tag, Plus, Edit2, Check } from 'lucide-react';
+import { registerBackHandler } from '../../services/backButtonService';
 
 interface CategoryManagerModalProps {
   isOpen: boolean;
@@ -21,6 +22,21 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOp
   const [newLimit, setNewLimit] = useState('');
   const [newColor, setNewColor] = useState('#f472b6');
   const [showAddForm, setShowAddForm] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    return registerBackHandler('category-manager-modal', 35, () => {
+      if (showAddForm) {
+        setShowAddForm(false);
+        return true;
+      }
+      if (editingId) {
+        setEditingId(null);
+        return true;
+      }
+      return false;
+    });
+  }, [isOpen, showAddForm, editingId]);
 
   const colorPalette = [
     '#f472b6', '#fb7185', '#e879f9', '#c026d3', '#831843',
