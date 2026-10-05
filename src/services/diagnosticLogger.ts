@@ -144,7 +144,7 @@ export async function generateDiagnosticReport(): Promise<DiagnosticReport> {
 
   return {
     generatedAt: new Date().toISOString(),
-    appVersion: '3.0.0',
+    appVersion: '3.1.0',
     runtime: {
       platform: Capacitor.getPlatform(),
       isNative: Capacitor.isNativePlatform(),

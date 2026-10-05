@@ -464,7 +464,7 @@ export async function exportFullDataBackup(): Promise<string> {
     globalRecoveryVerifier: localStorage.getItem('fa_global_recovery_verifier') || null,
     pwdVaultRecoveryEscrow: localStorage.getItem('fa_pwd_vault_recovery_escrow') || null,
     exportTimestamp: Date.now(),
-    appVersion: '3.0.0'
+    appVersion: '3.1.0'
   };
   return JSON.stringify(data, null, 2);
 }
