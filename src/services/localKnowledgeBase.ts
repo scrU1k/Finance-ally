@@ -33,8 +33,8 @@ async function loadRulesDB(): Promise<KnowledgeRule[]> {
 
 const pendingEmbedRequests = new Map<string, (vec: Float32Array) => void>();
 
-export function attachKBWorkerListener(worker: Worker) {
-  worker.addEventListener('message', (e: MessageEvent) => {
+export function attachKBWorkerListener(worker: Worker): () => void {
+  const handler = (e: MessageEvent) => {
     if (e.data.type === 'embed' && e.data.success) {
       const resolver = pendingEmbedRequests.get(e.data.id);
       if (resolver) {
@@ -42,7 +42,11 @@ export function attachKBWorkerListener(worker: Worker) {
         pendingEmbedRequests.delete(e.data.id);
       }
     }
-  });
+  };
+  worker.addEventListener('message', handler);
+  return () => {
+    worker.removeEventListener('message', handler);
+  };
 }
 
 function requestEmbedding(worker: Worker, text: string): Promise<Float32Array> {

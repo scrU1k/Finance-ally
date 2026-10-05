@@ -91,8 +91,10 @@ export async function decryptPassword(
   const iv = hexToBuffer(ivHex);
   const encryptedBuf = hexToBuffer(cipherText);
 
+  // Derive key strictly according to declared KDF algorithm to eliminate timing side-channels
+  const effectiveKdf = kdf || 'argon2id';
   try {
-    const key = await deriveKey(pin, salt, kdf);
+    const key = await deriveKey(pin, salt, effectiveKdf);
     const decryptedBuf = await window.crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
       key,
@@ -101,8 +103,8 @@ export async function decryptPassword(
     const dec = new TextDecoder();
     return dec.decode(decryptedBuf);
   } catch (err) {
-    // If argon2id failed and kdf was not explicitly pbkdf2, attempt PBKDF2 as fallback for legacy entries
-    if (kdf !== 'pbkdf2') {
+    // Only attempt legacy PBKDF2 fallback if kdf was completely omitted (legacy pre-v2 metadata)
+    if (!kdf) {
       try {
         const pbkdfKey = await deriveKeyPbkdf2(pin, salt);
         const decryptedBuf = await window.crypto.subtle.decrypt(

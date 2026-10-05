@@ -61,19 +61,29 @@ public class ScheduledNotificationPlugin extends Plugin {
         }
     }
 
+    private static PendingIntent createShowPendingIntent(Context context, int id) {
+        Intent showIntent = new Intent(context, MainActivity.class);
+        showIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        return PendingIntent.getActivity(
+            context, id, showIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+    }
+
     /**
      * Dispatches exact alarms using setAlarmClock or setExactAndAllowWhileIdle.
-     * setAlarmClock does NOT require SCHEDULE_EXACT_ALARM permission on Android 12/13/14+
-     * and is guaranteed to wake the device from deep sleep/Doze mode even when app is killed.
+     * Uses a proper Activity PendingIntent for AlarmClockInfo to prevent IllegalArgumentException.
+     * Guaranteed to wake the device from deep sleep/Doze mode even when app is killed.
      */
     public static void setExactOrClockAlarm(Context context, AlarmManager alarmManager, long timestamp, PendingIntent pendingIntent, int id) {
+        PendingIntent showPendingIntent = createShowPendingIntent(context, id);
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timestamp, pendingIntent);
                 Log.d(TAG, "Scheduled exact alarm via setExactAndAllowWhileIdle at " + timestamp + " for id=" + id);
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 // setAlarmClock is an exact alarm exempt from exact alarm restrictions
-                AlarmManager.AlarmClockInfo clockInfo = new AlarmManager.AlarmClockInfo(timestamp, pendingIntent);
+                AlarmManager.AlarmClockInfo clockInfo = new AlarmManager.AlarmClockInfo(timestamp, showPendingIntent);
                 alarmManager.setAlarmClock(clockInfo, pendingIntent);
                 Log.d(TAG, "Scheduled exact alarm via setAlarmClock at " + timestamp + " for id=" + id);
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -81,19 +91,25 @@ public class ScheduledNotificationPlugin extends Plugin {
             } else {
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, timestamp, pendingIntent);
             }
-        } catch (SecurityException se) {
-            Log.w(TAG, "Exact alarm permission restricted, falling back to setAlarmClock: " + se.getMessage());
+        } catch (Exception se) {
+            Log.w(TAG, "Primary alarm scheduling failed, attempting fallback: " + se.getMessage());
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    AlarmManager.AlarmClockInfo clockInfo = new AlarmManager.AlarmClockInfo(timestamp, pendingIntent);
+                    AlarmManager.AlarmClockInfo clockInfo = new AlarmManager.AlarmClockInfo(timestamp, showPendingIntent);
                     alarmManager.setAlarmClock(clockInfo, pendingIntent);
                     Log.d(TAG, "Fallback setAlarmClock scheduled at " + timestamp + " for id=" + id);
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timestamp, pendingIntent);
                 } else {
                     alarmManager.set(AlarmManager.RTC_WAKEUP, timestamp, pendingIntent);
                 }
             } catch (Exception ex) {
                 Log.e(TAG, "Final alarm fallback failed: " + ex.getMessage());
-                throw new RuntimeException("All alarm scheduling methods failed: " + ex.getMessage(), ex);
+                try {
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, timestamp, pendingIntent);
+                } catch (Exception eFinal) {
+                    throw new RuntimeException("All alarm scheduling methods failed: " + eFinal.getMessage(), eFinal);
+                }
             }
         }
     }

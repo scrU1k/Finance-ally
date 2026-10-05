@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Transaction, CurrencyCode, PeriodType } from '../types';
-import { loadTransactions, saveTransaction, deleteTransaction, loadSubscriptions } from '../services/db';
+import { loadTransactions, saveTransaction, deleteTransaction, loadSubscriptions, saveTransactionsBatch, deleteTransactionsBatch as dbDeleteTransactionsBatch } from '../services/db';
 import { getStoredForexRates, fetchLiveExchangeRates, switchAppBaseCurrency, convertCurrencyAmount } from '../services/currency';
 import { useAuth } from './AuthContext';
 import { useTrips } from './TripContext';
@@ -20,8 +20,11 @@ export interface TransactionContextType {
   switchBaseCurrency: (newCurrency: CurrencyCode, mode: 'convert' | 'keep') => Promise<void>;
   syncForexRates: () => Promise<boolean>;
   addTransaction: (tx: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>;
+  addTransactionsBatch: (txs: Array<Omit<Transaction, 'id' | 'createdAt'>>) => Promise<void>;
   editTransaction: (tx: Transaction) => Promise<void>;
+  editTransactionsBatch: (txs: Transaction[]) => Promise<void>;
   deleteTx: (id: string) => Promise<void>;
+  deleteTransactionsBatch: (ids: string[]) => Promise<void>;
   reloadTransactions: () => Promise<Transaction[]>;
   scheduledToast: { id: string; note: string; amount: number; currency: CurrencyCode; transaction: Transaction } | null;
   dismissScheduledToast: () => void;
@@ -187,6 +190,30 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
+  const addTransactionsBatch = async (txsData: Array<Omit<Transaction, 'id' | 'createdAt'>>) => {
+    if (txsData.length === 0) return;
+    try {
+      const now = Date.now();
+      const newTxs: Transaction[] = txsData.map((txData, idx) => {
+        const isFuture = isFutureDateTime(txData.date, txData.time);
+        return {
+          ...txData,
+          isScheduled: txData.isScheduled !== undefined ? txData.isScheduled : isFuture,
+          tripId: txData.tripId || activeTripVault?.id || undefined,
+          id: `tx-${now + idx}-${crypto.randomUUID().split('-')[0]}`,
+          createdAt: now + idx,
+        };
+      });
+
+      await saveTransactionsBatch(newTxs);
+      setTransactions(prev => [...newTxs, ...prev]);
+      triggerBackgroundBackup(transactions.length + newTxs.length);
+    } catch (e) {
+      console.error('Failed to persist transactions batch:', e);
+      throw e;
+    }
+  };
+
   const editTransaction = async (tx: Transaction) => {
     try {
       const isFuture = isFutureDateTime(tx.date, tx.time);
@@ -208,6 +235,34 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
+  const editTransactionsBatch = async (txs: Transaction[]) => {
+    if (txs.length === 0) return;
+    try {
+      const updatedList = txs.map(tx => {
+        const isFuture = isFutureDateTime(tx.date, tx.time);
+        return {
+          ...tx,
+          isScheduled: tx.isScheduled !== undefined ? tx.isScheduled : isFuture,
+        };
+      });
+      await saveTransactionsBatch(updatedList);
+      const map = new Map(updatedList.map(t => [t.id, t]));
+      setTransactions(prev => prev.map(t => map.get(t.id) || t));
+
+      await Promise.allSettled(
+        updatedList.map(async t => {
+          await cancelScheduledNotification(t.id);
+          if (t.isScheduled) {
+            scheduleFutureNativeNotification(t, baseCurrency);
+          }
+        })
+      );
+    } catch (e) {
+      console.error('Failed to persist transactions batch edit:', e);
+      throw e;
+    }
+  };
+
   const deleteTx = async (id: string) => {
     try {
       await cancelScheduledNotification(id);
@@ -215,6 +270,18 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setTransactions(prev => prev.filter(t => t.id !== id));
     } catch (e) {
       console.error('Failed to delete transaction:', e);
+      throw e;
+    }
+  };
+
+  const deleteTransactionsBatch = async (ids: string[]) => {
+    try {
+      await Promise.allSettled(ids.map(id => cancelScheduledNotification(id)));
+      await dbDeleteTransactionsBatch(ids);
+      const idSet = new Set(ids);
+      setTransactions(prev => prev.filter(t => !idSet.has(t.id)));
+    } catch (e) {
+      console.error('Failed to batch delete transactions:', e);
       throw e;
     }
   };
@@ -227,9 +294,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setTransactions(updatedTxs);
     updateUserCurrency(newCurrency);
 
-    for (const tx of updatedTxs) {
-      await saveTransaction(tx);
-    }
+    await saveTransactionsBatch(updatedTxs);
   };
 
   const filteredTransactions = useMemo(() => {
@@ -311,8 +376,11 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         switchBaseCurrency,
         syncForexRates,
         addTransaction,
+        addTransactionsBatch,
         editTransaction,
+        editTransactionsBatch,
         deleteTx,
+        deleteTransactionsBatch,
         reloadTransactions,
         scheduledToast,
         dismissScheduledToast,

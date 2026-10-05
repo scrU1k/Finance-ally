@@ -24,6 +24,17 @@ export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({
     navigator.clipboard.writeText(recoveryKey);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+
+    setTimeout(async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const current = await navigator.clipboard.readText();
+          if (current === recoveryKey) {
+            await navigator.clipboard.writeText('');
+          }
+        }
+      } catch {}
+    }, 45000);
   };
 
   return createPortal(

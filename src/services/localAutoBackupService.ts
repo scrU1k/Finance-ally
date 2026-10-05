@@ -189,7 +189,33 @@ export function getFileTime(f: any): number {
 }
 
 /**
+ * Strict validator preventing path traversal sequences and ensuring safe snapshot filenames.
+ */
+export function isValidSnapshotFilename(filename: string): boolean {
+  if (!filename || typeof filename !== 'string') return false;
+  if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) return false;
+  return /^fa_autobackup_[\w\.-]+\.(json|json\.enc|gz)$/.test(filename);
+}
+
+/**
+ * Purges all legacy fa_snap_data_* items from localStorage to prevent QuotaExceededError.
+ */
+export function purgeLegacySnapshotLocalStorageCache(): void {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('fa_snap_data_')) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+  } catch {}
+}
+
+/**
  * Robustly prunes older snapshots directly from device filesystem storage beyond retentionLimit.
+ * Scans all known snapshot directories, deduplicates, sorts globally by timestamp, and deletes surplus files.
  */
 export async function pruneFilesystemSnapshots(retentionLimit: number): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
@@ -202,6 +228,16 @@ export async function pruneFilesystemSnapshots(retentionLimit: number): Promise<
     { path: '', dir: Directory.Cache },
   ];
 
+  interface FoundFile {
+    locPath: string;
+    locDir: Directory;
+    fullPath: string;
+    fileName: string;
+    timeMs: number;
+  }
+
+  const allFoundFiles: FoundFile[] = [];
+
   for (const loc of locations) {
     try {
       const res = await Filesystem.readdir({
@@ -211,31 +247,62 @@ export async function pruneFilesystemSnapshots(retentionLimit: number): Promise<
 
       if (!res || !Array.isArray(res.files)) continue;
 
-      const snapshotFiles = res.files.filter(f => {
+      for (const f of res.files) {
         const name = getEntryName(f);
-        return name.startsWith('fa_autobackup_') && (name.endsWith('.json') || name.endsWith('.json.enc') || name.endsWith('.gz'));
-      });
-
-      if (snapshotFiles.length > retentionLimit) {
-        snapshotFiles.sort((a, b) => getFileTime(b) - getFileTime(a));
-        const surplus = snapshotFiles.slice(retentionLimit);
-        for (const file of surplus) {
-          const fileName = getEntryName(file);
-          if (!fileName) continue;
-          const filePath = loc.path ? `${loc.path}/${fileName}` : fileName;
-          try {
-            await Filesystem.deleteFile({
-              path: filePath,
-              directory: loc.dir,
-            });
-            console.log(`[Auto-Backup] Pruned surplus snapshot from filesystem: ${filePath}`);
-          } catch (e) {
-            console.warn(`[Auto-Backup] Could not delete surplus snapshot: ${filePath}`, e);
-          }
+        if (isValidSnapshotFilename(name)) {
+          const filePath = loc.path ? `${loc.path}/${name}` : name;
+          allFoundFiles.push({
+            locPath: loc.path,
+            locDir: loc.dir,
+            fullPath: filePath,
+            fileName: name,
+            timeMs: getFileTime(f) || 0,
+          });
         }
       }
-    } catch (locErr) {
+    } catch {
       // Directory may not exist in this particular location, ignore silently
+    }
+  }
+
+  if (allFoundFiles.length === 0) return;
+
+  // Identify files in primary directory vs secondary fallback locations
+  const primaryFileNames = new Set<string>();
+  for (const item of allFoundFiles) {
+    if (item.locPath === 'Finance-Ally/Snapshots' && item.locDir === Directory.Documents) {
+      primaryFileNames.add(item.fileName);
+    }
+  }
+
+  const uniqueFilesMap = new Map<string, FoundFile>();
+  for (const item of allFoundFiles) {
+    // Delete stale duplicate in secondary location if already in primary
+    if (item.locPath !== 'Finance-Ally/Snapshots' && primaryFileNames.has(item.fileName)) {
+      try {
+        await Filesystem.deleteFile({ path: item.fullPath, directory: item.locDir });
+      } catch {}
+      continue;
+    }
+    if (!uniqueFilesMap.has(item.fileName) || uniqueFilesMap.get(item.fileName)!.timeMs < item.timeMs) {
+      uniqueFilesMap.set(item.fileName, item);
+    }
+  }
+
+  const sortedList = Array.from(uniqueFilesMap.values()).sort((a, b) => b.timeMs - a.timeMs);
+
+  if (sortedList.length > retentionLimit) {
+    const surplus = sortedList.slice(retentionLimit);
+    for (const item of surplus) {
+      try {
+        await Filesystem.deleteFile({
+          path: item.fullPath,
+          directory: item.locDir,
+        });
+        console.log(`[Auto-Backup] Pruned surplus snapshot from filesystem: ${item.fullPath}`);
+      } catch (e) {
+        console.warn(`[Auto-Backup] Could not delete surplus snapshot: ${item.fullPath}`, e);
+      }
     }
   }
 }
@@ -246,11 +313,22 @@ export async function pruneFilesystemSnapshots(retentionLimit: number): Promise<
  */
 export async function syncSnapshotsFromFilesystem(): Promise<LocalSnapshotMetadata[]> {
   const limit = getRetentionLimit();
-  if (!Capacitor.isNativePlatform()) return getLocalSnapshots().slice(0, limit);
+  if (!Capacitor.isNativePlatform()) {
+    const list = getLocalSnapshots();
+    const kept = list.slice(0, limit);
+    const evicted = list.slice(limit);
+    for (const e of evicted) {
+      try { localStorage.removeItem(`fa_snap_data_${e.id}`); } catch {}
+    }
+    saveSnapshotsList(kept);
+    return kept;
+  }
 
   try {
     // 1. Physically prune surplus files on disk first
     await pruneFilesystemSnapshots(limit);
+    // 2. Free up any multi-MB localStorage snapshot clutter from legacy versions
+    purgeLegacySnapshotLocalStorageCache();
 
     // 2. Read current files from primary snapshot directory
     const res = await Filesystem.readdir({
@@ -424,11 +502,13 @@ export async function createLocalAutoBackup(
       sizeBytes,
     };
 
-    // Store payload snapshot in localStorage cache for instant UI restoration
-    try {
-      localStorage.setItem(`fa_snap_data_${newSnapshot.id}`, finalPayload);
-    } catch (e) {
-      console.warn('LocalStorage cache write failed:', e);
+    // Do NOT duplicate multi-megabyte database snapshots into localStorage on Native platform (prevents 5MB quota crash)
+    if (!Capacitor.isNativePlatform()) {
+      try {
+        localStorage.setItem(`fa_snap_data_${newSnapshot.id}`, finalPayload);
+      } catch (e) {
+        console.warn('LocalStorage snapshot cache write skipped (quota constrained):', e);
+      }
     }
 
     // Update snapshots list and prune old ones beyond retentionLimit
@@ -520,6 +600,11 @@ export async function checkAndPerformLocalAutoBackup(transactionCount: number = 
  * Gets payload for a specific snapshot. Tries cache first, then reads native filesystem.
  */
 export async function getSnapshotPayload(snap: LocalSnapshotMetadata): Promise<string | null> {
+  if (!isValidSnapshotFilename(snap.filename)) {
+    console.error('[Security] Rejected snapshot with unsafe or path-traversal filename:', snap.filename);
+    return null;
+  }
+
   const cached = localStorage.getItem(`fa_snap_data_${snap.id}`);
   if (cached) return cached;
 
@@ -558,7 +643,7 @@ export async function deleteLocalSnapshot(snapshotId: string): Promise<LocalSnap
   
   localStorage.removeItem(`fa_snap_data_${snapshotId}`);
   
-  if (snap && Capacitor.isNativePlatform()) {
+  if (snap && isValidSnapshotFilename(snap.filename) && Capacitor.isNativePlatform()) {
     try {
       await Filesystem.deleteFile({
         path: `Finance-Ally/Snapshots/${snap.filename}`,

@@ -125,7 +125,7 @@ function getWeekInfo(dateStr: string) {
 }
 
 export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _onOpenQuickAdd, onEditTransaction }) => {
-  const { filteredTransactions, categories, trips, deleteTx, editTransaction, baseCurrency, forexRates, setTopmostVisibleDate } = useFinance();
+  const { filteredTransactions, categories, trips, deleteTx, deleteTransactionsBatch, editTransaction, editTransactionsBatch, baseCurrency, forexRates, setTopmostVisibleDate } = useFinance();
 
   // Timeline-specific View Mode (Day | Week | Month | Year), decoupled from Bottom Bar filter
   const [periodMode, setPeriodMode] = useState<PeriodMode>(() => {
@@ -718,9 +718,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
 
   const handleConfirmBulkDelete = async () => {
     setShowDeleteConfirmModal(false);
-    for (const id of selectedTxIds) {
-      await deleteTx(id);
-    }
+    await deleteTransactionsBatch(selectedTxIds);
     setSelectedTxIds([]);
     setIsSelectMode(false);
   };
@@ -736,6 +734,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
   }) => {
     if (selectedTxIds.length === 0) return;
 
+    const toUpdate: Transaction[] = [];
     for (const txId of selectedTxIds) {
       const tx = filteredTransactions.find(t => t.id === txId);
       if (tx) {
@@ -761,8 +760,12 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({ onOpenQuickAdd: _o
           }
         }
 
-        await editTransaction(updatedTx);
+        toUpdate.push(updatedTx);
       }
+    }
+
+    if (toUpdate.length > 0) {
+      await editTransactionsBatch(toUpdate);
     }
 
     setSelectedTxIds([]);

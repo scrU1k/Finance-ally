@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth, suppressLockForSystemPicker, resetSystemPickerBypass } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useTheme, FontFamily } from '../../context/ThemeContext';
@@ -92,6 +93,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     transactions,
     categories,
     addTransaction,
+    addTransactionsBatch,
     includeTripExpensesInTimeline,
     setIncludeTripExpensesInTimeline,
   } = useFinance();
@@ -453,6 +455,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [verifyPinLoading, setVerifyPinLoading] = useState(false);
   const [verifyPinError, setVerifyPinError] = useState('');
 
+  // Unencrypted backup App Password authorization modal (VULN-01)
+  const [pendingUnencryptedContent, setPendingUnencryptedContent] = useState<string | null>(null);
+  const [pendingRestoreIsSnapshot, setPendingRestoreIsSnapshot] = useState(false);
+  const [pendingRestoreSnapshotName, setPendingRestoreSnapshotName] = useState('');
+  const [showAppPasswordConfirmModal, setShowAppPasswordConfirmModal] = useState(false);
+  const [appPasswordConfirmLoading, setAppPasswordConfirmLoading] = useState(false);
+  const [appPasswordConfirmError, setAppPasswordConfirmError] = useState('');
+  const [showPlainRestoreConfirmModal, setShowPlainRestoreConfirmModal] = useState(false);
+
   // Priority Back Button Handler for Settings Subpages & Confirmation Modals
   useEffect(() => {
     if (!isOpen) return;
@@ -465,6 +476,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       if (showVerifyPinModal) {
         setShowVerifyPinModal(false);
         setPendingImportContent(null);
+        return true;
+      }
+      if (showAppPasswordConfirmModal) {
+        setShowAppPasswordConfirmModal(false);
+        setAppPasswordConfirmError('');
+        setPendingUnencryptedContent(null);
+        resetSystemPickerBypass();
+        return true;
+      }
+      if (showPlainRestoreConfirmModal) {
+        setShowPlainRestoreConfirmModal(false);
+        setPendingUnencryptedContent(null);
+        resetSystemPickerBypass();
         return true;
       }
       if (showClearAllBackupsConfirm) {
@@ -494,6 +518,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     activeSubPage,
     showSetPinModal,
     showVerifyPinModal,
+    showAppPasswordConfirmModal,
+    showPlainRestoreConfirmModal,
     showClearAllBackupsConfirm,
     showRotateWarningModal,
     generatedRecoveryKey,
@@ -645,18 +671,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
       const res = importTransactionsFromCSV(content, categories, baseCurrency);
       if (res.success) {
-        for (const tx of res.transactions) {
-          await addTransaction({
-            amount: tx.amount,
-            currency: tx.currency,
-            categoryId: tx.categoryId,
-            customCategoryName: tx.customCategoryName,
-            date: tx.date,
-            time: tx.time,
-            note: tx.note,
-            paymentMethod: tx.paymentMethod
-          });
-        }
+        await addTransactionsBatch(res.transactions.map(tx => ({
+          amount: tx.amount,
+          currency: tx.currency,
+          categoryId: tx.categoryId,
+          customCategoryName: tx.customCategoryName,
+          date: tx.date,
+          time: tx.time,
+          note: tx.note,
+          paymentMethod: tx.paymentMethod
+        })));
         setCsvStatus(`Successfully imported ${res.count} transactions!`);
       } else {
         setCsvStatus(`Error: ${res.errors.join(', ')}`);
@@ -698,25 +722,63 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setPendingImportContent(content);
         setShowVerifyPinModal(true);
       } else {
-        try {
-          const res = await importFullDataBackup(content);
-          if (res.success) {
-            const warningNote = res.droppedTransactions > 0
-              ? ` (${res.droppedTransactions} invalid transactions skipped)`
-              : (res.storageError ? ' (Warning: browser storage quota constrained)' : '');
-            setImportStatus(`Backup restored${warningNote}! Restarting app...`);
-            setTimeout(() => window.location.reload(), warningNote ? 3000 : 1200);
-          } else {
-            setImportStatus(res.errorMessage ? `Error: ${res.errorMessage}` : 'Error: Backup file structure is corrupted or invalid.');
-            resetSystemPickerBypass();
-          }
-        } catch {
-          setImportStatus('Security Alert: Backup file is corrupted or has been altered. Restore rejected.');
-          resetSystemPickerBypass();
+        setPendingUnencryptedContent(content);
+        setPendingRestoreIsSnapshot(false);
+        setPendingRestoreSnapshotName('');
+        if (user?.requirePassword !== false && user?.passwordHash) {
+          setShowAppPasswordConfirmModal(true);
+        } else {
+          setShowPlainRestoreConfirmModal(true);
         }
       }
     };
     reader.readAsText(file);
+  };
+
+  const executeUnencryptedRestore = async (contentToRestore: string, isSnapshot = false, snapshotFilename = '') => {
+    try {
+      const res = await importFullDataBackup(contentToRestore);
+      if (res.success) {
+        const warningNote = res.droppedTransactions > 0
+          ? ` (${res.droppedTransactions} invalid transactions skipped)`
+          : (res.storageError ? ' (Warning: browser storage quota constrained)' : '');
+        setImportStatus(`${isSnapshot ? `Restored from snapshot ${snapshotFilename}` : 'Backup restored'}${warningNote}! Restarting app...`);
+        setTimeout(() => window.location.reload(), warningNote ? 3000 : 1200);
+      } else {
+        setImportStatus(res.errorMessage ? `Error: ${res.errorMessage}` : 'Error: Backup file structure is corrupted or invalid.');
+        resetSystemPickerBypass();
+      }
+    } catch {
+      setImportStatus('Security Alert: Backup file is corrupted or has been altered. Restore rejected.');
+      resetSystemPickerBypass();
+    }
+  };
+
+  const handleConfirmAppPasswordAndRestore = async (enteredPass: string) => {
+    setAppPasswordConfirmLoading(true);
+    setAppPasswordConfirmError('');
+    try {
+      const ok = await verifyUserPassword(enteredPass);
+      if (!ok) {
+        setAppPasswordConfirmLoading(false);
+        setAppPasswordConfirmError('Incorrect App Password. Authorization failed.');
+        return;
+      }
+      setAppPasswordConfirmLoading(false);
+      setShowAppPasswordConfirmModal(false);
+      if (pendingUnencryptedContent) {
+        const content = pendingUnencryptedContent;
+        const isSnap = pendingRestoreIsSnapshot;
+        const snapName = pendingRestoreSnapshotName;
+        setPendingUnencryptedContent(null);
+        setPendingRestoreIsSnapshot(false);
+        setPendingRestoreSnapshotName('');
+        await executeUnencryptedRestore(content, isSnap, snapName);
+      }
+    } catch (err: any) {
+      setAppPasswordConfirmLoading(false);
+      setAppPasswordConfirmError(err?.message || 'Verification failed. Please try again.');
+    }
   };
 
   const handleVerifyPinAndImport = async (pin: string) => {
@@ -866,15 +928,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       setPendingImportContent(payload);
       setShowVerifyPinModal(true);
     } else {
-      const res = await importFullDataBackup(payload);
-      if (res.success) {
-        const warningNote = res.droppedTransactions > 0
-          ? ` (${res.droppedTransactions} invalid transactions skipped)`
-          : (res.storageError ? ' (Warning: browser storage quota constrained)' : '');
-        setImportStatus(`Restored from snapshot ${snap.filename}${warningNote}! Restarting app...`);
-        setTimeout(() => window.location.reload(), warningNote ? 3000 : 1200);
+      setPendingUnencryptedContent(payload);
+      setPendingRestoreIsSnapshot(true);
+      setPendingRestoreSnapshotName(snap.filename);
+      if (user?.requirePassword !== false && user?.passwordHash) {
+        setShowAppPasswordConfirmModal(true);
       } else {
-        setImportStatus(res.errorMessage ? `Error: ${res.errorMessage}` : 'Failed to restore snapshot data.');
+        setShowPlainRestoreConfirmModal(true);
       }
     }
   };
@@ -2718,6 +2778,72 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             loading={verifyPinLoading}
             error={verifyPinError}
           />
+        )}
+
+        {/* VULN-01 Patch: Require App Password to Authorize Restoring Backups */}
+        {showAppPasswordConfirmModal && (
+          <PinModal
+            mode="verify"
+            secretType="password"
+            title="Authorize Backup Restore"
+            description="Restoring this backup will overwrite your current transactions, categories, and settings. Enter your current App Password to authorize."
+            onConfirm={(pass) => handleConfirmAppPasswordAndRestore(pass)}
+            onCancel={() => {
+              setShowAppPasswordConfirmModal(false);
+              setAppPasswordConfirmError('');
+              setPendingUnencryptedContent(null);
+              resetSystemPickerBypass();
+            }}
+            loading={appPasswordConfirmLoading}
+            error={appPasswordConfirmError}
+          />
+        )}
+
+        {/* Confirmation Modal for Restoring Backups When App Has No Password */}
+        {showPlainRestoreConfirmModal && createPortal(
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+            <div className="max-w-md w-full bg-surface-card p-6 rounded-2xl border border-hairline space-y-4 shadow-2xl">
+              <div className="flex items-center gap-3 text-brand-yellow">
+                <AlertTriangle className="w-5 h-5 shrink-0" />
+                <h3 className="text-sm font-mono font-bold text-ink uppercase">Confirm Restore</h3>
+              </div>
+              <p className="text-xs font-mono text-muted-custom leading-relaxed">
+                Restoring this backup will replace your current financial records, categories, and settings. Are you sure you want to proceed?
+              </p>
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPlainRestoreConfirmModal(false);
+                    setPendingUnencryptedContent(null);
+                    resetSystemPickerBypass();
+                  }}
+                  className="px-4 py-2 text-xs font-mono text-muted-custom hover:text-ink cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setShowPlainRestoreConfirmModal(false);
+                    if (pendingUnencryptedContent) {
+                      const content = pendingUnencryptedContent;
+                      const isSnap = pendingRestoreIsSnapshot;
+                      const snapName = pendingRestoreSnapshotName;
+                      setPendingUnencryptedContent(null);
+                      setPendingRestoreIsSnapshot(false);
+                      setPendingRestoreSnapshotName('');
+                      await executeUnencryptedRestore(content, isSnap, snapName);
+                    }
+                  }}
+                  className="px-4 py-2 bg-brand-coral hover:bg-brand-coral/90 text-white text-xs font-mono font-bold rounded-xl shadow-sm cursor-pointer"
+                >
+                  Confirm & Restore
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
         )}
 
         {showRotateWarningModal && (

@@ -143,6 +143,7 @@ export const PasswordManagerTab: React.FC = () => {
   const [lockoutCountdown, setLockoutCountdown] = useState<number>(0);
   const [isPassVisible, setIsPassVisible] = useState(false);
   const [copiedField, setCopiedField] = useState<'username' | 'password' | null>(null);
+  const clipboardWipeTimerRef = useRef<number | null>(null);
 
   // Add / Edit Form State
   const [editingItem, setEditingItem] = useState<PasswordVaultItem | null>(null);
@@ -339,12 +340,25 @@ export const PasswordManagerTab: React.FC = () => {
     }
   };
 
-  // Lock Vault Helper
+  // Lock Vault Helper - Fully purges decrypted credentials and closes detail modals
   const lockVault = () => {
     setIsVaultUnlocked(false);
     setVaultMasterPin('');
     setDecryptedCardsMap({});
     setSelectedIds([]);
+    setIsDetailModalOpen(false);
+    setTargetItem(null);
+    setTargetDecryptedCard(null);
+    setIsAddModalOpen(false);
+    setIsPinModalOpen(false);
+    setPinInput('');
+    setPinError('');
+    setEditingItem(null);
+    setFormPassword('');
+    setIsPassVisible(false);
+    setIsBackupModalOpen(false);
+    setIsDeleteConfirmModalOpen(false);
+    setCopiedField(null);
   };
 
   // Initial Load & Integrity Check
@@ -354,6 +368,9 @@ export const PasswordManagerTab: React.FC = () => {
     verifyVaultIntegrity().then(ok => setIsIntegrityOk(ok));
 
     return () => {
+      if (clipboardWipeTimerRef.current) {
+        clearTimeout(clipboardWipeTimerRef.current);
+      }
       lockVault();
     };
   }, []);
@@ -935,11 +952,29 @@ export const PasswordManagerTab: React.FC = () => {
     closeAddModal();
   };
 
-  // Copy helper
+  // Copy helper with automatic 45s clipboard purge for credentials
   const copyToClipboard = (text: string, type: 'username' | 'password') => {
     navigator.clipboard.writeText(text);
     setCopiedField(type);
     setTimeout(() => setCopiedField(null), 2000);
+
+    if (type === 'password') {
+      if (clipboardWipeTimerRef.current) {
+        clearTimeout(clipboardWipeTimerRef.current);
+      }
+      clipboardWipeTimerRef.current = window.setTimeout(async () => {
+        try {
+          if (navigator.clipboard && navigator.clipboard.readText) {
+            const currentClip = await navigator.clipboard.readText();
+            if (currentClip === text) {
+              await navigator.clipboard.writeText('');
+            }
+          }
+        } catch {
+          // Clipboard read/write permissions may be restricted
+        }
+      }, 45000);
+    }
   };
 
   // Delete card from detail modal

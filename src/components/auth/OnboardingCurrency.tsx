@@ -78,7 +78,7 @@ export const OnboardingCurrency: React.FC = () => {
               </button>
             </div>
             <p className="text-[10px] font-mono text-muted-custom">
-              Stored 100% locally with salted SHA-256 encryption.
+              Stored 100% locally with memory-hard Argon2id encryption.
             </p>
           </div>
 

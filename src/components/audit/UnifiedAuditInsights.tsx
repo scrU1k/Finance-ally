@@ -140,7 +140,9 @@ export const UnifiedAuditInsights: React.FC<UnifiedAuditInsightsProps> = ({ onSe
     loadSubscriptions().then(setSubscriptions).catch(() => setSubscriptions([]));
     loadPeriodNotes().then(setPeriodNotes).catch(() => setPeriodNotes([]));
     const worker = getSemanticWorkerSingleton();
-    if (worker) attachKBWorkerListener(worker);
+    if (worker) {
+      return attachKBWorkerListener(worker);
+    }
   }, []);
 
   useEffect(() => {

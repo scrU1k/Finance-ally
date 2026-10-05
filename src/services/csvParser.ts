@@ -11,6 +11,16 @@ function sanitizeCSVCell(str: string): string {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
+function sanitizeImportCell(str: string): string {
+  if (!str) return '';
+  const trimmed = str.trim();
+  // Neutralize potential spreadsheet formula triggers (=, +, -, @, \t, \r)
+  if (/^[=+\-@\t\r]/.test(trimmed)) {
+    return trimmed.replace(/^[=+\-@\t\r]+/, '').trim();
+  }
+  return trimmed;
+}
+
 export function exportTransactionsToCSV(transactions: Transaction[], categories: Category[]): string {
   const catMap = new Map<string, string>();
   categories.forEach(c => catMap.set(c.id, c.name));
@@ -119,7 +129,7 @@ export function importTransactionsFromCSV(
       let categoryId = 'cat-others';
       let customCategoryName: string | undefined = undefined;
       if (catIdx !== -1 && columns[catIdx]) {
-        const rawCat = columns[catIdx].trim();
+        const rawCat = sanitizeImportCell(columns[catIdx]);
         const matchedCat = categories.find(c => c.name.toLowerCase() === rawCat.toLowerCase());
         if (matchedCat) {
           categoryId = matchedCat.id;
@@ -129,8 +139,10 @@ export function importTransactionsFromCSV(
         }
       }
 
-      const note = noteIdx !== -1 && columns[noteIdx] ? columns[noteIdx].trim() : 'CSV Imported Expense';
-      const paymentMethod = payIdx !== -1 && columns[payIdx] ? columns[payIdx].trim() : 'CSV Import';
+      const rawNote = noteIdx !== -1 && columns[noteIdx] ? columns[noteIdx] : 'CSV Imported Expense';
+      const note = sanitizeImportCell(rawNote) || 'CSV Imported Expense';
+      const rawPay = payIdx !== -1 && columns[payIdx] ? columns[payIdx] : 'CSV Import';
+      const paymentMethod = sanitizeImportCell(rawPay) || 'CSV Import';
       const time = timeIdx !== -1 && columns[timeIdx] ? columns[timeIdx].trim() : '12:00';
 
       const txId = typeof crypto?.randomUUID === 'function'

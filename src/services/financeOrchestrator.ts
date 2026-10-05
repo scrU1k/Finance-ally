@@ -5,7 +5,7 @@
  */
 
 import { Transaction, Category, Subscription, CurrencyCode } from '../types';
-import { checkAndPerformLocalAutoBackup, pruneFilesystemSnapshots, getRetentionLimit } from './localAutoBackupService';
+import { checkAndPerformLocalAutoBackup, pruneFilesystemSnapshots, getRetentionLimit, purgeLegacySnapshotLocalStorageCache } from './localAutoBackupService';
 import { syncAllFutureNotifications } from './notificationService';
 import { trainModel } from './localInferenceEngine';
 
@@ -18,12 +18,15 @@ export async function runStartupSync(
   categories: Category[],
   baseCurrency: CurrencyCode
 ): Promise<void> {
-  // 1. Check and perform automated snapshot backup if due
+  // 1. Purge any legacy multi-megabyte snapshots from localStorage to prevent quota crashes
+  purgeLegacySnapshotLocalStorageCache();
+
+  // 2. Check and perform automated snapshot backup if due
   checkAndPerformLocalAutoBackup(transactions.length).catch(e => {
     console.warn('[Orchestrator] Auto backup check failed:', e);
   });
 
-  // 2. Prune old filesystem snapshots
+  // 3. Prune old filesystem snapshots globally across devices
   pruneFilesystemSnapshots(getRetentionLimit()).catch(e => {
     console.warn('[Orchestrator] Pruning snapshots failed:', e);
   });
