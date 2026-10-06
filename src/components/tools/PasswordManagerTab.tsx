@@ -93,7 +93,7 @@ export const PasswordManagerTab: React.FC = () => {
       const saved = localStorage.getItem('fa_vault_view_mode') as 'grid' | 'list' | 'compact';
       if (saved && ['grid', 'list', 'compact'].includes(saved)) return saved;
     } catch {}
-    return 'grid';
+    return 'compact';
   });
 
   const handleSetCardViewMode = (mode: 'grid' | 'list' | 'compact') => {
@@ -1458,7 +1458,7 @@ export const PasswordManagerTab: React.FC = () => {
         /* LOCKED VAULT VIEW: Search & Sort Supported */
         <div className={
           cardViewMode === 'grid'
-            ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
+            ? "grid grid-cols-3 gap-2 sm:gap-2.5"
             : cardViewMode === 'list'
             ? "flex flex-col gap-2"
             : "flex flex-col gap-1.5"
@@ -1488,13 +1488,35 @@ export const PasswordManagerTab: React.FC = () => {
               );
             }
 
+            if (cardViewMode === 'grid') {
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => handleCardClick(item)}
+                  className="dotgui-card p-2 sm:p-2.5 cursor-pointer hover:border-[#005687]/60 hover:shadow-md transition-all group flex flex-col items-center justify-between text-center gap-2 rounded-xl border border-hairline bg-surface-card font-sans min-w-0"
+                >
+                  <div className="flex flex-col items-center gap-1.5 w-full min-w-0">
+                    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors ${
+                      item.serviceName ? getAvatarBg(item.serviceName) : 'bg-[#005687]/15 border border-[#005687]/30 text-[#005687] dark:text-[#0088cc]'
+                    }`}>
+                      {item.serviceName ? item.serviceName.charAt(0).toUpperCase() : <Lock className="w-3.5 h-3.5" />}
+                    </div>
+                    <h3 className="text-xs font-sans font-bold text-ink truncate w-full group-hover:text-[#005687] transition-colors leading-tight px-0.5">
+                      {item.serviceName || `Card #${index + 1}`}
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-sans font-bold px-2 py-0.5 rounded-full bg-[#005687]/10 text-[#005687] dark:text-[#0088cc] border border-[#005687]/20 flex items-center gap-1 shrink-0">
+                    <Lock className="w-2.5 h-2.5" /> Unlock
+                  </span>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={item.id}
                 onClick={() => handleCardClick(item)}
-                className={`dotgui-card cursor-pointer hover:border-[#005687]/60 hover:shadow-md transition-all group flex items-center justify-between gap-3 rounded-xl border border-hairline bg-surface-card font-sans ${
-                  cardViewMode === 'list' ? 'p-3' : 'p-3.5'
-                }`}
+                className="dotgui-card p-3 cursor-pointer hover:border-[#005687]/60 hover:shadow-md transition-all group flex items-center justify-between gap-3 rounded-xl border border-hairline bg-surface-card font-sans"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-mono font-bold text-sm shrink-0 transition-colors ${
@@ -1523,7 +1545,7 @@ export const PasswordManagerTab: React.FC = () => {
         /* UNLOCKED VAULT VIEW: Decrypted Service Cards */
         <div className={
           cardViewMode === 'grid'
-            ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
+            ? "grid grid-cols-3 gap-2 sm:gap-2.5"
             : cardViewMode === 'list'
             ? "flex flex-col gap-2"
             : "flex flex-col gap-1.5"
@@ -1572,6 +1594,47 @@ export const PasswordManagerTab: React.FC = () => {
                       <Unlock className="w-2.5 h-2.5 text-brand-mint" />
                     </span>
                   </div>
+                </div>
+              );
+            }
+
+            if (cardViewMode === 'grid') {
+              return (
+                <div
+                  key={card.id}
+                  onClick={() => rawItem && handleCardClick(rawItem)}
+                  className={`dotgui-card p-2 sm:p-2.5 cursor-pointer hover:border-[#005687]/60 hover:shadow-md transition-all group relative overflow-hidden flex flex-col items-center justify-between text-center gap-2 rounded-xl font-sans min-w-0 ${
+                    isSelected ? 'ring-2 ring-[#005687] border-[#005687] bg-surface-soft' : ''
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-1.5 w-full min-w-0">
+                    {/* Service Icon Avatar (Clickable to Select) */}
+                    <div
+                      onClick={e => handleIconClick(e, card.id)}
+                      className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center font-mono font-bold text-xs shrink-0 relative transition-all cursor-pointer hover:scale-105 ${avatarStyle}`}
+                      title={isSelected ? 'Deselect card' : 'Select card'}
+                    >
+                      {firstLetter}
+                      {isSelected && (
+                        <div className="absolute inset-0 rounded-xl bg-[#005687]/80 backdrop-blur-[1px] flex items-center justify-center">
+                          <Check className="w-4 h-4 text-white stroke-[3]" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-full min-w-0 space-y-0.5">
+                      <h3 className="text-xs font-sans font-bold text-ink truncate w-full group-hover:text-[#005687] dark:group-hover:text-[#0088cc] transition-colors leading-tight px-0.5">
+                        {card.serviceName}
+                      </h3>
+                      {card.username && (
+                        <p className="text-[10px] font-mono text-muted-custom truncate w-full px-0.5">
+                          {card.username}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-[9px] sm:text-[10px] font-sans font-bold px-1.5 py-0.5 rounded-full bg-brand-mint/15 text-brand-mint border border-brand-mint/30 flex items-center gap-1 shrink-0">
+                    <Unlock className="w-2.5 h-2.5 text-brand-mint" /> Unlocked
+                  </span>
                 </div>
               );
             }

@@ -43,12 +43,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   const [scrollProgress, setScrollProgress] = useState(0);
   const [displayedHoverNodeId, setDisplayedHoverNodeId] = useState<string | null>(null);
 
-  const hoverCardDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const steadyHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touchStartYRef = useRef<number | null>(null);
-  const isSteadyHoldRef = useRef(false);
-  const currentSteadyNodeIdRef = useRef<string | null>(null);
-  const nodeHoverStartTimeRef = useRef<number>(0);
+  const lastHapticNodeIdRef = useRef<string | null>(null);
 
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -510,122 +505,39 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       if (rAFId !== null) cancelAnimationFrame(rAFId);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       if (targetScrollTimerRef.current) clearTimeout(targetScrollTimerRef.current);
-      if (hoverCardDismissTimerRef.current) clearTimeout(hoverCardDismissTimerRef.current);
-      if (steadyHoldTimerRef.current) clearTimeout(steadyHoldTimerRef.current);
     };
   }, [triggerVisibilityOnScroll, updateScrollState]);
 
-  // Dismiss hover card with optional exit delay for smooth animation
-  const dismissHoverCard = useCallback((delay = 0) => {
-    if (hoverCardDismissTimerRef.current) {
-      clearTimeout(hoverCardDismissTimerRef.current);
-      hoverCardDismissTimerRef.current = null;
-    }
-    if (steadyHoldTimerRef.current) {
-      clearTimeout(steadyHoldTimerRef.current);
-      steadyHoldTimerRef.current = null;
-    }
-    isSteadyHoldRef.current = false;
-    currentSteadyNodeIdRef.current = null;
-    touchStartYRef.current = null;
-
-    if (delay > 0) {
-      hoverCardDismissTimerRef.current = setTimeout(() => {
-        setDisplayedHoverNodeId(null);
-      }, delay);
-    } else {
-      setDisplayedHoverNodeId(null);
-    }
+  // Dismiss hover card immediately and reset haptic state
+  const dismissHoverCard = useCallback(() => {
+    setDisplayedHoverNodeId(null);
+    lastHapticNodeIdRef.current = null;
   }, []);
 
-  // Trigger hover card display with 2-second auto-dismiss unless steadily long-pressed
-  const triggerNodeHover = useCallback(
-    (nodeId: string, clientY?: number) => {
-      const isTouch = clientY !== undefined;
+  // Helper to determine if the scrub pill is physically on a waypoint node
+  // Influence zone is strictly twice the shape height of a node (±3.5px from node center line)
+  const findNodeAtRatio = useCallback(
+    (ratio: number): WaypointItem | null => {
+      if (!railRef.current || waypoints.length <= 1) return null;
+      const railHeight = railRef.current.getBoundingClientRect().height || 140;
+      const count = waypoints.length;
+      const maxDistancePx = 3.5;
 
-      // Same node already active
-      if (currentSteadyNodeIdRef.current === nodeId) {
-        if (isTouch && touchStartYRef.current !== null) {
-          const deltaY = Math.abs(clientY - touchStartYRef.current);
-          if (deltaY > 10) {
-            // User moved finger > 10px: actively scrolling/scrubbing up or down, NOT steady hold
-            isSteadyHoldRef.current = false;
-            touchStartYRef.current = clientY;
-            if (steadyHoldTimerRef.current) {
-              clearTimeout(steadyHoldTimerRef.current);
-              steadyHoldTimerRef.current = null;
-            }
+      let closestNode: WaypointItem | null = null;
+      let minDistancePx = Infinity;
 
-            // If the 2-second limit has already elapsed, dismiss immediately
-            const elapsed = Date.now() - nodeHoverStartTimeRef.current;
-            if (elapsed >= 2000) {
-              if (displayedHoverNodeId !== null) {
-                setDisplayedHoverNodeId(null);
-              }
-              return;
-            }
-
-            // Finger moved but still within 2s: restart steady hold timer in case user pauses
-            steadyHoldTimerRef.current = setTimeout(() => {
-              isSteadyHoldRef.current = true;
-            }, 300);
-          } else {
-            // Finger stationary on this node (<10px movement)
-            if (displayedHoverNodeId === null) {
-              if (!steadyHoldTimerRef.current) {
-                steadyHoldTimerRef.current = setTimeout(() => {
-                  isSteadyHoldRef.current = true;
-                  nodeHoverStartTimeRef.current = Date.now();
-                  setDisplayedHoverNodeId(nodeId);
-                }, 300);
-              }
-            }
-          }
+      for (let i = 0; i < count; i++) {
+        const nodeRatio = i / (count - 1);
+        const distancePx = Math.abs(ratio - nodeRatio) * railHeight;
+        if (distancePx <= maxDistancePx && distancePx < minDistancePx) {
+          minDistancePx = distancePx;
+          closestNode = waypoints[i];
         }
-        return;
       }
 
-      // Switching to a new node or opening for the first time
-      if (hoverCardDismissTimerRef.current) {
-        clearTimeout(hoverCardDismissTimerRef.current);
-        hoverCardDismissTimerRef.current = null;
-      }
-      if (steadyHoldTimerRef.current) {
-        clearTimeout(steadyHoldTimerRef.current);
-        steadyHoldTimerRef.current = null;
-      }
-
-      currentSteadyNodeIdRef.current = nodeId;
-      nodeHoverStartTimeRef.current = Date.now();
-      isSteadyHoldRef.current = false;
-      if (isTouch) {
-        touchStartYRef.current = clientY;
-      }
-
-      setDisplayedHoverNodeId(nodeId);
-
-      // Light haptic feedback when entering a waypoint
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        try {
-          navigator.vibrate(8);
-        } catch {}
-      }
-
-      if (isTouch) {
-        // Steady hold detection: if user stays stationary (<10px) for 300ms, mark as steady hold
-        steadyHoldTimerRef.current = setTimeout(() => {
-          isSteadyHoldRef.current = true;
-        }, 300);
-
-        // 2-second auto-dismiss limit: dismisses automatically unless steadily held on the node
-        hoverCardDismissTimerRef.current = setTimeout(() => {
-          if (!isSteadyHoldRef.current) {
-            setDisplayedHoverNodeId(null);
-          }
-        }, 2000);
-      }
+      return closestNode;
     },
-    [displayedHoverNodeId]
+    [waypoints]
   );
 
   // Fast seek math: smoothly scrolls the page according to screen clientY (RAF-throttled to 60/120fps)
@@ -659,13 +571,24 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
         });
       }
 
-      const closestIndex = Math.round(floatIndex);
-      const targetNode = waypoints[closestIndex];
-      if (targetNode) {
-        triggerNodeHover(targetNode.id, clientY);
+      // Hover info only displays when the scrub pill is on a node
+      const activeNode = findNodeAtRatio(ratio);
+      if (activeNode) {
+        if (lastHapticNodeIdRef.current !== activeNode.id) {
+          lastHapticNodeIdRef.current = activeNode.id;
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try {
+              navigator.vibrate(8);
+            } catch {}
+          }
+        }
+        setDisplayedHoverNodeId(activeNode.id);
+      } else {
+        lastHapticNodeIdRef.current = null;
+        setDisplayedHoverNodeId(null);
       }
     },
-    [waypoints, getWaypointScrollPositions, triggerNodeHover]
+    [waypoints, getWaypointScrollPositions, findNodeAtRatio]
   );
 
   // Global document pointer listeners while seeking is active
@@ -681,7 +604,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       setIsSeeking(false);
       setIsInteracting(false);
       triggerVisibilityOnScroll();
-      dismissHoverCard(300);
+      dismissHoverCard();
     };
 
     const handleGlobalTouchMove = (e: TouchEvent) => {
@@ -696,7 +619,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       setIsSeeking(false);
       setIsInteracting(false);
       triggerVisibilityOnScroll();
-      dismissHoverCard(300);
+      dismissHoverCard();
     };
 
     window.addEventListener('mousemove', handleGlobalMouseMove);
@@ -767,16 +690,26 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       const targetScrollY = sStart + localRatio * (sEnd - sStart);
 
       window.scrollTo({ top: targetScrollY });
+      setScrollProgress(ratio);
 
-      // Closest node for hover card display
-      const closestIndex = Math.round(floatIndex);
-      const targetNode = waypoints[closestIndex];
-
-      if (targetNode) {
-        triggerNodeHover(targetNode.id, touch.clientY);
+      // Hover info only displays when the scrub pill is on a node
+      const activeNode = findNodeAtRatio(ratio);
+      if (activeNode) {
+        if (lastHapticNodeIdRef.current !== activeNode.id) {
+          lastHapticNodeIdRef.current = activeNode.id;
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try {
+              navigator.vibrate(8);
+            } catch {}
+          }
+        }
+        setDisplayedHoverNodeId(activeNode.id);
+      } else {
+        lastHapticNodeIdRef.current = null;
+        setDisplayedHoverNodeId(null);
       }
     },
-    [waypoints, isSeeking, getWaypointScrollPositions, triggerNodeHover]
+    [waypoints, isSeeking, getWaypointScrollPositions, findNodeAtRatio]
   );
 
   const handleTouchStart = useCallback(
@@ -802,7 +735,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
       clearTimeout(longPressTimerRef.current);
     }
 
-    dismissHoverCard(300);
+    dismissHoverCard();
     triggerVisibilityOnScroll();
   }, [dismissHoverCard, triggerVisibilityOnScroll]);
 
@@ -816,7 +749,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
   const handleMouseLeaveContainer = useCallback(() => {
     isHoveredRef.current = false;
     if (!isSeeking) {
-      dismissHoverCard(0);
+      dismissHoverCard();
     }
     triggerVisibilityOnScroll();
   }, [isSeeking, dismissHoverCard, triggerVisibilityOnScroll]);
@@ -879,7 +812,7 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
     }
-    dismissHoverCard(300);
+    dismissHoverCard();
   }, [dismissHoverCard]);
 
   if (waypoints.length <= 1) {
@@ -1020,23 +953,10 @@ export const TimelineWaypointScrubber: React.FC<TimelineWaypointScrubberProps> =
                     targetScrollNodeRef.current = null;
                   }, 850);
                   node.scrollTo();
-                  triggerNodeHover(node.id);
                 }}
-                onMouseEnter={() => triggerNodeHover(node.id)}
-                onMouseLeave={() => dismissHoverCard(0)}
-                onTouchStart={e => {
-                  e.stopPropagation();
-                  if (e.touches[0]) {
-                    triggerNodeHover(node.id, e.touches[0].clientY);
-                  }
-                }}
-                onTouchEnd={e => {
-                  e.stopPropagation();
-                  if (isSteadyHoldRef.current) {
-                    dismissHoverCard(300);
-                  }
-                }}
-                className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 pointer-events-auto cursor-pointer flex items-center justify-center p-1.5 touch-none"
+                onMouseEnter={() => setDisplayedHoverNodeId(node.id)}
+                onMouseLeave={() => setDisplayedHoverNodeId(null)}
+                className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 pointer-events-auto cursor-pointer flex items-center justify-center py-0.5 px-1.5 touch-none"
               >
                 <div
                   style={{
