@@ -85,40 +85,56 @@ export async function decryptPassword(
   ivHex: string,
   saltHex: string,
   pin: string,
-  kdf: 'argon2id' | 'pbkdf2' = 'argon2id'
+  kdf?: 'argon2id' | 'pbkdf2'
 ): Promise<string> {
   const salt = hexToBuffer(saltHex);
   const iv = hexToBuffer(ivHex);
   const encryptedBuf = hexToBuffer(cipherText);
 
-  // Derive key strictly according to declared KDF algorithm to eliminate timing side-channels
-  const effectiveKdf = kdf || 'argon2id';
+  // 1. If explicitly declared as pbkdf2, try PBKDF2 first
+  if (kdf === 'pbkdf2') {
+    try {
+      const pbkdfKey = await deriveKeyPbkdf2(pin, salt);
+      const decryptedBuf = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+        pbkdfKey,
+        encryptedBuf.buffer as ArrayBuffer
+      );
+      return new TextDecoder().decode(decryptedBuf);
+    } catch {
+      // Fallback to argon2id just in case
+      const argonKey = await deriveKey(pin, salt, 'argon2id');
+      const decryptedBuf = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+        argonKey,
+        encryptedBuf.buffer as ArrayBuffer
+      );
+      return new TextDecoder().decode(decryptedBuf);
+    }
+  }
+
+  // 2. Otherwise (argon2id or undeclared/legacy), try Argon2id first
   try {
-    const key = await deriveKey(pin, salt, effectiveKdf);
+    const key = await deriveKey(pin, salt, 'argon2id');
     const decryptedBuf = await window.crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
       key,
       encryptedBuf.buffer as ArrayBuffer
     );
-    const dec = new TextDecoder();
-    return dec.decode(decryptedBuf);
+    return new TextDecoder().decode(decryptedBuf);
   } catch (err) {
-    // Only attempt legacy PBKDF2 fallback if kdf was completely omitted (legacy pre-v2 metadata)
-    if (!kdf) {
-      try {
-        const pbkdfKey = await deriveKeyPbkdf2(pin, salt);
-        const decryptedBuf = await window.crypto.subtle.decrypt(
-          { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
-          pbkdfKey,
-          encryptedBuf.buffer as ArrayBuffer
-        );
-        const dec = new TextDecoder();
-        return dec.decode(decryptedBuf);
-      } catch {
-        throw err;
-      }
+    // Seamless legacy PBKDF2 fallback for all cards created prior to Argon2id
+    try {
+      const pbkdfKey = await deriveKeyPbkdf2(pin, salt);
+      const decryptedBuf = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+        pbkdfKey,
+        encryptedBuf.buffer as ArrayBuffer
+      );
+      return new TextDecoder().decode(decryptedBuf);
+    } catch {
+      throw err;
     }
-    throw err;
   }
 }
 
@@ -605,7 +621,7 @@ export async function decryptCardPayload(
     };
   }
 
-  const jsonStr = await decryptPassword(item.encryptedBlob, item.iv, item.salt, pin, item.kdf || 'argon2id');
+  const jsonStr = await decryptPassword(item.encryptedBlob, item.iv, item.salt, pin, item.kdf);
   return JSON.parse(jsonStr);
 }
 
