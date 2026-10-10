@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <external-path name="finance_ally_files" path="Finance-Ally" />
+    <external-path name="external_storage" path="." />
     <cache-path name="finance_ally_cache" path="." />
+    <files-path name="finance_ally_internal" path="." />
 </paths>

@@ -239,6 +239,7 @@ export const PasswordManagerTab: React.FC = () => {
         await Share.share({
           title: 'Finance-Ally Password Vault Backup',
           url: writeResult.uri,
+          files: [writeResult.uri],
           dialogTitle: 'Save Password Vault Backup'
         });
       } catch {
@@ -251,6 +252,7 @@ export const PasswordManagerTab: React.FC = () => {
         await Share.share({
           title: 'Finance-Ally Password Vault Backup',
           url: writeResult.uri,
+          files: [writeResult.uri],
           dialogTitle: 'Save Password Vault Backup'
         });
       }

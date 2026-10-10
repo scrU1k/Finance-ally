@@ -624,6 +624,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         Share.share({
           title: 'Finance-Ally CSV Export',
           url: writeResult.uri,
+          files: [writeResult.uri],
           dialogTitle: 'Save CSV Export'
         });
       }).catch((err) => {
@@ -637,6 +638,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           Share.share({
             title: 'Finance-Ally CSV Export',
             url: writeResult.uri,
+            files: [writeResult.uri],
             dialogTitle: 'Save CSV Export'
           });
         }).catch(() => {
@@ -2680,7 +2682,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         } catch (err) { console.error('Failed to write to Documents', err); }
                         
                         const writeResult = await Filesystem.writeFile({ path: filename, data: exportModalData, directory: Directory.Cache, encoding: 'utf8' as any });
-                        await Share.share({ title: `Finance-Ally Backup`, url: writeResult.uri, dialogTitle: 'Select destination to save backup file' });
+                        await Share.share({ title: `Finance-Ally Backup`, url: writeResult.uri, files: [writeResult.uri], dialogTitle: 'Select destination to save backup file' });
                         setImportStatus('Backup saved and shared!');
                       } else if (navigator.share) {
                         await navigator.share({ title: 'Finance-Ally Backup', text: exportModalData });
