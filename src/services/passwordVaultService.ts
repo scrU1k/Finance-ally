@@ -347,7 +347,8 @@ export async function setMasterPin(pin: string, recoveryKey?: string): Promise<b
 export async function changeVaultMasterPin(
   oldPin: string,
   newPin: string,
-  recoveryKey?: string
+  recoveryKey?: string,
+  onProgress?: (current: number, total: number) => void
 ): Promise<boolean> {
   const isOldValid = await verifyMasterPin(oldPin);
   if (!isOldValid) {
@@ -373,10 +374,16 @@ export async function changeVaultMasterPin(
   // 1. Decrypt all existing cards in memory with oldPin and re-encrypt with newPin
   const items = getStoredPasswordItems();
   const reEncryptedItems: PasswordVaultItem[] = [];
-  for (const item of items) {
+  if (onProgress) onProgress(0, items.length);
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
     const card = await decryptCardPayload(item, oldPin);
     const reEnc = await encryptCardPayload(card, newPin);
     reEncryptedItems.push(reEnc);
+    if (onProgress) onProgress(i + 1, items.length);
+    // Yield execution to the browser event loop to maintain 60fps responsiveness
+    await new Promise(resolve => setTimeout(resolve, 16));
   }
 
   // 2. Prepare new verifier and escrow in memory
@@ -435,7 +442,11 @@ export async function changeVaultMasterPin(
   return true;
 }
 
-export async function recoverVaultMasterPin(recoveryKey: string, newPin: string): Promise<boolean> {
+export async function recoverVaultMasterPin(
+  recoveryKey: string,
+  newPin: string,
+  onProgress?: (current: number, total: number) => void
+): Promise<boolean> {
   const isKeyValid = await verifyGlobalRecoveryKey(recoveryKey);
   if (!isKeyValid) {
     return false;
@@ -471,7 +482,10 @@ export async function recoverVaultMasterPin(recoveryKey: string, newPin: string)
 
   // Stage ALL card re-encryptions in memory first — abort if any card fails
   const staged: PasswordVaultItem[] = [];
-  for (const item of items) {
+  if (onProgress) onProgress(0, items.length);
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
     let card: DecryptedPasswordCard;
     try {
       card = await decryptCardPayload(item, oldPin);
@@ -490,6 +504,9 @@ export async function recoverVaultMasterPin(recoveryKey: string, newPin: string)
         'No data has been changed.'
       );
     }
+    if (onProgress) onProgress(i + 1, items.length);
+    // Yield execution to the browser event loop to maintain 60fps responsiveness
+    await new Promise(resolve => setTimeout(resolve, 16));
   }
 
   // Stage all payload objects in memory before writing to storage

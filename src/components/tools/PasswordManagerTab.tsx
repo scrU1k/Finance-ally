@@ -162,6 +162,7 @@ export const PasswordManagerTab: React.FC = () => {
   const [vaultConfirmPin, setVaultConfirmPin] = useState('');
   const [vaultRecoveryError, setVaultRecoveryError] = useState('');
   const [vaultRecoveryLoading, setVaultRecoveryLoading] = useState(false);
+  const [vaultRecoveryProgress, setVaultRecoveryProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Vault Backup & Restore State (Double-Layer Encrypted)
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
@@ -797,6 +798,8 @@ export const PasswordManagerTab: React.FC = () => {
         const map: Record<string, DecryptedPasswordCard> = {};
         for (const item of allItems) {
           map[item.id] = await decryptCardPayload(item, pinInput);
+          // Yield to event loop to keep UI smooth at 60fps
+          await new Promise(r => setTimeout(r, 8));
         }
         setDecryptedCardsMap(map);
         setVaultMasterPin(pinInput);
@@ -841,11 +844,15 @@ export const PasswordManagerTab: React.FC = () => {
     }
 
     setVaultRecoveryLoading(true);
+    setVaultRecoveryProgress(null);
     try {
-      const ok = await recoverVaultMasterPin(vaultRecoveryKey.trim(), vaultNewPin);
+      const ok = await recoverVaultMasterPin(vaultRecoveryKey.trim(), vaultNewPin, (curr, total) => {
+        setVaultRecoveryProgress({ current: curr, total });
+      });
       if (!ok) {
         setVaultRecoveryError('Invalid Recovery Key or recovery failed');
         setVaultRecoveryLoading(false);
+        setVaultRecoveryProgress(null);
         return;
       }
 
@@ -861,6 +868,8 @@ export const PasswordManagerTab: React.FC = () => {
         } catch (err) {
           console.warn('Failed to decrypt card with new PIN:', item.id, err);
         }
+        // Yield to event loop
+        await new Promise(r => setTimeout(r, 8));
       }
       setDecryptedCardsMap(map);
       setIsVaultUnlocked(true);
@@ -873,6 +882,7 @@ export const PasswordManagerTab: React.FC = () => {
       setVaultRecoveryError(err?.message || 'Recovery failed. Please check your key.');
     } finally {
       setVaultRecoveryLoading(false);
+      setVaultRecoveryProgress(null);
     }
   };
 
@@ -1892,7 +1902,8 @@ export const PasswordManagerTab: React.FC = () => {
                     placeholder="FAK-xxxx-xxxx-xxxx-xxxx"
                     autoFocus
                     required
-                    className="w-full text-xs font-mono px-3 py-2 bg-surface-soft border border-hairline rounded-xl text-ink tracking-wider focus:outline-none focus:border-[#005687]"
+                    disabled={vaultRecoveryLoading}
+                    className="w-full text-xs font-mono px-3 py-2 bg-surface-soft border border-hairline rounded-xl text-ink tracking-wider focus:outline-none focus:border-[#005687] disabled:opacity-50"
                   />
                 </div>
 
@@ -1906,7 +1917,8 @@ export const PasswordManagerTab: React.FC = () => {
                     onChange={e => { setVaultNewPin(e.target.value); setVaultRecoveryError(''); }}
                     placeholder="••••"
                     required
-                    className="w-full text-xs font-mono px-3 py-2 bg-surface-soft border border-hairline rounded-xl text-ink tracking-widest focus:outline-none focus:border-[#005687]"
+                    disabled={vaultRecoveryLoading}
+                    className="w-full text-xs font-mono px-3 py-2 bg-surface-soft border border-hairline rounded-xl text-ink tracking-widest focus:outline-none focus:border-[#005687] disabled:opacity-50"
                   />
                 </div>
 
@@ -1920,9 +1932,34 @@ export const PasswordManagerTab: React.FC = () => {
                     onChange={e => { setVaultConfirmPin(e.target.value); setVaultRecoveryError(''); }}
                     placeholder="••••"
                     required
-                    className="w-full text-xs font-mono px-3 py-2 bg-surface-soft border border-hairline rounded-xl text-ink tracking-widest focus:outline-none focus:border-[#005687]"
+                    disabled={vaultRecoveryLoading}
+                    className="w-full text-xs font-mono px-3 py-2 bg-surface-soft border border-hairline rounded-xl text-ink tracking-widest focus:outline-none focus:border-[#005687] disabled:opacity-50"
                   />
                 </div>
+
+                {vaultRecoveryLoading && vaultRecoveryProgress && (
+                  <div className="space-y-1.5 p-2.5 rounded-xl bg-surface-soft border border-hairline">
+                    <div className="flex justify-between items-center text-[10px] font-mono">
+                      <span className="flex items-center gap-1.5 text-ink font-semibold">
+                        <RefreshCw className="w-3 h-3 animate-spin text-brand-purple" />
+                        <span>Re-encrypting Password Cards</span>
+                      </span>
+                      <span className="text-muted-custom font-bold">
+                        {vaultRecoveryProgress.total > 0
+                          ? `${Math.round((vaultRecoveryProgress.current / vaultRecoveryProgress.total) * 100)}% (${vaultRecoveryProgress.current}/${vaultRecoveryProgress.total})`
+                          : 'Processing...'}
+                      </span>
+                    </div>
+                    <div className="w-full bg-surface-card rounded-full h-1.5 overflow-hidden border border-hairline/60">
+                      <div
+                        className="bg-brand-purple h-1.5 rounded-full transition-all duration-200 ease-out"
+                        style={{
+                          width: `${vaultRecoveryProgress.total > 0 ? Math.min(100, Math.round((vaultRecoveryProgress.current / vaultRecoveryProgress.total) * 100)) : 10}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {vaultRecoveryError && (
                   <p className="text-[10px] font-mono text-red-500 font-bold text-center">
@@ -1934,16 +1971,28 @@ export const PasswordManagerTab: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => { setIsVaultRecovering(false); setVaultRecoveryError(''); }}
-                    className="px-3 py-2 text-xs font-mono text-muted-custom hover:text-ink cursor-pointer"
+                    disabled={vaultRecoveryLoading}
+                    className="px-3 py-2 text-xs font-mono text-muted-custom hover:text-ink cursor-pointer disabled:opacity-50"
                   >
                     Back to PIN
                   </button>
                   <button
                     type="submit"
                     disabled={vaultRecoveryLoading}
-                    className="px-4 py-2 text-xs font-mono font-bold rounded-xl bg-[#005687] text-white hover:bg-[#004269] shadow-md cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2 text-xs font-mono font-bold rounded-xl bg-[#005687] text-white hover:bg-[#004269] shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    {vaultRecoveryLoading ? 'Recovering...' : 'Reset PIN & Unlock'}
+                    {vaultRecoveryLoading ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+                        <span>
+                          {vaultRecoveryProgress && vaultRecoveryProgress.total > 0
+                            ? `Re-encrypting (${vaultRecoveryProgress.current}/${vaultRecoveryProgress.total})...`
+                            : 'Recovering...'}
+                        </span>
+                      </>
+                    ) : (
+                      'Reset PIN & Unlock'
+                    )}
                   </button>
                 </div>
               </form>

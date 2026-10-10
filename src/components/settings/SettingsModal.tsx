@@ -163,6 +163,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [pwdVaultRecoveryKeyInput, setPwdVaultRecoveryKeyInput] = useState('');
   const [pwdVaultPinError, setPwdVaultPinError] = useState('');
   const [pwdVaultPinSuccess, setPwdVaultPinSuccess] = useState('');
+  const [pwdVaultPinSaving, setPwdVaultPinSaving] = useState(false);
+  const [pwdVaultPinProgress, setPwdVaultPinProgress] = useState<{ current: number; total: number } | null>(null);
 
   const handleSavePwdVaultPin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,9 +219,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       }
     }
 
+    setPwdVaultPinSaving(true);
+    setPwdVaultPinProgress(null);
+
     try {
       if (exists) {
-        await changeVaultMasterPin(pwdVaultOldPin, pwdVaultNewPin, enteredKey || undefined);
+        await changeVaultMasterPin(pwdVaultOldPin, pwdVaultNewPin, enteredKey || undefined, (current, total) => {
+          setPwdVaultPinProgress({ current, total });
+        });
       } else {
         await setMasterPin(pwdVaultNewPin, enteredKey || undefined);
       }
@@ -235,6 +242,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       setPwdVaultRecoveryKeyInput('');
     } catch (err: any) {
       setPwdVaultPinError(err?.message || 'Failed to update Master PIN. Operation aborted.');
+    } finally {
+      setPwdVaultPinSaving(false);
+      setPwdVaultPinProgress(null);
     }
   };
 
@@ -289,6 +299,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [pwdVaultRecoveryConfirmPin, setPwdVaultRecoveryConfirmPin] = useState('');
   const [pwdVaultRecoveryError, setPwdVaultRecoveryError] = useState('');
   const [pwdVaultRecoverySuccess, setPwdVaultRecoverySuccess] = useState('');
+  const [pwdVaultRecoveryLoading, setPwdVaultRecoveryLoading] = useState(false);
+  const [pwdVaultRecoveryProgress, setPwdVaultRecoveryProgress] = useState<{ current: number; total: number } | null>(null);
 
   const handleRecoverPwdVaultPin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -308,8 +320,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       return;
     }
 
+    setPwdVaultRecoveryLoading(true);
+    setPwdVaultRecoveryProgress(null);
+
     try {
-      const ok = await recoverVaultMasterPin(pwdVaultRecoveryKey.trim(), pwdVaultRecoveryNewPin);
+      const ok = await recoverVaultMasterPin(pwdVaultRecoveryKey.trim(), pwdVaultRecoveryNewPin, (current, total) => {
+        setPwdVaultRecoveryProgress({ current, total });
+      });
       if (ok) {
         setPwdVaultRecoverySuccess('Master PIN recovered and updated successfully!');
         setIsRecoveringPwdVault(false);
@@ -319,8 +336,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       } else {
         setPwdVaultRecoveryError('Invalid Recovery Key. Please try again.');
       }
-    } catch {
-      setPwdVaultRecoveryError('Recovery failed. Please check your key.');
+    } catch (err: any) {
+      setPwdVaultRecoveryError(err?.message || 'Recovery failed. Please check your key.');
+    } finally {
+      setPwdVaultRecoveryLoading(false);
+      setPwdVaultRecoveryProgress(null);
     }
   };
 
@@ -1868,7 +1888,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         <Key className="w-3.5 h-3.5" />
                         <span>Recover Vault Master PIN</span>
                       </span>
-                      <button type="button" onClick={() => setIsRecoveringPwdVault(false)} className="text-muted-custom text-xs cursor-pointer">Cancel</button>
+                      <button
+                        type="button"
+                        onClick={() => setIsRecoveringPwdVault(false)}
+                        disabled={pwdVaultRecoveryLoading}
+                        className="text-muted-custom text-xs cursor-pointer disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
                     </div>
 
                     <div>
@@ -1879,7 +1906,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         onChange={e => setPwdVaultRecoveryKey(e.target.value)}
                         placeholder="FAK-xxxx-xxxx-xxxx-xxxx"
                         required
-                        className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink tracking-wider"
+                        disabled={pwdVaultRecoveryLoading}
+                        className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink tracking-wider disabled:opacity-50"
                       />
                     </div>
 
@@ -1892,7 +1920,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                           onChange={e => setPwdVaultRecoveryNewPin(e.target.value)}
                           placeholder="Min 4 digits"
                           required
-                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                          disabled={pwdVaultRecoveryLoading}
+                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink disabled:opacity-50"
                         />
                       </div>
                       <div>
@@ -1903,26 +1932,70 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                           onChange={e => setPwdVaultRecoveryConfirmPin(e.target.value)}
                           placeholder="Repeat PIN"
                           required
-                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                          disabled={pwdVaultRecoveryLoading}
+                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink disabled:opacity-50"
                         />
                       </div>
                     </div>
+
+                    {pwdVaultRecoveryLoading && pwdVaultRecoveryProgress && (
+                      <div className="space-y-1.5 p-2.5 rounded-xl bg-surface-soft border border-hairline">
+                        <div className="flex justify-between items-center text-[10px] font-mono">
+                          <span className="flex items-center gap-1.5 text-ink font-semibold">
+                            <RefreshCw className="w-3 h-3 animate-spin text-brand-purple" />
+                            <span>Re-encrypting Password Cards</span>
+                          </span>
+                          <span className="text-muted-custom font-bold">
+                            {pwdVaultRecoveryProgress.total > 0
+                              ? `${Math.round((pwdVaultRecoveryProgress.current / pwdVaultRecoveryProgress.total) * 100)}% (${pwdVaultRecoveryProgress.current}/${pwdVaultRecoveryProgress.total})`
+                              : 'Processing...'}
+                          </span>
+                        </div>
+                        <div className="w-full bg-surface-card rounded-full h-1.5 overflow-hidden border border-hairline/60">
+                          <div
+                            className="bg-brand-purple h-1.5 rounded-full transition-all duration-200 ease-out"
+                            style={{
+                              width: `${pwdVaultRecoveryProgress.total > 0 ? Math.min(100, Math.round((pwdVaultRecoveryProgress.current / pwdVaultRecoveryProgress.total) * 100)) : 10}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     {pwdVaultRecoveryError && <p className="text-[10px] font-mono text-brand-coral">{pwdVaultRecoveryError}</p>}
                     {pwdVaultRecoverySuccess && <p className="text-[10px] font-mono text-brand-mint font-bold">{pwdVaultRecoverySuccess}</p>}
 
                     <button
                       type="submit"
-                      className="w-full border border-brand-purple text-brand-purple hover:bg-surface-soft text-xs font-mono font-bold py-2 rounded-xl shadow-sm transition-all cursor-pointer"
+                      disabled={pwdVaultRecoveryLoading}
+                      className="w-full border border-brand-purple text-brand-purple hover:bg-surface-soft text-xs font-mono font-bold py-2 rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                     >
-                      Reset Master PIN
+                      {pwdVaultRecoveryLoading ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+                          <span>
+                            {pwdVaultRecoveryProgress && pwdVaultRecoveryProgress.total > 0
+                              ? `Re-encrypting (${pwdVaultRecoveryProgress.current}/${pwdVaultRecoveryProgress.total})...`
+                              : 'Resetting Master PIN...'}
+                          </span>
+                        </>
+                      ) : (
+                        <span>Reset Master PIN</span>
+                      )}
                     </button>
                   </form>
                 ) : (
                   <form onSubmit={handleSavePwdVaultPin} className="space-y-3 bg-surface-card p-3 rounded-xl border border-hairline">
                     <div className="text-xs font-mono font-bold text-ink flex items-center justify-between">
                       <span>{hasMasterPin() ? 'Change Master PIN' : 'Create Master PIN'}</span>
-                      <button type="button" onClick={() => setIsEditingPwdVaultPin(false)} className="text-muted-custom text-xs cursor-pointer">Cancel</button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingPwdVaultPin(false)}
+                        disabled={pwdVaultPinSaving}
+                        className="text-muted-custom text-xs cursor-pointer disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
                     </div>
 
                     <div className="space-y-2">
@@ -1935,7 +2008,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             onChange={e => setPwdVaultOldPin(e.target.value)}
                             placeholder="Current Master PIN"
                             required
-                            className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                            disabled={pwdVaultPinSaving}
+                            className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink disabled:opacity-50"
                           />
                         </div>
                       )}
@@ -1949,7 +2023,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             onChange={e => setPwdVaultNewPin(e.target.value)}
                             placeholder="New PIN (min 4 digits)"
                             required
-                            className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                            disabled={pwdVaultPinSaving}
+                            className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink disabled:opacity-50"
                           />
                         </div>
 
@@ -1961,7 +2036,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             onChange={e => setPwdVaultConfirmPin(e.target.value)}
                             placeholder="Confirm New PIN"
                             required
-                            className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink"
+                            disabled={pwdVaultPinSaving}
+                            className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink disabled:opacity-50"
                           />
                         </div>
                       </div>
@@ -1984,7 +2060,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                           onChange={e => setPwdVaultRecoveryKeyInput(e.target.value)}
                           placeholder="FAK-xxxx-xxxx-xxxx-xxxx"
                           required={(hasMasterPin() && hasMasterPinRecoveryEscrow()) || hasGlobalRecoveryKey()}
-                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink tracking-wider"
+                          disabled={pwdVaultPinSaving}
+                          className="w-full bg-surface-soft border border-hairline rounded-xl px-3 py-1.5 text-xs font-mono text-ink tracking-wider disabled:opacity-50"
                         />
                         <p className="text-[9px] font-mono text-muted-custom mt-0.5">
                           {hasMasterPin() && hasMasterPinRecoveryEscrow()
@@ -1993,6 +2070,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         </p>
                       </div>
                     </div>
+
+                    {pwdVaultPinSaving && (
+                      <div className="space-y-1.5 p-2.5 rounded-xl bg-surface-soft border border-hairline">
+                        <div className="flex justify-between items-center text-[10px] font-mono">
+                          <span className="flex items-center gap-1.5 text-ink font-semibold">
+                            <RefreshCw className="w-3 h-3 animate-spin text-brand-purple" />
+                            <span>Re-encrypting Password Cards</span>
+                          </span>
+                          <span className="text-muted-custom font-bold">
+                            {pwdVaultPinProgress && pwdVaultPinProgress.total > 0
+                              ? `${Math.round((pwdVaultPinProgress.current / pwdVaultPinProgress.total) * 100)}% (${pwdVaultPinProgress.current}/${pwdVaultPinProgress.total})`
+                              : 'Preparing...'}
+                          </span>
+                        </div>
+                        <div className="w-full bg-surface-card rounded-full h-1.5 overflow-hidden border border-hairline/60">
+                          <div
+                            className="bg-brand-purple h-1.5 rounded-full transition-all duration-200 ease-out"
+                            style={{
+                              width: `${pwdVaultPinProgress && pwdVaultPinProgress.total > 0 ? Math.min(100, Math.round((pwdVaultPinProgress.current / pwdVaultPinProgress.total) * 100)) : 15}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     {pwdVaultPinError && <p className="text-[10px] font-mono text-brand-coral">{pwdVaultPinError}</p>}
                     {pwdVaultPinSuccess && <p className="text-[10px] font-mono text-brand-mint font-bold">{pwdVaultPinSuccess}</p>}
@@ -2005,16 +2106,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             setIsEditingPwdVaultPin(false);
                             setIsRecoveringPwdVault(true);
                           }}
-                          className="text-[11px] font-mono text-brand-purple hover:underline cursor-pointer"
+                          disabled={pwdVaultPinSaving}
+                          className="text-[11px] font-mono text-brand-purple hover:underline cursor-pointer disabled:opacity-50"
                         >
                           Forgot PIN?
                         </button>
                       )}
                       <button
                         type="submit"
-                        className="border border-brand-purple text-brand-purple hover:bg-surface-soft text-xs font-mono font-bold py-2 px-4 rounded-xl shadow-sm transition-all cursor-pointer ml-auto"
+                        disabled={pwdVaultPinSaving}
+                        className="border border-brand-purple text-brand-purple hover:bg-surface-soft text-xs font-mono font-bold py-2 px-4 rounded-xl shadow-sm transition-all cursor-pointer ml-auto flex items-center gap-1.5 disabled:opacity-50"
                       >
-                        {hasMasterPin() ? 'Update Master PIN' : 'Set Master PIN'}
+                        {pwdVaultPinSaving ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+                            <span>
+                              {pwdVaultPinProgress && pwdVaultPinProgress.total > 0
+                                ? `Re-encrypting (${pwdVaultPinProgress.current}/${pwdVaultPinProgress.total})...`
+                                : 'Updating...'}
+                            </span>
+                          </>
+                        ) : (
+                          <span>{hasMasterPin() ? 'Update Master PIN' : 'Set Master PIN'}</span>
+                        )}
                       </button>
                     </div>
                   </form>
