@@ -16,6 +16,7 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         // Register native plugins BEFORE super.onCreate
         registerPlugin(ScheduledNotificationPlugin.class);
+        registerPlugin(PrivacyScreenPlugin.class);
         super.onCreate(savedInstanceState);
 
         NotificationReceiver.createChannelIfNeeded(this);

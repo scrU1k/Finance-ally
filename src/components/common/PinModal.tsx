@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Lock, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { hasGlobalRecoveryKey } from '../../services/recoveryService';
+import { enableScreenSecurity, disableScreenSecurity } from '../../services/privacyScreenService';
 
 interface PinModalProps {
   mode: 'verify' | 'set' | 'change' | 'recover' | 'reset' | 'disable' | 'recover-disable';
@@ -35,6 +36,14 @@ export const PinModal: React.FC<PinModalProps> = ({
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [localError, setLocalError] = useState('');
+
+  // Block screenshots and recents preview while PIN modal is active
+  useEffect(() => {
+    enableScreenSecurity();
+    return () => {
+      disableScreenSecurity();
+    };
+  }, []);
 
   const isPassword = secretType === 'password';
   const term = isPassword ? 'Password' : 'PIN';

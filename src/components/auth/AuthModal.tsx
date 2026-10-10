@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Shield, KeyRound, AlertCircle, Eye, EyeOff, Timer, ArrowLeft, Key } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
+import { enableScreenSecurity, disableScreenSecurity } from '../../services/privacyScreenService';
 
 export const AuthModal: React.FC = () => {
   const { user, login, lockoutUntil, failedAttempts, recoverPassword } = useAuth();
@@ -10,6 +11,14 @@ export const AuthModal: React.FC = () => {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
+
+  // Block screenshots and recents preview while auth screen is open
+  useEffect(() => {
+    enableScreenSecurity();
+    return () => {
+      disableScreenSecurity();
+    };
+  }, []);
 
   // Recovery Mode State
   const [isRecovering, setIsRecovering] = useState(false);

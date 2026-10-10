@@ -33,7 +33,8 @@ import {
   FileText,
   LayoutGrid,
   List,
-  Rows3
+  Rows3,
+  Share2
 } from 'lucide-react';
 import { PasswordVaultItem, DecryptedPasswordCard } from '../../types';
 import {
@@ -59,6 +60,7 @@ import { suppressLockForSystemPicker, resetSystemPickerBypass } from '../../cont
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
+import { enableScreenSecurity, disableScreenSecurity } from '../../services/privacyScreenService';
 
 type SortMode = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc' | 'custom';
 
@@ -175,6 +177,9 @@ export const PasswordManagerTab: React.FC = () => {
   const [exportError, setExportError] = useState('');
   const [exportedData, setExportedData] = useState<string | null>(null);
   const [exportCopied, setExportCopied] = useState(false);
+  const [exportSaveMsg, setExportSaveMsg] = useState('');
+  const [exportSaveLoading, setExportSaveLoading] = useState(false);
+  const [exportShareLoading, setExportShareLoading] = useState(false);
 
   // Restore State
   const [restoreFileContent, setRestoreFileContent] = useState<string | null>(null);
@@ -192,6 +197,9 @@ export const PasswordManagerTab: React.FC = () => {
     setExportAppPassword('');
     setExportError('');
     setExportCopied(false);
+    setExportSaveMsg('');
+    setExportSaveLoading(false);
+    setExportShareLoading(false);
     setRestoreFileContent(null);
     setRestoreFileName('');
     setRestoreAppPassword('');
@@ -202,6 +210,7 @@ export const PasswordManagerTab: React.FC = () => {
   const handleExportVault = async (e: React.FormEvent) => {
     e.preventDefault();
     setExportError('');
+    setExportSaveMsg('');
     if (!exportAppPassword) {
       setExportError('Main App Password is required to seal the outer encryption layer.');
       return;
@@ -223,39 +232,36 @@ export const PasswordManagerTab: React.FC = () => {
     }
   };
 
-  const handleDownloadVaultExport = async () => {
+  const handleSaveVaultExport = async () => {
     if (!exportedData) return;
-    suppressLockForSystemPicker();
+    setExportSaveLoading(true);
+    setExportSaveMsg('');
     const filename = `FinanceAlly_Vault_Backup_${new Date().toISOString().split('T')[0]}.favault.json`;
 
     if (Capacitor.isNativePlatform()) {
       try {
-        const writeResult = await Filesystem.writeFile({
-          path: `Finance-Ally/${filename}`,
+        await Filesystem.writeFile({
+          path: `Finance-ally/Backups/${filename}`,
           data: exportedData,
           directory: Directory.Documents,
           encoding: 'utf8' as any,
           recursive: true
         });
-        await Share.share({
-          title: 'Finance-Ally Password Vault Backup',
-          url: writeResult.uri,
-          files: [writeResult.uri],
-          dialogTitle: 'Save Password Vault Backup'
-        });
-      } catch {
-        const writeResult = await Filesystem.writeFile({
-          path: filename,
-          data: exportedData,
-          directory: Directory.Cache,
-          encoding: 'utf8' as any
-        });
-        await Share.share({
-          title: 'Finance-Ally Password Vault Backup',
-          url: writeResult.uri,
-          files: [writeResult.uri],
-          dialogTitle: 'Save Password Vault Backup'
-        });
+        setExportSaveMsg('Saved successfully at Documents/Finance-ally/Backups/');
+      } catch (err: any) {
+        console.error('Save to Documents failed, attempting fallback path:', err);
+        try {
+          await Filesystem.writeFile({
+            path: `Finance-ally/Backups/${filename}`,
+            data: exportedData,
+            directory: Directory.Data,
+            encoding: 'utf8' as any,
+            recursive: true
+          });
+          setExportSaveMsg('Saved successfully at Documents/Finance-ally/Backups/');
+        } catch (innerErr: any) {
+          setExportSaveMsg(`Failed to save: ${innerErr?.message || 'Storage error'}`);
+        }
       }
     } else {
       const a = document.createElement('a');
@@ -264,8 +270,71 @@ export const PasswordManagerTab: React.FC = () => {
       document.body.appendChild(a);
       a.click();
       a.remove();
+      setExportSaveMsg('Saved successfully at Documents/Finance-ally/Backups/');
     }
-    resetSystemPickerBypass();
+    setExportSaveLoading(false);
+  };
+
+  const handleShareVaultExport = async () => {
+    if (!exportedData) return;
+    setExportShareLoading(true);
+    suppressLockForSystemPicker();
+    const filename = `FinanceAlly_Vault_Backup_${new Date().toISOString().split('T')[0]}.favault.json`;
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        let uri = '';
+        try {
+          const writeResult = await Filesystem.writeFile({
+            path: `Finance-ally/Backups/${filename}`,
+            data: exportedData,
+            directory: Directory.Documents,
+            encoding: 'utf8' as any,
+            recursive: true
+          });
+          uri = writeResult.uri;
+        } catch {
+          const writeResult = await Filesystem.writeFile({
+            path: filename,
+            data: exportedData,
+            directory: Directory.Cache,
+            encoding: 'utf8' as any
+          });
+          uri = writeResult.uri;
+        }
+
+        await Share.share({
+          title: 'Finance-Ally Password Vault Backup',
+          url: uri,
+          files: [uri],
+          dialogTitle: 'Share Password Vault Backup'
+        });
+      } else {
+        if (navigator.share) {
+          const file = new File([exportedData], filename, { type: 'application/json' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: 'Finance-Ally Password Vault Backup',
+              files: [file]
+            });
+          } else {
+            await navigator.share({
+              title: 'Finance-Ally Password Vault Backup',
+              text: exportedData
+            });
+          }
+        } else {
+          navigator.clipboard.writeText(exportedData);
+          setExportCopied(true);
+          setTimeout(() => setExportCopied(false), 2000);
+        }
+      }
+    } catch (shareErr) {
+      console.warn('Share aborted or failed:', shareErr);
+    } finally {
+      setExportShareLoading(false);
+      resetSystemPickerBypass();
+    }
   };
 
   const handleCopyVaultExport = () => {
@@ -364,13 +433,15 @@ export const PasswordManagerTab: React.FC = () => {
     setCopiedField(null);
   };
 
-  // Initial Load & Integrity Check
+  // Initial Load & Integrity Check & Screen Security
   useEffect(() => {
+    enableScreenSecurity();
     setRawItems(getStoredPasswordItems());
     setHasPin(hasMasterPin());
     verifyVaultIntegrity().then(ok => setIsIntegrityOk(ok));
 
     return () => {
+      disableScreenSecurity();
       if (clipboardWipeTimerRef.current) {
         clearTimeout(clipboardWipeTimerRef.current);
       }
@@ -2460,19 +2531,36 @@ export const PasswordManagerTab: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      {exportSaveMsg && (
+                        <div className="p-3 bg-brand-mint/15 border border-brand-mint/40 rounded-xl flex items-center gap-2.5 text-xs font-mono text-brand-mint animate-in fade-in duration-150">
+                          <Check className="w-4 h-4 shrink-0 text-brand-mint" />
+                          <span className="font-semibold">{exportSaveMsg}</span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <button
                           type="button"
-                          onClick={handleDownloadVaultExport}
-                          className="py-2 px-3 rounded-xl text-xs font-mono font-bold bg-[#005687] hover:bg-[#004269] text-white flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
+                          onClick={handleSaveVaultExport}
+                          disabled={exportSaveLoading}
+                          className="py-2.5 px-3 rounded-xl text-xs font-mono font-bold bg-[#005687] hover:bg-[#004269] text-white flex items-center justify-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
                         >
                           <Download className="w-3.5 h-3.5" />
-                          <span>Save / Share File</span>
+                          <span>{exportSaveLoading ? 'Saving...' : 'Save to Device'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleShareVaultExport}
+                          disabled={exportShareLoading}
+                          className="py-2.5 px-3 rounded-xl text-xs font-mono font-bold bg-[#005687]/15 border border-[#005687]/40 hover:bg-[#005687]/25 text-[#005687] dark:text-[#38bdf8] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>{exportShareLoading ? 'Sharing...' : 'Share File'}</span>
                         </button>
                         <button
                           type="button"
                           onClick={handleCopyVaultExport}
-                          className="py-2 px-3 rounded-xl text-xs font-mono font-bold bg-surface-soft border border-hairline hover:border-[#005687] text-ink flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="py-2.5 px-3 rounded-xl text-xs font-mono font-bold bg-surface-soft border border-hairline hover:border-[#005687] text-ink flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           {exportCopied ? <Check className="w-3.5 h-3.5 text-brand-mint" /> : <Copy className="w-3.5 h-3.5" />}
                           <span>{exportCopied ? 'Copied!' : 'Copy Data'}</span>

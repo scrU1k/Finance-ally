@@ -44,6 +44,7 @@ import {
   finalizeRecoveryKeyRotation
 } from '../../services/recoveryService';
 import { exportDiagnosticReportToFile } from '../../services/diagnosticLogger';
+import { enableScreenSecurity, disableScreenSecurity } from '../../services/privacyScreenService';
 import {
   X,
   Settings as SettingsIcon,
@@ -468,6 +469,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [pinActionLoading, setPinActionLoading] = useState(false);
   const [pinActionError, setPinActionError] = useState('');
   const [pinMsg, setPinMsg] = useState('');
+
+  // Block screenshots whenever password, PIN, or recovery screens are active in Settings
+  useEffect(() => {
+    const isSensitiveActive =
+      isEditingPwdVaultPin ||
+      isRecoveringPwdVault ||
+      isRecoveringAppPassword ||
+      showRotateWarningModal ||
+      showSetPinModal !== null;
+
+    if (isSensitiveActive) {
+      enableScreenSecurity();
+      return () => {
+        disableScreenSecurity();
+      };
+    }
+  }, [
+    isEditingPwdVaultPin,
+    isRecoveringPwdVault,
+    isRecoveringAppPassword,
+    showRotateWarningModal,
+    showSetPinModal
+  ]);
 
   // Import-time PIN verification
   const [pendingImportContent, setPendingImportContent] = useState<string | null>(null);

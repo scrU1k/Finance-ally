@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Copy, Check, AlertTriangle } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { enableScreenSecurity, disableScreenSecurity } from '../../services/privacyScreenService';
 
 interface RecoveryKeyModalProps {
   recoveryKey: string;
@@ -19,6 +20,14 @@ export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
+
+  // Block screenshots and recents preview while recovery key is exposed
+  useEffect(() => {
+    enableScreenSecurity();
+    return () => {
+      disableScreenSecurity();
+    };
+  }, []);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(recoveryKey);

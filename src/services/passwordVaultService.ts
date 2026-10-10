@@ -24,48 +24,21 @@ function hexToBuffer(hex: string): Uint8Array {
   return bytes;
 }
 
-async function deriveKeyPbkdf2(pin: string, salt: Uint8Array): Promise<CryptoKey> {
-  const enc = new TextEncoder();
-  const baseKey = await window.crypto.subtle.importKey(
-    'raw',
-    enc.encode(pin),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
-  return window.crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: salt.buffer as ArrayBuffer,
-      iterations: 100000,
-      hash: 'SHA-256'
-    },
-    baseKey,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-}
-
 async function deriveKey(
   pin: string,
-  salt: Uint8Array,
-  kdf: 'argon2id' | 'pbkdf2' = 'argon2id'
+  salt: Uint8Array
 ): Promise<CryptoKey> {
-  if (kdf === 'pbkdf2') {
-    return deriveKeyPbkdf2(pin, salt);
-  }
   return deriveKeyArgon2id(pin, salt);
 }
 
 export async function encryptPassword(
   password: string,
   pin: string,
-  kdf: 'argon2id' | 'pbkdf2' = 'argon2id'
-): Promise<{ cipherText: string; iv: string; salt: string; kdf: 'argon2id' | 'pbkdf2' }> {
+  _kdf: 'argon2id' = 'argon2id'
+): Promise<{ cipherText: string; iv: string; salt: string; kdf: 'argon2id' }> {
   const salt = window.crypto.getRandomValues(new Uint8Array(16));
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(pin, salt, kdf);
+  const key = await deriveKey(pin, salt);
   const enc = new TextEncoder();
   const encryptedBuf = await window.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
@@ -76,7 +49,7 @@ export async function encryptPassword(
     cipherText: bufferToHex(encryptedBuf),
     iv: bufferToHex(iv.buffer),
     salt: bufferToHex(salt.buffer),
-    kdf
+    kdf: 'argon2id'
   };
 }
 
@@ -85,57 +58,20 @@ export async function decryptPassword(
   ivHex: string,
   saltHex: string,
   pin: string,
-  kdf?: 'argon2id' | 'pbkdf2'
+  _kdf?: string
 ): Promise<string> {
   const salt = hexToBuffer(saltHex);
   const iv = hexToBuffer(ivHex);
   const encryptedBuf = hexToBuffer(cipherText);
 
-  // 1. If explicitly declared as pbkdf2, try PBKDF2 first
-  if (kdf === 'pbkdf2') {
-    try {
-      const pbkdfKey = await deriveKeyPbkdf2(pin, salt);
-      const decryptedBuf = await window.crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
-        pbkdfKey,
-        encryptedBuf.buffer as ArrayBuffer
-      );
-      return new TextDecoder().decode(decryptedBuf);
-    } catch {
-      // Fallback to argon2id just in case
-      const argonKey = await deriveKey(pin, salt, 'argon2id');
-      const decryptedBuf = await window.crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
-        argonKey,
-        encryptedBuf.buffer as ArrayBuffer
-      );
-      return new TextDecoder().decode(decryptedBuf);
-    }
-  }
-
-  // 2. Otherwise (argon2id or undeclared/legacy), try Argon2id first
-  try {
-    const key = await deriveKey(pin, salt, 'argon2id');
-    const decryptedBuf = await window.crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
-      key,
-      encryptedBuf.buffer as ArrayBuffer
-    );
-    return new TextDecoder().decode(decryptedBuf);
-  } catch (err) {
-    // Seamless legacy PBKDF2 fallback for all cards created prior to Argon2id
-    try {
-      const pbkdfKey = await deriveKeyPbkdf2(pin, salt);
-      const decryptedBuf = await window.crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
-        pbkdfKey,
-        encryptedBuf.buffer as ArrayBuffer
-      );
-      return new TextDecoder().decode(decryptedBuf);
-    } catch {
-      throw err;
-    }
-  }
+  // Strict Argon2id only - no fallback to legacy PBKDF2
+  const key = await deriveKey(pin, salt);
+  const decryptedBuf = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+    key,
+    encryptedBuf.buffer as ArrayBuffer
+  );
+  return new TextDecoder().decode(decryptedBuf);
 }
 
 // ─── INTEGRITY & CHECKSUM ───────────────────────────────────────────────────
@@ -574,23 +510,11 @@ export async function verifyMasterPin(pin: string): Promise<boolean> {
       parsed = JSON.parse(raw);
     }
     const { cipherText, iv, salt } = parsed;
-    const kdf = parsed.kdf || 'argon2id';
-    const decrypted = await decryptPassword(cipherText, iv, salt, pin, kdf);
+    const decrypted = await decryptPassword(cipherText, iv, salt, pin);
     const isValid = decrypted === MAGIC_STRING;
 
     if (isValid) {
       resetFailedPinAttempts();
-      // Automatic in-place upgrade from legacy PBKDF2 to Argon2id
-      if (parsed.kdf !== 'argon2id') {
-        try {
-          const newVerifier = await encryptPassword(MAGIC_STRING, pin, 'argon2id');
-          localStorage.setItem(VERIFIER_KEY, JSON.stringify(newVerifier));
-          env.verifier = newVerifier;
-          localStorage.setItem(ENVELOPE_KEY, JSON.stringify(env));
-        } catch {
-          // Non-blocking if upgrade fails
-        }
-      }
       return true;
     } else {
       recordFailedPinAttempt();
@@ -609,7 +533,7 @@ export async function encryptCardPayload(
   pin: string
 ): Promise<PasswordVaultItem> {
   const payloadStr = JSON.stringify(card);
-  const enc = await encryptPassword(payloadStr, pin, 'argon2id');
+  const enc = await encryptPassword(payloadStr, pin);
   return {
     id: card.id,
     serviceName: card.serviceName,
@@ -625,20 +549,11 @@ export async function decryptCardPayload(
   item: PasswordVaultItem,
   pin: string
 ): Promise<DecryptedPasswordCard> {
-  // Legacy decrypt fallback if old structure
-  if (!item.encryptedBlob && item.encryptedPassword) {
-    const password = await decryptPassword(item.encryptedPassword, item.iv, item.salt, pin, item.kdf || 'pbkdf2');
-    return {
-      id: item.id,
-      serviceName: item.serviceName || 'Service',
-      username: item.username,
-      password,
-      createdAt: item.createdAt || new Date().toISOString(),
-      updatedAt: item.updatedAt || new Date().toISOString()
-    };
+  if (!item.encryptedBlob) {
+    throw new Error(`Password card "${item.serviceName || item.id}" has invalid schema.`);
   }
 
-  const jsonStr = await decryptPassword(item.encryptedBlob, item.iv, item.salt, pin, item.kdf);
+  const jsonStr = await decryptPassword(item.encryptedBlob, item.iv, item.salt, pin);
   return JSON.parse(jsonStr);
 }
 
@@ -733,29 +648,15 @@ export async function savePasswordItemsOrder(orderedItems: PasswordVaultItem[]):
 //   Inner layer  → Each vault item's payload is already encrypted with the vault Master PIN (AES-GCM via Argon2id)
 //   Outer layer  → The entire vault JSON is re-encrypted with the user's app password (AES-GCM via Argon2id)
 
-export const VAULT_BACKUP_MAGIC_V1 = 'FA_VAULT_BACKUP_V1';
 export const VAULT_BACKUP_MAGIC_V2 = 'FA_VAULT_BACKUP_V2';
-const VAULT_BACKUP_ITERATIONS = 200_000; // legacy PBKDF2 outer iterations
 
 async function deriveOuterKeyArgon2id(appPassword: string, salt: Uint8Array): Promise<CryptoKey> {
   return deriveKeyArgon2id(appPassword, salt);
 }
 
-async function deriveOuterKeyPbkdf2(appPassword: string, salt: Uint8Array): Promise<CryptoKey> {
-  const enc = new TextEncoder();
-  const baseKey = await window.crypto.subtle.importKey('raw', enc.encode(appPassword), 'PBKDF2', false, ['deriveKey']);
-  return window.crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: salt.buffer as ArrayBuffer, iterations: VAULT_BACKUP_ITERATIONS, hash: 'SHA-256' },
-    baseKey,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-}
-
 export interface VaultBackupBundle {
-  _fa_vault_backup: typeof VAULT_BACKUP_MAGIC_V1 | typeof VAULT_BACKUP_MAGIC_V2;
-  kdf?: 'argon2id' | 'pbkdf2';
+  _fa_vault_backup: typeof VAULT_BACKUP_MAGIC_V2;
+  kdf?: 'argon2id';
   /** Hex-encoded AES-GCM ciphertext of the vault JSON (inner-layer items remain vault-PIN encrypted) */
   ciphertext: string;
   /** Hex-encoded 12-byte IV for outer AES-GCM */
@@ -822,19 +723,16 @@ export async function importVaultBackup(
     return { result: 'invalid' };
   }
 
-  if (parsed._fa_vault_backup !== VAULT_BACKUP_MAGIC_V1 && parsed._fa_vault_backup !== VAULT_BACKUP_MAGIC_V2) {
+  if (parsed._fa_vault_backup !== VAULT_BACKUP_MAGIC_V2) {
     return { result: 'invalid' };
   }
 
-  // Outer layer: decrypt with app password using Argon2id or legacy PBKDF2
+  // Outer layer: strictly decrypt with app password using Argon2id
   try {
     const salt = hexToBuffer(parsed.salt);
     const iv   = hexToBuffer(parsed.iv);
     const data = hexToBuffer(parsed.ciphertext);
-    const isV2 = parsed._fa_vault_backup === VAULT_BACKUP_MAGIC_V2 || parsed.kdf === 'argon2id';
-    const key  = isV2
-      ? await deriveOuterKeyArgon2id(appPassword, salt)
-      : await deriveOuterKeyPbkdf2(appPassword, salt);
+    const key  = await deriveOuterKeyArgon2id(appPassword, salt);
 
     let plainBuf: ArrayBuffer;
     try {
@@ -850,7 +748,7 @@ export async function importVaultBackup(
     const inner = JSON.parse(new TextDecoder().decode(plainBuf));
 
     // Validate magic
-    if (inner._magic !== VAULT_BACKUP_MAGIC_V1 && inner._magic !== VAULT_BACKUP_MAGIC_V2) {
+    if (inner._magic !== VAULT_BACKUP_MAGIC_V2) {
       return { result: 'invalid' };
     }
 
@@ -876,7 +774,7 @@ export async function importVaultBackup(
 export function isVaultBackup(jsonString: string): boolean {
   try {
     const p = JSON.parse(jsonString);
-    return p._fa_vault_backup === VAULT_BACKUP_MAGIC_V1 || p._fa_vault_backup === VAULT_BACKUP_MAGIC_V2;
+    return p._fa_vault_backup === VAULT_BACKUP_MAGIC_V2;
   } catch {
     return false;
   }
