@@ -464,6 +464,20 @@ export async function decryptJSON(encryptedString: string, pin: string): Promise
     throw new Error('Corrupt backup file: Malformed or invalid JSON syntax.');
   }
 
+  // Handle Legacy v1 (Symmetric Only)
+  if (parsed && parsed._fa_encrypted) {
+    const salt = base64ToBuf(parsed.salt);
+    const iv = base64ToBuf(parsed.iv);
+    const data = base64ToBuf(parsed.encrypted);
+    try {
+      const key = await deriveKeyPbkdf2(pin, salt);
+      const decBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+      return new TextDecoder().decode(decBuf);
+    } catch {
+      throw new Error('Incorrect PIN (Failed to decrypt legacy backup)');
+    }
+  }
+
   if (!parsed || (!parsed._fa_encrypted_v2 && !parsed._fa_encrypted_v3)) {
     return encryptedString;
   }
@@ -475,7 +489,7 @@ export async function decryptJSON(encryptedString: string, pin: string): Promise
     throw new Error('Corrupt backup file: Missing essential cryptographic headers or payload.');
   }
 
-  // 1. Decrypt Private Key using PIN (Argon2id for v4, PBKDF2 for v3)
+  // 1. Decrypt Private Key using PIN (Transparent Dual-KDF: try primary first, fallback if mismatched)
   let privSalt: Uint8Array<ArrayBuffer>;
   let privIv: Uint8Array<ArrayBuffer>;
   let privData: Uint8Array<ArrayBuffer>;
@@ -487,15 +501,26 @@ export async function decryptJSON(encryptedString: string, pin: string): Promise
     throw new Error('Corrupt backup file: Malformed private key encoding.');
   }
   
-  const pinKey = isArgon2id
-    ? await deriveKeyArgon2id(pin, privSalt)
-    : await deriveKeyPbkdf2(pin, privSalt);
-  
-  let privateKeyPkcs8: ArrayBuffer;
+  let privateKeyPkcs8: ArrayBuffer | null = null;
+  const primaryKdf = isArgon2id ? 'argon2id' : 'pbkdf2';
+  const fallbackKdf = isArgon2id ? 'pbkdf2' : 'argon2id';
+
+  // Primary KDF attempt
   try {
+    const pinKey = primaryKdf === 'argon2id'
+      ? await deriveKeyArgon2id(pin, privSalt)
+      : await deriveKeyPbkdf2(pin, privSalt);
     privateKeyPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: privIv }, pinKey, privData);
   } catch {
-    throw new Error('Incorrect PIN (Failed to decrypt private key)');
+    // Transparent Fallback KDF attempt (handles v3->v4 transition backups)
+    try {
+      const fallbackPinKey = fallbackKdf === 'argon2id'
+        ? await deriveKeyArgon2id(pin, privSalt)
+        : await deriveKeyPbkdf2(pin, privSalt);
+      privateKeyPkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: privIv }, fallbackPinKey, privData);
+    } catch {
+      throw new Error('Incorrect PIN (Failed to decrypt private key)');
+    }
   }
 
   // 2. Import Private Key
@@ -576,7 +601,7 @@ export async function decryptJSON(encryptedString: string, pin: string): Promise
 export function isEncryptedBackup(jsonString: string): boolean {
   try {
     const p = JSON.parse(jsonString);
-    return !!p._fa_encrypted_v2 || !!p._fa_encrypted_v3;
+    return !!p._fa_encrypted || !!p._fa_encrypted_v2 || !!p._fa_encrypted_v3;
   } catch {
     return false;
   }
