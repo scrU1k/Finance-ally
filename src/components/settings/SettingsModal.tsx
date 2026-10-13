@@ -1089,7 +1089,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   {activeSubPage === 'privacy' && 'Privacy Policy & Terms'}
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-purple/15 text-brand-purple border border-brand-purple/30 font-bold shrink-0">
-                  v3.1
+                  v3.1.2
                 </span>
               </h2>
               {activeSubPage === 'main' && (

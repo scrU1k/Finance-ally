@@ -682,7 +682,7 @@ export async function exportVaultBackup(appPassword: string): Promise<string> {
     envelope,
     verifier,       // vault PIN verifier — needed so the vault can be unlocked after restore
     exportedAt: Date.now(),
-    appVersion: '3.1.0'
+    appVersion: '3.1.2'
   });
 
   const salt = window.crypto.getRandomValues(new Uint8Array(16));
@@ -700,7 +700,7 @@ export async function exportVaultBackup(appPassword: string): Promise<string> {
     salt: bufferToHex(salt.buffer as ArrayBuffer),
     exportedAt: Date.now(),
     itemCount: envelope.items?.length ?? 0,
-    appVersion: '3.1.0'
+    appVersion: '3.1.2'
   };
 
   return JSON.stringify(bundle, null, 2);
